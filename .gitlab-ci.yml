@@ -3,7 +3,7 @@ stages:
 
 hello_world:
   stage: build
-  image: golang:1.22
+  image: golang:1.25
   script:
     - echo "Hello World from GitLab CI"
     - go version
