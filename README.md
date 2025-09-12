@@ -1,26 +1,26 @@
-# DevOps BE - Basit Reddit Benzeri API
+# DevOps BE - Simple Reddit-like API
 
-## Çalıştırma
+## Running
 
 ```bash
 cd devops-be
 go run .
 ```
 
-Sunucu: http://localhost:8080
+Server: http://localhost:8080
 
-## Endpointler (JSON Contract)
+## Endpoints (JSON Contract)
 
-Tüm istekler ve yanıtlar JSON formatındadır. `Content-Type: application/json` header'ı gönderilmelidir.
+All requests and responses are in JSON format. `Content-Type: application/json` header must be sent.
 
-- `GET /posts` — Tüm postları döner (yeni → eski sıralı).
+- `GET /posts` — Returns all posts (newest → oldest).
   - Response 200
     ```json
     {"success": true, "data": [ {"id":1, "author":"...", "content":"...", "likes":0, "dislikes":0, "createdAt":"RFC3339"} ]}
     ```
-  - Post yoksa: `{"success": true, "data": []}`
+  - No posts: `{"success": true, "data": []}`
 
-- `POST /posts` — Yeni post oluşturur.
+- `POST /posts` — Creates a new post.
   - Request body
     ```json
     {"author": "string", "content": "string"}
@@ -29,7 +29,7 @@ Tüm istekler ve yanıtlar JSON formatındadır. `Content-Type: application/json
     ```json
     {"success": true, "data": {"id":1, "author":"...", "content":"...", "likes":0, "dislikes":0, "createdAt":"RFC3339"}}
     ```
-  - Hata (ör. validasyon):
+  - Error (e.g. validation):
     ```json
     {"success": false, "error": {"code": "validation_error", "message": "author and content fields cannot be empty"}}
     ```
@@ -43,44 +43,44 @@ Tüm istekler ve yanıtlar JSON formatındadır. `Content-Type: application/json
     ```json
     {"success": true, "data": {"id":1, "author":"...", "content":"...", "likes":1, "dislikes":0, "createdAt":"RFC3339"}}
     ```
-  - Hatalar örnekleri:
-    - Content-Type eksik/yanlış: `{"success": false, "error": {"code": "invalid_content_type", "message": "Content-Type must be application/json"}}`
-    - Validasyon: `{"success": false, "error": {"code": "validation_error", "message": "username field is required"}}`
-    - Bulunamadı: `{"success": false, "error": {"code": "not_found", "message": "Post not found"}}`
+  - Error examples:
+    - Missing/wrong Content-Type: `{"success": false, "error": {"code": "invalid_content_type", "message": "Content-Type must be application/json"}}`
+    - Validation: `{"success": false, "error": {"code": "validation_error", "message": "username field is required"}}`
+    - Not found: `{"success": false, "error": {"code": "not_found", "message": "Post not found"}}`
 
-## Özellikler
+## Features
 
-- Her kullanıcı bir postu sadece bir kez oylayabilir
-- Aynı posta farklı oy türü gönderilirse, önceki oy iptal edilir
-- Postlar oluşturulma tarihine göre sıralanır (yeni en üstte)
+- Each user can vote on a post only once
+- If a different vote type is sent to the same post, the previous vote is cancelled
+- Posts are sorted by creation date (newest first)
 
-## Örnek İstekler (curl)
+## Example Requests (curl)
 
 ```bash
-# Post oluşturma (JSON)
+# Create post (JSON)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"author":"melih","content":"merhaba"}' \
+  -d '{"author":"john","content":"hello world"}' \
   http://localhost:8080/posts
 
-# Postları listeleme
+# List posts
 curl http://localhost:8080/posts
 
-# Upvote (kullanıcı: ali)
+# Upvote (user: alice)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"id":1, "like": true, "username": "ali"}' \
+  -d '{"id":1, "like": true, "username": "alice"}' \
   http://localhost:8080/vote
 
-# Downvote (kullanıcı: ali)
+# Downvote (user: alice)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"id":1, "like": false, "username": "ali"}' \
+  -d '{"id":1, "like": false, "username": "alice"}' \
   http://localhost:8080/vote
 
-# Aynı kullanıcı aynı posta tekrar upvote (önceki oy iptal olur)
+# Same user upvotes same post again (previous vote is cancelled)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"id":1, "like": true, "username": "ali"}' \
+  -d '{"id":1, "like": true, "username": "alice"}' \
   http://localhost:8080/vote
 ```

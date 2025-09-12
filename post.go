@@ -19,7 +19,7 @@ var (
     posts []Post
     postIDCounter int
     mu    sync.Mutex
-    // postID -> kullanıcı adı -> oy türü (true=upvote, false=downvote)
+    // postID -> username -> vote type (true=upvote, false=downvote)
     userVotes map[int]map[string]bool
 )
 
@@ -52,18 +52,18 @@ func VotePost(id int, like bool, username string) *Post {
     
     for i := range posts {
         if posts[i].ID == id {
-            // Bu post için kullanıcı oy vermiş mi kontrol et
+            // Check if user has voted on this post
             if userVotes[id] == nil {
                 userVotes[id] = make(map[string]bool)
             }
             
-            // Kullanıcı daha önce oy vermiş mi?
+            // Has the user voted before?
             if previousVote, exists := userVotes[id][username]; exists {
-                // Aynı oy türüyse değişiklik yok
+                // If same vote type, no change
                 if previousVote == like {
                     return &posts[i]
                 }
-                // Farklı oy türüyse önceki oyu geri al
+                // If different vote type, cancel previous vote
                 if previousVote {
                     posts[i].Likes--
                 } else {
@@ -71,7 +71,7 @@ func VotePost(id int, like bool, username string) *Post {
                 }
             }
             
-            // Yeni oyu kaydet
+            // Record new vote
             userVotes[id][username] = like
             if like {
                 posts[i].Likes++
@@ -91,7 +91,7 @@ func GetPosts() []Post {
     if posts == nil {
         return []Post{}
     }
-    // Kopya slice oluştur ve CreatedAt'e göre (yeni -> eski) sırala
+    // Create copy slice and sort by CreatedAt (newest -> oldest)
     out := make([]Post, len(posts))
     copy(out, posts)
     sort.Slice(out, func(i, j int) bool {
