@@ -16,7 +16,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 - `GET /posts` — Returns all posts (newest → oldest).
   - Response 200
     ```json
-    {"success": true, "data": [ {"id":1, "author":"...", "content":"...", "likes":0, "dislikes":0, "createdAt":"RFC3339"} ]}
+    {"success": true, "data": [ {"id":1, "author":"...", "content":"...", "likeCount":0, "createdAt":"RFC3339"} ]}
     ```
   - No posts: `{"success": true, "data": []}`
 
@@ -27,7 +27,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     ```
   - Response 201
     ```json
-    {"success": true, "data": {"id":1, "author":"...", "content":"...", "likes":0, "dislikes":0, "createdAt":"RFC3339"}}
+    {"success": true, "data": {"id":1, "author":"...", "content":"...", "likeCount":0, "createdAt":"RFC3339"}}
     ```
   - Error (e.g. validation):
     ```json
@@ -41,7 +41,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     ```
   - Response 200
     ```json
-    {"success": true, "data": {"id":1, "author":"...", "content":"...", "likes":1, "dislikes":0, "createdAt":"RFC3339"}}
+    {"success": true, "data": {"id":1, "author":"...", "content":"...", "likeCount":1, "createdAt":"RFC3339"}}
     ```
   - Error examples:
     - Missing/wrong Content-Type: `{"success": false, "error": {"code": "invalid_content_type", "message": "Content-Type must be application/json"}}`
@@ -51,7 +51,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 ## Features
 
 - Each user can vote on a post only once
-- If a different vote type is sent to the same post, the previous vote is cancelled
+- If a different vote type is sent to the same post, the previous vote is cancelled (net `likeCount` accordingly changes and can be negative)
 - Posts are sorted by creation date (newest first)
 
 ## Example Requests (curl)
