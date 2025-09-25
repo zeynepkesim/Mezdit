@@ -1,0 +1,22 @@
+		// Read body and try to decode as new format
+		if decodeJSONBody(w, r, &body) && body.PublisherID > 0 {
+			// Log the incoming request
+			log.Printf("=== POST CREATE REQUEST ===")
+			log.Printf("PublisherID: %d", body.PublisherID)
+			log.Printf("PublisherName: '%s'", body.PublisherName)
+			log.Printf("Name: '%s'", body.Name)
+			log.Printf("ContentText: '%s'", body.ContentText)
+			log.Printf("ContentPhotoID: %v", body.ContentPhotoID)
+			log.Printf("==========================")
+			
+			body.ContentText = strings.TrimSpace(body.ContentText)
+			body.PublisherName = strings.TrimSpace(body.PublisherName)
+			body.Name = strings.TrimSpace(body.Name)
+
+			// If publisherName is empty but name is provided, use name as display name
+			effectivePublisherName := body.PublisherName
+			if effectivePublisherName == "" && body.Name != "" {
+				effectivePublisherName = body.Name
+			}
+			
+			log.Printf("Effective Publisher Name: '%s'", effectivePublisherName)

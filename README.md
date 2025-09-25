@@ -57,13 +57,33 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "id": 1,
       "name": "John Doe",
       "username": "john_doe",
-      "profilePhoto": null,
+      "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=1",
       "createdAt": "2023-12-01T09:00:00Z"
     }}
     ```
   - Response 401 (Authentication Failed)
     ```json
     {"success": false, "error": {"code": "authentication_failed", "message": "Invalid username or password"}}
+    ```
+
+- `POST /register` — User registration.
+  - Request body
+    ```json
+    {"name": "Full Name", "username": "string", "password": "string"}
+    ```
+  - Response 201 (Success)
+    ```json
+    {"success": true, "data": {
+      "id": 6,
+      "name": "Full Name",
+      "username": "newuser",
+      "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=6",
+      "createdAt": "2023-12-01T11:00:00Z"
+    }}
+    ```
+  - Response 409 (Username Exists)
+    ```json
+    {"success": false, "error": {"code": "username_exists", "message": "Username is already taken"}}
     ```
 
 ### Posts
@@ -90,8 +110,9 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 - `POST /posts` — Creates a new post.
   - Request body
     ```json
-    {"publisherId": 1, "contentText": "string", "contentPhotoId": null}
+    {"publisherId": 1, "publisherName": "Custom Display Name", "contentText": "string", "contentPhotoId": null}
     ```
+  - **Note**: `publisherName` is optional. If empty or not provided, defaults to "Anonymous".
   - Response 201 (Success)
     ```json
     {"success": true, "data": {
@@ -155,18 +176,26 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 ## Features
 
 - **PostgreSQL Database**: Full database integration with proper relations
-- **User System**: Users table with authentication-ready structure  
+- **User System**: Complete user authentication with login/register
+- **Auto Profile Photos**: Automatic DiceBear avatar generation for all users  
 - **Image Support**: Ready for post images (images table linked to posts)
+- **Custom Publisher Names**: Users can post with different display names
 - **Voting System**: Each user can vote on a post only once
 - **Vote Logic**: If a different vote type is sent to the same post, the previous vote is cancelled (net `voteCount` accordingly changes and can be negative)
 - **Sorting**: Posts are sorted by creation date (newest first)
-- **Backward Compatibility**: Legacy API format still works alongside new format
-- **JOIN Queries**: Efficient data retrieval with publisher names and image paths
+- **JOIN Queries**: Efficient data retrieval with publisher names and profile photos
 - **Transaction Support**: ACID compliance for vote operations
+- **CORS Support**: Full Cross-Origin Resource Sharing for frontend integration
 
 ## Example Requests (curl)
 
 ```bash
+# Register new user (gets automatic DiceBear avatar)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"name":"New User", "username":"newuser", "password":"mypassword"}' \
+  http://localhost:8080/register
+
 # Login user
 curl -X POST \
   -H "Content-Type: application/json" \
@@ -179,10 +208,16 @@ curl http://localhost:8080/users/john_doe
 # List all posts
 curl http://localhost:8080/posts
 
-# Create post
+# Create post with custom name
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"publisherId":1, "contentText":"Hello world from API!"}' \
+  -d '{"publisherId":1, "publisherName":"My Custom Name", "contentText":"Hello world from API!"}' \
+  http://localhost:8080/posts
+
+# Create post without name (defaults to "Anonymous")
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"publisherId":1, "contentText":"Anonymous post!"}' \
   http://localhost:8080/posts
 
 # Upvote a post

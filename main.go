@@ -86,8 +86,16 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+type createUserRequest struct {
+	Name     string `json:"name"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 type createPostRequest struct {
 	PublisherID    int    `json:"publisherId"`
+	PublisherName  string `json:"publisherName"`
+	Name           string `json:"name"`
 	ContentText    string `json:"contentText"`
 	ContentPhotoID *int   `json:"contentPhotoId"`
 }
@@ -116,6 +124,7 @@ func main() {
 	defer db.Close()
 
 	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/register", registerHandler)
 	http.HandleFunc("/posts", postsHandler)
 	http.HandleFunc("/vote", voteHandler)
 	http.HandleFunc("/users/", userHandler) // GET /users/{username}
@@ -124,6 +133,7 @@ func main() {
 	fmt.Println("CORS enabled for all origins")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  POST /login")
+	fmt.Println("  POST /register")
 	fmt.Println("  GET  /posts")
 	fmt.Println("  POST /posts")
 	fmt.Println("  POST /vote")
@@ -176,6 +186,58 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeOK(w, user)
+}
+
+// /register endpoint
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	// Handle CORS preflight
+	if r.Method == http.MethodOptions {
+		enableCORS(w)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+
+	var body createUserRequest
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+
+	// Trim whitespace
+	body.Name = strings.TrimSpace(body.Name)
+	body.Username = strings.TrimSpace(body.Username)
+	body.Password = strings.TrimSpace(body.Password)
+
+	// Validate input
+	if body.Name == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "Name is required")
+		return
+	}
+	if body.Username == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "Username is required")
+		return
+	}
+	if body.Password == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "Password is required")
+		return
+	}
+
+	// Attempt to create user
+	user, err := CreateUser(body.Name, body.Username, body.Password)
+	if err != nil {
+		if err.Error() == "username already exists" {
+			writeError(w, http.StatusConflict, "username_exists", "Username is already taken")
+			return
+		}
+		log.Printf("Registration error: %v", err)
+		writeError(w, http.StatusInternalServerError, "server_error", "An error occurred during registration")
+		return
+	}
+
+	writeCreated(w, user)
 }
 
 // /users/{username} endpoint
@@ -240,13 +302,32 @@ func postsHandler(w http.ResponseWriter, r *http.Request) {
 		
 		// Read body and try to decode as new format
 		if decodeJSONBody(w, r, &body) && body.PublisherID > 0 {
+			// Log the incoming request
+			log.Printf("=== POST CREATE REQUEST ===")
+			log.Printf("PublisherID: %d", body.PublisherID)
+			log.Printf("PublisherName: '%s'", body.PublisherName)
+			log.Printf("Name: '%s'", body.Name)
+			log.Printf("ContentText: '%s'", body.ContentText)
+			log.Printf("ContentPhotoID: %v", body.ContentPhotoID)
+			log.Printf("==========================")
 			body.ContentText = strings.TrimSpace(body.ContentText)
+			body.PublisherName = strings.TrimSpace(body.PublisherName)
+			body.Name = strings.TrimSpace(body.Name)
+
+			// If publisherName is empty but name is provided, use name as display name
+			effectivePublisherName := body.PublisherName
+			if effectivePublisherName == "" && body.Name != "" {
+				effectivePublisherName = body.Name
+			
+			log.Printf("Effective Publisher Name: '%s'", effectivePublisherName)
+			}
+			
 			if body.ContentText == "" {
 				writeError(w, http.StatusBadRequest, "validation_error", "Content text cannot be empty")
 				return
 			}
 			
-			post, err := AddPost(body.PublisherID, body.ContentText, body.ContentPhotoID)
+			post, err := AddPost(body.PublisherID, effectivePublisherName, body.ContentText, body.ContentPhotoID)
 			if err != nil {
 				if strings.Contains(err.Error(), "publisher not found") {
 					writeError(w, http.StatusBadRequest, "invalid_publisher", "Publisher user does not exist")
@@ -263,7 +344,7 @@ func postsHandler(w http.ResponseWriter, r *http.Request) {
 		// If new format fails, try legacy format (this is a fallback)
 		// Note: Since we already consumed the body above, we need to handle this differently
 		// For now, we'll require the new format
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request format. Use: {\"publisherId\": number, \"contentText\": \"string\"}")
+		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request format. Use: {\"publisherId\": number, \"publisherName\": \"string\", \"contentText\": \"string\"}")
 		return
 	}
 	

@@ -30,8 +30,8 @@ type Image struct {
 type Post struct {
 	ID               int       `json:"id"`
 	PublisherID      int       `json:"publisherId"`
-	PublisherName    string    `json:"publisherName"`    // JOIN from users table
-	PublisherPhoto   *string   `json:"publisherPhoto"`
+	PublisherName    string    `json:"publisherName"`    // From posts table
+	PublisherPhoto   *string   `json:"publisherPhoto"`   // JOIN from users table
 	ContentText      string    `json:"contentText"`
 	ContentPhotoID   *int      `json:"contentPhotoId"`
 	ContentPhotoPath *string   `json:"contentPhotoPath"` // JOIN from images table
@@ -97,16 +97,24 @@ func LoginUser(username, password string) (*User, error) {
 	
 	if err != nil {
 		if err == sql.ErrNoRows {
+			log.Printf("Login attempt: User '%s' not found", username)
 			return nil, fmt.Errorf("invalid username or password")
 		}
+		log.Printf("Database error during login for user '%s': %v", username, err)
 		return nil, fmt.Errorf("database error occurred")
 	}
 
+	log.Printf("Login attempt: User '%s' found, checking password", username)
+	log.Printf("Debug: Provided password='%s', Stored password='%s'", password, user.Password)
+	
 	// Simple password check (in real app, use bcrypt hash comparison)
 	if user.Password != password {
+		log.Printf("Login failed: Password mismatch for user '%s'", username)
 		return nil, fmt.Errorf("invalid username or password")
 	}
 
+	log.Printf("Login successful for user '%s'", username)
+	
 	if profilePhoto.Valid {
 		user.ProfilePhoto = &profilePhoto.String
 	}
@@ -115,6 +123,55 @@ func LoginUser(username, password string) (*User, error) {
 }
 
 // User operations
+func CreateUser(name, username, password string) (*User, error) {
+	if name == "" {
+		return nil, fmt.Errorf("name is required")
+	}
+	if username == "" {
+		return nil, fmt.Errorf("username is required")
+	}
+	if password == "" {
+		return nil, fmt.Errorf("password is required")
+	}
+
+	// Check if username already exists
+	existingUser, _ := GetUserByUsername(username)
+	if existingUser != nil {
+		return nil, fmt.Errorf("username already exists")
+	}
+
+	query := `
+		INSERT INTO users (name, username, password) 
+		VALUES ($1, $2, $3) 
+		RETURNING id, name, username, password, profile_photo, created_at`
+
+	var user User
+	var profilePhoto sql.NullString
+	
+	err := db.QueryRow(query, name, username, password).Scan(
+		&user.ID, &user.Name, &user.Username, &user.Password, 
+		&profilePhoto, &user.CreatedAt,
+	)
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user")
+	}
+
+	// Generate DiceBear profile photo URL
+	diceBearURL := fmt.Sprintf("https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=%d", user.ID)
+	
+	// Update user with profile photo
+	updateQuery := `UPDATE users SET profile_photo = $1 WHERE id = $2`
+	_, err = db.Exec(updateQuery, diceBearURL, user.ID)
+	if err != nil {
+		log.Printf("Warning: Failed to set profile photo for user %d: %v", user.ID, err)
+	} else {
+		user.ProfilePhoto = &diceBearURL
+	}
+
+	return &user, nil
+}
+
 func GetUserByUsername(username string) (*User, error) {
 	if username == "" {
 		return nil, fmt.Errorf("username is required")
@@ -178,9 +235,14 @@ func GetUserByID(id int) (*User, error) {
 }
 
 // Post operations
-func AddPost(publisherID int, contentText string, contentPhotoID *int) (*Post, error) {
+func AddPost(publisherID int, publisherName string, contentText string, contentPhotoID *int) (*Post, error) {
 	if publisherID <= 0 {
 		return nil, fmt.Errorf("invalid publisher id")
+	}
+	
+	// If publisher name is empty, set to Anonymous
+	if publisherName == "" {
+		publisherName = "Anonymous"
 	}
 	
 	if contentText == "" {
@@ -188,22 +250,21 @@ func AddPost(publisherID int, contentText string, contentPhotoID *int) (*Post, e
 	}
 
 	// Check if publisher exists
-	_, err := GetUserByID(publisherID)
+	user, err := GetUserByID(publisherID)
 	if err != nil {
 		return nil, fmt.Errorf("publisher not found")
 	}
 
 	query := `
-		INSERT INTO posts (publisher_id, content_text, content_photo_id) 
-		VALUES ($1, $2, $3) 
-		RETURNING id, publisher_id, publisher_photo, content_text, content_photo_id, vote_count, created_at`
+		INSERT INTO posts (publisher_id, publisher_name, content_text, content_photo_id) 
+		VALUES ($1, $2, $3, $4) 
+		RETURNING id, publisher_id, publisher_name, content_text, content_photo_id, vote_count, created_at`
 
 	var post Post
-	var publisherPhoto sql.NullString
 	var contentPhotoIDNull sql.NullInt32
 
-	err = db.QueryRow(query, publisherID, contentText, contentPhotoID).Scan(
-		&post.ID, &post.PublisherID, &publisherPhoto, &post.ContentText, 
+	err = db.QueryRow(query, publisherID, publisherName, contentText, contentPhotoID).Scan(
+		&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText, 
 		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
 	)
 	
@@ -211,18 +272,14 @@ func AddPost(publisherID int, contentText string, contentPhotoID *int) (*Post, e
 		return nil, fmt.Errorf("failed to create post")
 	}
 
-	if publisherPhoto.Valid {
-		post.PublisherPhoto = &publisherPhoto.String
-	}
 	if contentPhotoIDNull.Valid {
 		contentPhotoIDInt := int(contentPhotoIDNull.Int32)
 		post.ContentPhotoID = &contentPhotoIDInt
 	}
 
-	// Get publisher name
-	user, err := GetUserByID(publisherID)
-	if err == nil && user != nil {
-		post.PublisherName = user.Name
+	// Get publisher photo from user
+	if user.ProfilePhoto != nil {
+		post.PublisherPhoto = user.ProfilePhoto
 	}
 
 	return &post, nil
@@ -324,16 +381,16 @@ func VotePost(postID int, userID int, upvoted bool) (*Post, error) {
 		}
 	}
 
-	// Get updated post with JOIN to get publisher name and photo path
+	// Get updated post with JOIN to get publisher photo and content photo path
 	var post Post
-	var publisherPhoto sql.NullString
 	var contentPhotoIDNull sql.NullInt32
 	var contentPhotoPath sql.NullString
+	var publisherPhoto sql.NullString
 
 	query := `
-		SELECT p.id, p.publisher_id, p.publisher_photo, p.content_text, 
+		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text, 
 			   p.content_photo_id, p.vote_count, p.created_at,
-			   u.name as publisher_name,
+			   u.profile_photo as publisher_photo,
 			   i.path as content_photo_path
 		FROM posts p
 		JOIN users u ON p.publisher_id = u.id
@@ -341,9 +398,9 @@ func VotePost(postID int, userID int, upvoted bool) (*Post, error) {
 		WHERE p.id = $1`
 
 	err = tx.QueryRow(query, postID).Scan(
-		&post.ID, &post.PublisherID, &publisherPhoto, &post.ContentText,
+		&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
 		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
-		&post.PublisherName, &contentPhotoPath,
+		&publisherPhoto, &contentPhotoPath,
 	)
 	
 	if err != nil {
@@ -371,9 +428,9 @@ func VotePost(postID int, userID int, upvoted bool) (*Post, error) {
 
 func GetPosts() ([]Post, error) {
 	query := `
-		SELECT p.id, p.publisher_id, p.publisher_photo, p.content_text, 
+		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text, 
 			   p.content_photo_id, p.vote_count, p.created_at,
-			   u.name as publisher_name,
+			   u.profile_photo as publisher_photo,
 			   i.path as content_photo_path
 		FROM posts p
 		JOIN users u ON p.publisher_id = u.id
@@ -394,9 +451,9 @@ func GetPosts() ([]Post, error) {
 		var contentPhotoPath sql.NullString
 
 		err := rows.Scan(
-			&post.ID, &post.PublisherID, &publisherPhoto, &post.ContentText,
+			&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
 			&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
-			&post.PublisherName, &contentPhotoPath,
+			&publisherPhoto, &contentPhotoPath,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process post data")

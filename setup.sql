@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS images (
 CREATE TABLE IF NOT EXISTS posts (
     id SERIAL PRIMARY KEY,
     publisher_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    publisher_photo TEXT,
+    publisher_name VARCHAR(100) NOT NULL,
     content_text TEXT NOT NULL,
     content_photo_id INT REFERENCES images(id) ON DELETE SET NULL,
     vote_count INT DEFAULT 0,
@@ -46,21 +46,21 @@ CREATE TABLE IF NOT EXISTS user_votes (
 ALTER TABLE images ADD CONSTRAINT fk_images_post_id 
     FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
 
--- Insert sample users
-INSERT INTO users (name, username, password) VALUES 
-    ('John Doe', 'john_doe', '$2a$10$example_hashed_password_1'),
-    ('Jane Smith', 'jane_smith', '$2a$10$example_hashed_password_2'),
-    ('Mike Developer', 'developer_mike', '$2a$10$example_hashed_password_3'),
-    ('Alice Johnson', 'alice', '$2a$10$example_hashed_password_4'),
-    ('Bob Wilson', 'bob', '$2a$10$example_hashed_password_5');
+-- Insert sample users with DiceBear profile photos
+INSERT INTO users (name, username, password, profile_photo) VALUES 
+    ('John Doe', 'john_doe', '$2a$10$example_hashed_password_1', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=1'),
+    ('Jane Smith', 'jane_smith', '$2a$10$example_hashed_password_2', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=2'),
+    ('Mike Developer', 'developer_mike', '$2a$10$example_hashed_password_3', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=3'),
+    ('Alice Johnson', 'alice', '$2a$10$example_hashed_password_4', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=4'),
+    ('Bob Wilson', 'bob', '$2a$10$example_hashed_password_5', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=5');
 
 -- Insert sample posts
-INSERT INTO posts (publisher_id, content_text) VALUES 
-    (1, 'Hello world! This is my first post.'),
-    (2, 'Love this new platform! 🚀'),
-    (3, 'Just deployed a new feature. Hope you like it!'),
-    (1, 'Another post from John'),
-    (2, 'Jane posting again!');
+INSERT INTO posts (publisher_id, publisher_name, content_text) VALUES 
+    (1, 'John Doe', 'Hello world! This is my first post.'),
+    (2, 'Jane Smith', 'Love this new platform! 🚀'),
+    (3, 'Mike Developer', 'Just deployed a new feature. Hope you like it!'),
+    (1, 'Johnny D', 'Another post from John'),
+    (2, 'Jane S', 'Jane posting again!');
 
 -- Add some sample votes
 INSERT INTO user_votes (post_id, user_id, upvoted) VALUES
