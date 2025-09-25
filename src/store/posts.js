@@ -1,66 +1,34 @@
 import { ref } from 'vue'
-import { fetchPosts, createPost as apiCreatePost, votePost } from '../api/posts'
+import { getAllPosts, createPost } from '../api/posts.js'
 
-export const posts = ref([])
-export const loading = ref(false)
-export const error = ref(null)
-
-// Simple username (in real app would come from auth)
-const currentUser = ref('user' + Math.floor(Math.random() * 1000))
+const posts = ref([])
+const loading = ref(false)
+const error = ref('')
 
 export async function loadPosts() {
   loading.value = true
-  error.value = null
+  error.value = ''
   try {
-    const data = await fetchPosts()
-    posts.value = data || []
+    const data = await getAllPosts()
+    posts.value = data
   } catch (err) {
-    error.value = 'Error loading posts'
+    error.value = err.message || 'Failed to load posts'
     console.error('Error loading posts:', err)
   } finally {
     loading.value = false
   }
 }
 
-export async function addPost(author, content) {
+export async function addPost(publisherId, contentText, publisherName = "") {
   try {
-    const newPost = await apiCreatePost(author, content)
-    // Add the returned post to the list
+    const newPost = await createPost(publisherId, contentText, publisherName)
+    // Backend'den dönen yeni post'u listenin başına ekle
     posts.value.unshift(newPost)
     return newPost
   } catch (err) {
+    console.error('Error creating post:', err)
     throw err
   }
 }
 
-export async function upvote(postId) {
-  try {
-    const updatedPost = await votePost(postId, true, currentUser.value)
-    // Update local state
-    const index = posts.value.findIndex(p => p.id === postId)
-    if (index !== -1) {
-      posts.value[index] = updatedPost
-    }
-  } catch (err) {
-    console.error('Upvote error:', err)
-    // Could show error to user
-  }
-}
-
-export async function downvote(postId) {
-  try {
-    const updatedPost = await votePost(postId, false, currentUser.value)
-    // Update local state
-    const index = posts.value.findIndex(p => p.id === postId)
-    if (index !== -1) {
-      posts.value[index] = updatedPost
-    }
-  } catch (err) {
-    console.error('Downvote error:', err)
-    // Could show error to user
-  }
-}
-
-export function getCurrentUser() {
-  return currentUser.value
-}
+export { posts, loading, error }

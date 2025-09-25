@@ -1,124 +1,124 @@
 <script setup>
 import { onMounted } from 'vue'
-import { posts, upvote, downvote, loading, error, getCurrentUser, loadPosts } from '../store/posts'
+import { useRouter } from 'vue-router'
+import { posts, loading, error, loadPosts } from '../store/posts'
+import { getCurrentUser } from '../store/auth.js'
 
+const router = useRouter()
 const currentUser = getCurrentUser()
 
-// Track which posts the user has voted on (simple UI state)
-const userVotes = {}
+// User avatar helper (not used in template now, kept for future use)
+const getUserAvatar = (user) => {
+  if (user?.profilePhoto) return user.profilePhoto
+  if (user?.profilePhotoPath) return user.profilePhotoPath
+  if (user?.avatar) return user.avatar
+  if (user?.photo) return user.photo
+  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(user?.username || 'user')}`
+}
+
+// Use publisherPhoto from backend if present
+const getPostAuthorAvatar = (post) => {
+  if (post?.publisherPhoto) return post.publisherPhoto
+  if (post?.publisherPhotoPath) return post.publisherPhotoPath
+  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(post?.publisherName || 'anon')}`
+}
 
 onMounted(async () => {
   await loadPosts()
 })
 
-function handleUpvote(postId) {
-  const wasUpvoted = userVotes[postId] === 'up'
-  if (wasUpvoted) delete userVotes[postId]; else userVotes[postId] = 'up'
-  upvote(postId)
+function goToCreatePost() {
+  router.push('/create-post')
 }
-
-function handleDownvote(postId) {
-  const wasDownvoted = userVotes[postId] === 'down'
-  if (wasDownvoted) delete userVotes[postId]; else userVotes[postId] = 'down'
-  downvote(postId)
-}
-
-function isUpvoted(postId) { return userVotes[postId] === 'up' }
-function isDownvoted(postId) { return userVotes[postId] === 'down' }
 </script>
 
 <template>
   <div>
-    <div v-if="loading" class="loading">Loading posts...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <ul v-else-if="posts.length" class="list">
-      <li v-for="post in posts" :key="post.id" class="item">
-        <div class="body">
-          <div class="header">
-            <img class="avatar" :src="`https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(post.author || 'anon')}`" alt="avatar" />
-            <div class="meta">
-              <span class="author">{{ post.author }}</span>
-              <span class="date">• {{ new Date(post.createdAt).toLocaleString() }}</span>
-            </div>
-          </div>
-          <p class="content">{{ post.content }}</p>
-          
-          <div class="vote-inline">
-            <button
-              class="arrow up"
-              :class="{ active: isUpvoted(post.id) }"
-              @click="handleUpvote(post.id)"
-              aria-label="Upvote"
-              title="Upvote"
-            >▲</button>
-            <span class="like-count" :class="{ positive: (post.likeCount || 0) > 0, negative: (post.likeCount || 0) < 0 }">
-              {{ post.likeCount ?? 0 }}
-            </span>
-            <button
-              class="arrow down"
-              :class="{ active: isDownvoted(post.id) }"
-              @click="handleDownvote(post.id)"
-              aria-label="Downvote"
-              title="Downvote"
-            >▼</button>
-          </div>
-        </div>
-      </li>
-    </ul>
-    <p v-else class="empty">No posts yet.</p>
-    
-    <div class="user-info">
-      <small>User: {{ currentUser }}</small>
-    </div>
+    <v-container class="mt-4">
+      <!-- User Welcome Card -->
+      <v-row justify="center" class="mb-4">
+        <v-col cols="12" md="8">
+          <v-card variant="tonal" color="primary" class="text-center">
+            <v-card-text>
+              <v-icon class="mr-2">mdi-account-circle</v-icon>
+              Welcome back, <strong>{{ currentUser?.name }}</strong>!
+              <span class="ml-2 text-caption">
+                (Member since {{ new Date(currentUser?.createdAt).toLocaleDateString() }})
+              </span>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <!-- Loading State -->
+      <v-row v-if="loading" justify="center">
+        <v-col cols="auto">
+          <v-progress-circular indeterminate size="64" color="primary" />
+          <div class="text-center mt-4">Loading posts...</div>
+        </v-col>
+      </v-row>
+
+      <!-- Error State -->
+      <v-alert v-else-if="error" type="error" :text="error" class="mb-4" />
+
+      <!-- Posts List -->
+      <v-row v-else-if="posts.length" justify="center">
+        <v-col cols="12" md="8">
+          <v-card
+            v-for="post in posts"
+            :key="post.id"
+            class="mb-4"
+            elevation="2"
+          >
+            <v-card-item>
+              <template v-slot:prepend>
+                <v-avatar>
+                  <v-img 
+                    :src="getPostAuthorAvatar(post)"
+                    :alt="post.publisherName"
+                  />
+                </v-avatar>
+              </template>
+
+              <v-card-title class="text-h6">{{ post.publisherName }}</v-card-title>
+              <v-card-subtitle>{{ new Date(post.createdAt).toLocaleString() }}</v-card-subtitle>
+            </v-card-item>
+
+            <v-card-text class="text-body-1">
+              {{ post.contentText }}
+            </v-card-text>
+
+            <!-- Show image if exists -->
+            <v-card-text v-if="post.contentPhotoPath" class="pt-0">
+              <v-img
+                :src="post.contentPhotoPath"
+                max-height="400"
+                class="rounded"
+              />
+            </v-card-text>
+
+            <v-card-actions>
+              <v-btn variant="text" color="primary">
+                <v-icon start>mdi-thumb-up</v-icon>
+                {{ post.voteCount || 0 }}
+              </v-btn>
+              
+            </v-card-actions>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <!-- Empty State -->
+      <v-row v-else justify="center">
+        <v-col cols="auto" class="text-center">
+          <v-icon size="80" color="grey">mdi-post-outline</v-icon>
+          <div class="text-h6 mt-4">No posts yet</div>
+          <v-btn class="mt-4" color="primary" @click="goToCreatePost">
+            <v-icon start>mdi-plus</v-icon>
+            Create First Post
+          </v-btn>
+        </v-col>
+      </v-row>
+    </v-container>
   </div>
 </template>
-
-<style scoped>
-.loading, .error {
-  text-align: center;
-  padding: 20px;
-  color: #64748b;
-}
-.error { color: #ef4444; }
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.item {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px;
-  background: white;
-}
-.body { display: flex; flex-direction: column; gap: 12px; }
-.header { display: flex; align-items: center; gap: 10px; }
-.avatar { width: 36px; height: 36px; border-radius: 50%; border: 1px solid #e2e8f0; }
-.meta { color: #64748b; font-size: 12px; }
-.author { font-weight: 600; color: #0f172a; }
-.content { white-space: pre-wrap; line-height: 1.5; margin: 0; }
-
-.vote-inline { display: inline-flex; align-items: center; gap: 10px; }
-.arrow { 
-  width: 36px; height: 32px; 
-  display: grid; place-items: center; 
-  background: white; border: 1px solid #e2e8f0; 
-  border-radius: 8px; 
-  font-size: 16px; line-height: 1; 
-  cursor: pointer; transition: all 0.2s; 
-}
-.arrow:hover { background: #f1f5f9; }
-.arrow.up.active { background: #22c55e; border-color: #22c55e; color: white; }
-.arrow.down.active { background: #ef4444; border-color: #ef4444; color: white; }
-
-.like-count { font-weight: 700; min-width: 28px; text-align: center; }
-.like-count.positive { color: #16a34a; }
-.like-count.negative { color: #dc2626; }
-
-.empty { color: #64748b; }
-.user-info { margin-top: 20px; padding: 8px; background: #f1f5f9; border-radius: 8px; text-align: center; color: #64748b; }
-</style>
