@@ -7,8 +7,20 @@ run_dev_server:
   script:
     - npm install
     - npm run dev &
-    - sleep 10
-    - curl --silent --fail http://localhost:5173 || exit 1 #if it fails throw error on gitlaba.
+    - |
+      echo "Waiting for server to start..."
+      for i in {1..10}; do
+        if curl --silent http://localhost:5173 | grep -q "<title>"; then
+          echo "Server is up and responding with HTML."
+          break
+        else
+          echo "Waiting for server response..."
+          sleep 3
+        fi
+      done
+
+      # Final check: if no HTML content, fail the job
+      curl --silent http://localhost:5173 | grep -q "<title>" || (echo "App did not respond with valid content" && exit 1)
   only:
     - main
   environment:
