@@ -36,12 +36,25 @@ const getUserAvatar = (user) => {
 function handleImageUpload(event) {
   const file = event.target.files[0]
   if (file) {
+    // File size validation (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      error.value = 'Image size must be less than 10MB'
+      return
+    }
+    
+    // File type validation
+    if (!file.type.startsWith('image/')) {
+      error.value = 'Please select a valid image file'
+      return
+    }
+    
     selectedImage.value = file
     const reader = new FileReader()
     reader.onload = (e) => {
       imagePreview.value = e.target.result
     }
     reader.readAsDataURL(file)
+    error.value = '' // Clear any previous errors
   }
 }
 
@@ -62,7 +75,7 @@ async function handleSubmit() {
   try {
     // Giriş yapan kullanıcının ID'sini kullan
     const publisherId = currentUser?.id || 1
-    await addPost(publisherId, content.value.trim(), author.value.trim())
+    await addPost(publisherId, content.value.trim(), author.value.trim(), selectedImage.value)
     router.push('/posts')
   } catch (err) {
     error.value = err.message || 'Failed to create post'
@@ -167,8 +180,6 @@ function viewProfile() {
                       />
                       <div class="text-caption text-medium-emphasis mt-2">
                         Supported formats: JPG, PNG, GIF (Max 10MB)
-                        <br>
-                        <strong>Note:</strong> Images are for preview only and won't be saved
                       </div>
                     </div>
                   </v-card-text>
@@ -196,7 +207,7 @@ function viewProfile() {
                 size="large"
               >
                 <v-icon start>mdi-send</v-icon>
-                Post
+                {{ selectedImage ? 'Post with Image' : 'Post' }}
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -235,9 +246,6 @@ function viewProfile() {
                     max-height="250"
                     class="rounded"
                   />
-                  <div class="text-caption text-medium-emphasis mt-2 text-center">
-                    * This image is for preview only
-                  </div>
                 </v-card-text>
 
                 <v-card-actions>
