@@ -1,58 +1,57 @@
 <script setup>
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { logout, getCurrentUser } from './store/auth.js'
+import { computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { logout, getCurrentUser } from "./store/auth.js";
 
-const route = useRoute()
-const router = useRouter()
+const route = useRoute();
+const router = useRouter();
 
 // Reactive currentUser - her değişiklikte güncellenir
-const currentUser = computed(() => getCurrentUser())
+const currentUser = computed(() => getCurrentUser());
 
 // Login sayfası kontrolü
-const isLoginPage = computed(() => route.name === 'login' || route.name === 'register')
+const isLoginPage = computed(
+  () => route.name === "login" || route.name === "register"
+);
 
 // Backend'den gelen profil fotoğrafını kullan, yoksa Dicebear avatar'ı göster
 const getUserAvatar = (user) => {
   if (user?.profilePhoto) {
-    return user.profilePhoto
+    return user.profilePhoto;
   }
   if (user?.profilePhotoPath) {
-    return user.profilePhotoPath
+    return user.profilePhotoPath;
   }
   if (user?.avatar) {
-    return user.avatar
+    return user.avatar;
   }
   if (user?.photo) {
-    return user.photo
+    return user.photo;
   }
   // Fallback: Dicebear avatar
-  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(user?.username || 'user')}`
-}
+  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(
+    user?.username || "user"
+  )}`;
+};
 
 function handleLogout() {
-  logout()
-  router.push('/')
-}
+  logout();
+  router.push("/");
+
 
 function viewProfile() {
   // TODO: Profile sayfasına yönlendir
-  console.log('View profile clicked')
+  console.log("View profile clicked");
 }
 </script>
 
 <template>
   <v-app>
     <!-- App Bar (Header) -->
-    <v-app-bar 
-      v-if="!isLoginPage"
-      color="white"
-      elevation="1"
-      border
-    >
+    <v-app-bar v-if="!isLoginPage" color="white" elevation="1" border>
       <v-app-bar-title>
-        <v-btn 
-          variant="text" 
+        <v-btn
+          variant="text"
           @click="router.push('/posts')"
           class="text-h6 font-weight-bold"
           color="primary"
@@ -77,14 +76,9 @@ function viewProfile() {
       <!-- User Menu - Sadece Avatar -->
       <v-menu>
         <template v-slot:activator="{ props }">
-          <v-btn
-            v-bind="props"
-            icon
-            size="large"
-            class="user-avatar-btn"
-          >
+          <v-btn v-bind="props" icon size="large" class="user-avatar-btn">
             <v-avatar size="40">
-              <v-img 
+              <v-img
                 :src="getUserAvatar(currentUser)"
                 :alt="currentUser?.name || currentUser?.username"
               />
@@ -97,7 +91,7 @@ function viewProfile() {
           <v-list-item class="px-4 py-3">
             <template v-slot:prepend>
               <v-avatar size="48">
-                <v-img 
+                <v-img
                   :src="getUserAvatar(currentUser)"
                   :alt="currentUser?.name"
                 />
