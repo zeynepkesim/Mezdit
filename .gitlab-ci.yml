@@ -1,6 +1,5 @@
 stages:
   - dev
-  - test
 
 run_dev_server:
   stage: dev
@@ -9,22 +8,9 @@ run_dev_server:
     - npm install
     - npm run dev &
     - sleep 10
-    - curl --silent --fail http://localhost:5173 || exit 1 
+    - curl --silent --fail http://localhost:5173 || exit 1 #if it fails throw error on gitlab.
   only:
     - main
   environment:
     name: development
     url: http://localhost:5173
-
-
-
-# Health Check 
-health_check:
-  stage: test
-  image: curlimages/curl:latest
-  script:
-    - sleep 10 
-    - curl --silent --fail http://localhost:5173 || exit 1 # Replace with your URL to check if the app is accessible
-  when: on_success
-  only:
-    - main
