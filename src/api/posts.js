@@ -3,6 +3,7 @@ import axios from 'axios'
 const API_BASE_URL = '/api'
 
 export async function getAllPosts(userId = null) {
+export async function getAllPosts(userId = null) {
   try {
     let url = `${API_BASE_URL}/posts`
     if (userId) {
@@ -24,8 +25,8 @@ export async function getAllPosts(userId = null) {
 
     return data.data
   } catch (error) {
-    console.error('Get posts error:', error)
-    throw error
+    console.error("Get posts error:", error);
+    throw error;
   }
 }
 
@@ -35,13 +36,10 @@ export async function createPost(publisherId, contentText, publisherName = "") {
       publisherId: publisherId,
       publisherName: publisherName,
       contentText: contentText,
-      contentPhotoId: null
-    }
+      contentPhotoId: null,
+    };
 
     // İsteği konsola yazdır
-    console.log('🚀 POST /posts isteği gönderiliyor:')
-    console.log('📤 Request Body:', JSON.stringify(requestBody, null, 2))
-    console.log('🌐 URL:', `${API_BASE_URL}/posts`)
 
     const response = await fetch(`${API_BASE_URL}/posts`, {
       method: 'POST',

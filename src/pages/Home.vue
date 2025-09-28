@@ -4,24 +4,28 @@ import { useRouter } from 'vue-router'
 import { posts, loading, error, loadPosts, voteOnPost } from '../store/posts'
 import { getCurrentUser } from '../store/auth.js'
 
-const router = useRouter()
-const currentUser = getCurrentUser()
+const router = useRouter();
+const currentUser = getCurrentUser();
 
 // User avatar helper (not used in template now, kept for future use)
 const getUserAvatar = (user) => {
-  if (user?.profilePhoto) return user.profilePhoto
-  if (user?.profilePhotoPath) return user.profilePhotoPath
-  if (user?.avatar) return user.avatar
-  if (user?.photo) return user.photo
-  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(user?.username || 'user')}`
-}
+  if (user?.profilePhoto) return user.profilePhoto;
+  if (user?.profilePhotoPath) return user.profilePhotoPath;
+  if (user?.avatar) return user.avatar;
+  if (user?.photo) return user.photo;
+  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(
+    user?.username || "user"
+  )}`;
+};
 
 // Use publisherPhoto from backend if present
 const getPostAuthorAvatar = (post) => {
-  if (post?.publisherPhoto) return post.publisherPhoto
-  if (post?.publisherPhotoPath) return post.publisherPhotoPath
-  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(post?.publisherName || 'anon')}`
-}
+  if (post?.publisherPhoto) return post.publisherPhoto;
+  if (post?.publisherPhotoPath) return post.publisherPhotoPath;
+  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(
+    post?.publisherName || "anon"
+  )}`;
+};
 
 // Get full image URL for post images
 const getPostImageUrl = (post) => {
@@ -90,9 +94,11 @@ function isPostOwner(post) {
           <v-card variant="tonal" color="primary" class="text-center">
             <v-card-text>
               <v-icon class="mr-2">mdi-account-circle</v-icon>
-              Welcome back, <strong>{{ currentUser?.name }}</strong>!
+              Welcome back, <strong>{{ currentUser?.name }}</strong
+              >!
               <span class="ml-2 text-caption">
-                (Member since {{ new Date(currentUser?.createdAt).toLocaleDateString() }})
+                (Member since
+                {{ new Date(currentUser?.createdAt).toLocaleDateString() }})
               </span>
             </v-card-text>
           </v-card>
@@ -116,6 +122,7 @@ function isPostOwner(post) {
           <v-card
             v-for="post in posts"
             :key="post.id"
+            class="mb-4 post-card"
             class="mb-4 post-card"
             elevation="2"
           >
@@ -182,6 +189,9 @@ function isPostOwner(post) {
                   <v-card-subtitle>{{ new Date(post.createdAt).toLocaleString() }}</v-card-subtitle>
                 </v-card-item>
 
+                <v-card-text class="text-body-1">
+                  {{ post.contentText }}
+                </v-card-text>
                 <v-card-text class="text-body-1">
                   {{ post.contentText }}
                 </v-card-text>

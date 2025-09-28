@@ -1,9 +1,9 @@
 import { ref } from 'vue'
 import { getAllPosts, createPost, createPostWithImage, editPost, editPostWithImage, votePost } from '../api/posts.js'
 
-const posts = ref([])
-const loading = ref(false)
-const error = ref('')
+const posts = ref([]);
+const loading = ref(false);
+const error = ref("");
 
 export async function loadPosts(userId = null) {
   loading.value = true
@@ -12,10 +12,10 @@ export async function loadPosts(userId = null) {
     const data = await getAllPosts(userId)
     posts.value = data
   } catch (err) {
-    error.value = err.message || 'Failed to load posts'
-    console.error('Error loading posts:', err)
+    error.value = err.message || "Failed to load posts";
+    console.error("Error loading posts:", err);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 

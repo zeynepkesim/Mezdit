@@ -9,15 +9,15 @@ import Register from '../pages/Register.vue'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { 
-      path: '/', 
-      name: 'login', 
-      component: Login
+    {
+      path: "/",
+      name: "login",
+      component: Login,
     },
     {
-      path: '/register',
-      name: 'register',
-      component: Register
+      path: "/register",
+      name: "register",
+      component: Register,
     },
     { 
       path: '/posts', 
@@ -35,7 +35,7 @@ const router = createRouter({
       component: EditPost
     }
   ],
-})
+});
 
 router.beforeEach((to, from, next) => {
   if ((to.name === 'posts' || to.name === 'create-post' || to.name === 'edit-post') && !isAuthenticated()) {
@@ -43,7 +43,7 @@ router.beforeEach((to, from, next) => {
   } else if ((to.name === 'login' || to.name === 'register') && isAuthenticated()) {
     next({ name: 'posts' })
   } else {
-    next()
+    next();
   }
 })
 
