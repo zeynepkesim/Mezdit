@@ -1,31 +1,22 @@
 stages:
-  - install
   - dev
   - test
 
-# Install Dependencies Job
-install_dependencies:
-  stage: install
-  image: node:22 
-  script:
-    - npm install
-  cache:
-    paths:
-      - node_modules/
-
-# Run Development Server 
 run_dev_server:
   stage: dev
   image: node:22
   script:
-    - npm run dev & 
-    - sleep 20
+    - npm install
+    - npm run dev &
+    - sleep 10
     - curl --silent --fail http://localhost:5173 || exit 1 
   only:
     - main
   environment:
     name: development
-    url: http://localhost:5173 
+    url: http://localhost:5173
+
+
 
 # Health Check 
 health_check:
