@@ -123,7 +123,6 @@ function isPostOwner(post) {
             v-for="post in posts"
             :key="post.id"
             class="mb-4 post-card"
-            class="mb-4 post-card"
             elevation="2"
           >
             <v-row no-gutters>

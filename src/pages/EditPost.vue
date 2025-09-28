@@ -23,10 +23,6 @@ const currentPost = computed(() => {
   return posts.value.find((p) => p.id === parseInt(postId.value));
 });
 
-// Mevcut post'u bul ve içeriğini yükle
-const currentPost = computed(() => {
-  return posts.value.find(p => p.id === parseInt(postId.value))
-})
 
 // Get full image URL for post images
 const getPostImageUrl = (post) => {

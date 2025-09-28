@@ -3,7 +3,6 @@ import axios from 'axios'
 const API_BASE_URL = '/api'
 
 export async function getAllPosts(userId = null) {
-export async function getAllPosts(userId = null) {
   try {
     let url = `${API_BASE_URL}/posts`
     if (userId) {
