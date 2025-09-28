@@ -37,7 +37,7 @@ const getUserAvatar = (user) => {
 function handleLogout() {
   logout();
   router.push("/");
-
+}
 
 function viewProfile() {
   // TODO: Profile sayfasına yönlendir
