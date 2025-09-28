@@ -1,26 +1,29 @@
-import axios from 'axios'
+const API_BASE_URL = "/api";
 
-const API_BASE_URL = '/api'
-
-export async function getAllPosts() {
+export async function getAllPosts(userId = null) {
   try {
-    const response = await fetch(`${API_BASE_URL}/posts`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'Failed to get posts')
+    let url = `${API_BASE_URL}/posts`;
+    if (userId) {
+      url += `?userId=${userId}`;
     }
 
-    return data.data
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || "Failed to get posts");
+    }
+
+    return data.data;
   } catch (error) {
-    console.error('Get posts error:', error)
-    throw error
+    console.error("Get posts error:", error);
+    throw error;
   }
 }
 
@@ -30,61 +33,101 @@ export async function createPost(publisherId, contentText, publisherName = "") {
       publisherId: publisherId,
       publisherName: publisherName,
       contentText: contentText,
-      contentPhotoId: null
-    }
+      contentPhotoId: null,
+    };
 
     // İsteği konsola yazdır
-    console.log('🚀 POST /posts isteği gönderiliyor:')
-    console.log('📤 Request Body:', JSON.stringify(requestBody, null, 2))
-    console.log('🌐 URL:', `${API_BASE_URL}/posts`)
 
     const response = await fetch(`${API_BASE_URL}/posts`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(requestBody)
-    })
+      body: JSON.stringify(requestBody),
+    });
 
-    const data = await response.json()
+    const data = await response.json();
 
     // Response'u da konsola yazdır
-    console.log('📥 Response Status:', response.status)
-    console.log('�� Response Data:', JSON.stringify(data, null, 2))
 
     if (!response.ok) {
-      throw new Error(data.error?.message || 'Failed to create post')
+      throw new Error(data.error?.message || "Failed to create post");
     }
 
-    return data.data
+    return data.data;
   } catch (error) {
-    console.error('❌ Create post error:', error)
-    throw error
+    console.error("Create post error:", error);
+    throw error;
   }
 }
 
-export async function votePost(postId, isLike, username) {
+export async function editPost(
+  postId,
+  userId,
+  contentText,
+  publisherName = ""
+) {
   try {
-    const response = await axios.post(`${API_BASE_URL}/vote`, {
-      id: postId,
-      like: isLike,
-      username
-    }, {
+    // String değerleri temizle ve validate et
+    const cleanContentText = String(contentText || "").trim();
+    const cleanPublisherName = String(publisherName || "").trim();
+
+    const requestBody = {
+      postId: parseInt(postId),
+      userId: parseInt(userId),
+      contentText: cleanContentText,
+      publisherName: cleanPublisherName,
+    };
+
+    // JSON stringify'i test et
+    const jsonString = JSON.stringify(requestBody);
+
+    const response = await fetch(`${API_BASE_URL}/posts/edit`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    
-    if (response.data.success) {
-      return response.data.data
-    } else {
-      const errorMessage = response.data.error?.message || 'Oylama başarısız'
-      throw new Error(errorMessage)
+        "Content-Type": "application/json",
+      },
+      body: jsonString,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || "Failed to edit post");
     }
+
+    return data.data;
   } catch (error) {
-    if (error.response?.data?.error?.message) {
-      throw new Error(error.response.data.error.message)
+    console.error("Edit post error:", error);
+    throw error;
+  }
+}
+
+export async function votePost(postId, userId, upvoted) {
+  try {
+    const requestBody = {
+      postId: postId,
+      userId: userId,
+      upvoted: upvoted,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/vote`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || "Failed to vote");
     }
-    throw error
+
+    return data.data;
+  } catch (error) {
+    console.error("Vote error:", error);
+    throw error;
   }
 }

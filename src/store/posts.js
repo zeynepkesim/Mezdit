@@ -1,34 +1,78 @@
-import { ref } from 'vue'
-import { getAllPosts, createPost } from '../api/posts.js'
+import { ref } from "vue";
+import { getAllPosts, createPost, editPost, votePost } from "../api/posts.js";
 
-const posts = ref([])
-const loading = ref(false)
-const error = ref('')
+const posts = ref([]);
+const loading = ref(false);
+const error = ref("");
 
-export async function loadPosts() {
-  loading.value = true
-  error.value = ''
+export async function loadPosts(userId = null) {
+  loading.value = true;
+  error.value = "";
   try {
-    const data = await getAllPosts()
-    posts.value = data
+    const data = await getAllPosts(userId);
+    posts.value = data;
   } catch (err) {
-    error.value = err.message || 'Failed to load posts'
-    console.error('Error loading posts:', err)
+    error.value = err.message || "Failed to load posts";
+    console.error("Error loading posts:", err);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 export async function addPost(publisherId, contentText, publisherName = "") {
   try {
-    const newPost = await createPost(publisherId, contentText, publisherName)
+    const newPost = await createPost(publisherId, contentText, publisherName);
     // Backend'den dönen yeni post'u listenin başına ekle
-    posts.value.unshift(newPost)
-    return newPost
+    posts.value.unshift(newPost);
+    return newPost;
   } catch (err) {
-    console.error('Error creating post:', err)
-    throw err
+    console.error("Error creating post:", err);
+    throw err;
   }
 }
 
-export { posts, loading, error }
+export async function updatePost(
+  postId,
+  userId,
+  contentText,
+  publisherName = ""
+) {
+  try {
+    const updatedPost = await editPost(
+      postId,
+      userId,
+      contentText,
+      publisherName
+    );
+
+    // Local state'i güncelle
+    const postIndex = posts.value.findIndex((p) => p.id === postId);
+    if (postIndex !== -1) {
+      posts.value[postIndex] = updatedPost;
+    }
+
+    return updatedPost;
+  } catch (err) {
+    console.error("Error updating post:", err);
+    throw err;
+  }
+}
+
+export async function voteOnPost(postId, userId, upvoted) {
+  try {
+    const updatedPost = await votePost(postId, userId, upvoted);
+
+    // Local state'i güncelle
+    const postIndex = posts.value.findIndex((p) => p.id === postId);
+    if (postIndex !== -1) {
+      posts.value[postIndex] = updatedPost;
+    }
+
+    return updatedPost;
+  } catch (err) {
+    console.error("Error voting on post:", err);
+    throw err;
+  }
+}
+
+export { posts, loading, error };
