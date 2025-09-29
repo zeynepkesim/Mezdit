@@ -1,101 +1,108 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { addPost } from '../store/posts'
-import { getCurrentUser, logout } from '../store/auth.js'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { addPost } from "../store/posts";
+import { getCurrentUser, logout } from "../store/auth.js";
 
-const router = useRouter()
-const currentUser = getCurrentUser()
+const router = useRouter();
+const currentUser = getCurrentUser();
 
 // Name alanı değiştirilebilir olsun, default olarak current user'ın adı gelsin
-const author = ref(currentUser?.name || '')
-const content = ref('')
-const loading = ref(false)
-const error = ref('')
-const selectedImage = ref(null)
-const imagePreview = ref(null)
+const author = ref(currentUser?.name || "");
+const content = ref("");
+const loading = ref(false);
+const error = ref("");
+const selectedImage = ref(null);
+const imagePreview = ref(null);
 
 // Backend'den gelen profil fotoğrafını kullan, yoksa Dicebear avatar'ı göster
 const getUserAvatar = (user) => {
   if (user?.profilePhoto) {
-    return user.profilePhoto
+    return user.profilePhoto;
   }
   if (user?.profilePhotoPath) {
-    return user.profilePhotoPath
+    return user.profilePhotoPath;
   }
   if (user?.avatar) {
-    return user.avatar
+    return user.avatar;
   }
   if (user?.photo) {
-    return user.photo
+    return user.photo;
   }
   // Fallback: Dicebear avatar
-  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(user?.username || 'user')}`
-}
+  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(
+    user?.username || "user"
+  )}`;
+};
 
 function handleImageUpload(event) {
-  const file = event.target.files[0]
+  const file = event.target.files[0];
   if (file) {
     // File size validation (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-      error.value = 'Image size must be less than 10MB'
-      return
+      error.value = "Image size must be less than 10MB";
+      return;
     }
-    
+
     // File type validation
-    if (!file.type.startsWith('image/')) {
-      error.value = 'Please select a valid image file'
-      return
+    if (!file.type.startsWith("image/")) {
+      error.value = "Please select a valid image file";
+      return;
     }
-    
-    selectedImage.value = file
-    const reader = new FileReader()
+
+    selectedImage.value = file;
+    const reader = new FileReader();
     reader.onload = (e) => {
-      imagePreview.value = e.target.result
-    }
-    reader.readAsDataURL(file)
-    error.value = '' // Clear any previous errors
+      imagePreview.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    error.value = ""; // Clear any previous errors
   }
 }
 
 function removeImage() {
-  selectedImage.value = null
-  imagePreview.value = null
+  selectedImage.value = null;
+  imagePreview.value = null;
 }
 
 async function handleSubmit() {
   if (!content.value.trim()) {
-    error.value = 'Please fill in all fields'
-    return
+    error.value = "Please fill in all fields";
+    return;
   }
-  
-  loading.value = true
-  error.value = ''
-  
+
+  loading.value = true;
+  error.value = "";
+
   try {
     // Giriş yapan kullanıcının ID'sini kullan
-    const publisherId = currentUser?.id || 1
-    await addPost(publisherId, content.value.trim(), author.value.trim(), selectedImage.value)
-    router.push('/posts')
+    const publisherId = currentUser?.id || 1;
+    await addPost(
+      publisherId,
+      content.value.trim(),
+      author.value.trim(),
+      selectedImage.value
+    );
+    router.push("/posts");
   } catch (err) {
-    error.value = err.message || 'Failed to create post'
+    error.value = err.message || "Failed to create post";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 function goBack() {
-  router.push('/posts')
+  router.push("/posts");
 }
 
 function handleLogout() {
-  logout()
-  router.push('/')
+  logout();
+  router.push("/");
 }
 
 function viewProfile() {
   // TODO: Profile sayfasına yönlendir
-  console.log('View profile clicked')
+  console.log("View profile clicked");
 }
 </script>
 
@@ -113,9 +120,6 @@ function viewProfile() {
             <v-divider />
 
             <v-card-text class="pa-6">
-              <!-- Error Alert -->
-              <v-alert v-if="error" type="error" class="mb-4" :text="error" />
-
               <!-- Form -->
               <v-form @submit.prevent="handleSubmit">
                 <v-text-field
@@ -140,7 +144,11 @@ function viewProfile() {
                   placeholder="Share your thoughts, ideas, or experiences..."
                   auto-grow
                   counter="500"
-                  :rules="[v => v.length <= 500 || 'Content must be less than 500 characters']"
+                  :rules="[
+                    (v) =>
+                      v.length <= 500 ||
+                      'Content must be less than 500 characters',
+                  ]"
                   class="mb-4"
                 />
 
@@ -150,7 +158,7 @@ function viewProfile() {
                     <v-icon start>mdi-image</v-icon>
                     Add Photo (Optional)
                   </v-card-title>
-                  
+
                   <v-card-text class="pt-0">
                     <!-- Image Preview -->
                     <div v-if="imagePreview" class="mb-4">
@@ -160,7 +168,12 @@ function viewProfile() {
                         class="rounded"
                       />
                       <div class="d-flex justify-end mt-2">
-                        <v-btn size="small" color="error" variant="text" @click="removeImage">
+                        <v-btn
+                          size="small"
+                          color="error"
+                          variant="text"
+                          @click="removeImage"
+                        >
                           <v-icon start>mdi-delete</v-icon>
                           Remove
                         </v-btn>
@@ -188,11 +201,7 @@ function viewProfile() {
             </v-card-text>
 
             <v-card-actions class="px-6 pb-6">
-              <v-btn
-                variant="outlined"
-                @click="goBack"
-                :disabled="loading"
-              >
+              <v-btn variant="outlined" @click="goBack" :disabled="loading">
                 Cancel
               </v-btn>
 
@@ -207,31 +216,38 @@ function viewProfile() {
                 size="large"
               >
                 <v-icon start>mdi-send</v-icon>
-                {{ selectedImage ? 'Post with Image' : 'Post' }}
+                {{ selectedImage ? "Post with Image" : "Post" }}
               </v-btn>
             </v-card-actions>
           </v-card>
 
           <!-- Preview Card -->
-          <v-card v-if="content.trim()" class="mt-6" variant="tonal" color="primary">
+          <v-card
+            v-if="content.trim()"
+            class="mt-6"
+            variant="tonal"
+            color="primary"
+          >
             <v-card-title class="text-h6">
               <v-icon class="mr-2">mdi-eye</v-icon>
               Preview
             </v-card-title>
-            
+
             <v-card-text>
               <v-card elevation="0" class="pa-4">
                 <v-card-item>
                   <template v-slot:prepend>
                     <v-avatar>
-                      <v-img 
+                      <v-img
                         :src="getUserAvatar(currentUser)"
-                        :alt="(author.trim() || 'Anonymous')"
+                        :alt="author.trim() || 'Anonymous'"
                       />
                     </v-avatar>
                   </template>
 
-                  <v-card-title class="text-h6">{{ author.trim() || 'Anonymous' }}</v-card-title>
+                  <v-card-title class="text-h6">{{
+                    author.trim() || "Anonymous"
+                  }}</v-card-title>
                   <v-card-subtitle>Just now</v-card-subtitle>
                 </v-card-item>
 
@@ -241,11 +257,7 @@ function viewProfile() {
 
                 <!-- Preview Image -->
                 <v-card-text v-if="imagePreview" class="pt-0">
-                  <v-img
-                    :src="imagePreview"
-                    max-height="250"
-                    class="rounded"
-                  />
+                  <v-img :src="imagePreview" max-height="250" class="rounded" />
                 </v-card-text>
 
                 <v-card-actions>
@@ -253,7 +265,6 @@ function viewProfile() {
                     <v-icon start>mdi-thumb-up</v-icon>
                     0
                   </v-btn>
-                  
                 </v-card-actions>
               </v-card>
             </v-card-text>

@@ -8,13 +8,13 @@ export async function createPost(author, content) {
     const data = new URLSearchParams()
     data.append('author', author)
     data.append('content', content)
-    
+
     const response = await axios.post(`${API_BASE_URL}/posts`, data, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     })
-    
+
     if (response.status === 201 || response.status === 200) {
       return response.data
     } else {

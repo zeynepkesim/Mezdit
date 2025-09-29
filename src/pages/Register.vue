@@ -1,31 +1,31 @@
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { register } from '../store/auth.js'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { register } from "../store/auth.js";
 
-const router = useRouter()
+const router = useRouter();
 
-const name = ref('')
-const username = ref('')
-const password = ref('')
-const loading = ref(false)
-const error = ref('')
-const showPassword = ref(false)
+const name = ref("");
+const username = ref("");
+const password = ref("");
+const loading = ref(false);
+const error = ref("");
+const showPassword = ref(false);
 
 async function handleRegister() {
   if (!name.value || !username.value || !password.value) {
-    error.value = 'Please fill in all fields'
-    return
+    error.value = "Please fill in all fields";
+    return;
   }
-  loading.value = true
-  error.value = ''
+  loading.value = true;
+  error.value = "";
   try {
-    await register(name.value, username.value, password.value)
-    router.push('/posts')
+    await register(name.value, username.value, password.value);
+    router.push("/posts");
   } catch (err) {
-    error.value = err.message || 'Registration failed'
+    error.value = err.message || "Registration failed";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 </script>
@@ -35,7 +35,7 @@ async function handleRegister() {
     <v-row no-gutters class="fill-height">
       <!-- Left Side - Branding (62.5%) -->
       <v-col cols="12" md="8" class="d-none d-md-flex">
-        <v-sheet 
+        <v-sheet
           class="fill-height d-flex flex-column justify-center align-center text-center"
           color="primary"
           style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
@@ -50,14 +50,17 @@ async function handleRegister() {
 
       <!-- Right Side - Register Form (37.5%) -->
       <v-col cols="12" md="4">
-        <v-sheet class="fill-height d-flex align-center justify-center" color="grey-lighten-4">
+        <v-sheet
+          class="fill-height d-flex align-center justify-center"
+          color="grey-lighten-4"
+        >
           <v-card class="pa-8" width="100%" max-width="400" elevation="0">
             <div class="text-center mb-8">
               <h2 class="text-h4 mb-2">Create your account</h2>
-              <p class="text-body-1 text-medium-emphasis">It only takes a minute</p>
+              <p class="text-body-1 text-medium-emphasis">
+                It only takes a minute
+              </p>
             </div>
-
-            <v-alert v-if="error" type="error" class="mb-4" :text="error" />
 
             <v-form @submit.prevent="handleRegister">
               <v-text-field
@@ -103,8 +106,12 @@ async function handleRegister() {
               </v-btn>
 
               <div class="text-center">
-                <span class="text-medium-emphasis">Already have an account?</span>
-                <v-btn variant="text" color="primary" @click="router.push('/')">Sign In</v-btn>
+                <span class="text-medium-emphasis"
+                  >Already have an account?</span
+                >
+                <v-btn variant="text" color="primary" @click="router.push('/')"
+                  >Sign In</v-btn
+                >
               </div>
             </v-form>
           </v-card>

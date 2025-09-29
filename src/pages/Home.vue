@@ -1,8 +1,8 @@
 <script setup>
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { posts, loading, error, loadPosts, voteOnPost } from '../store/posts'
-import { getCurrentUser } from '../store/auth.js'
+import { onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { posts, loading, error, loadPosts, voteOnPost } from "../store/posts";
+import { getCurrentUser } from "../store/auth.js";
 
 const router = useRouter();
 const currentUser = getCurrentUser();
@@ -31,57 +31,56 @@ const getPostAuthorAvatar = (post) => {
 const getPostImageUrl = (post) => {
   if (post?.contentPhotoPath) {
     // Backend'den gelen path'i full URL'ye çevir
-    return `/api/images/${post.contentPhotoPath.split('/').pop()}`
+    console.log(`/api/images/${post.contentPhotoPath.split("/").pop()}`);
+    return `/api/images/${post.contentPhotoPath.split("/").pop()}`;
   }
-  return null
-}
+  return null;
+};
 
 onMounted(async () => {
   // Kullanıcı giriş yapmışsa userId ile posts al, yoksa null ile
-  await loadPosts(currentUser?.id || null)
-})
+  await loadPosts(currentUser?.id || null);
+});
 
 function goToCreatePost() {
-  router.push('/create-post')
+  router.push("/create-post");
 }
 
 function goToEditPost(postId) {
-  router.push(`/edit-post/${postId}`)
+  router.push(`/edit-post/${postId}`);
 }
 
 // Vote fonksiyonu
 async function handleVote(postId, upvoted) {
   if (!currentUser) {
-    alert('Oy vermek için giriş yapmalısınız!')
-    return
+    return;
   }
 
   try {
-    await voteOnPost(postId, currentUser.id, upvoted)
+    await voteOnPost(postId, currentUser.id, upvoted);
   } catch (error) {
-    console.error('Vote error:', error)
-    alert('Oy verirken bir hata oluştu: ' + error.message)
+    console.error("Vote error:", error);
   }
 }
 
 // Vote durum kontrolü için yardımcı fonksiyonlar
 function getVoteButtonColor(post, isUpvote) {
-  if (post.isLiked === null) return 'grey'
-  if (isUpvote && post.isLiked === true) return 'success'
-  if (!isUpvote && post.isLiked === false) return 'error'
-  return 'grey'
+  if (post.isLiked === null) return "grey";
+  if (isUpvote && post.isLiked === true) return "success";
+  if (!isUpvote && post.isLiked === false) return "error";
+  return "grey";
 }
 
 function getVoteButtonVariant(post, isUpvote) {
-  if (post.isLiked === null) return 'text'
-  if (isUpvote && post.isLiked === true) return 'flat'
-  if (!isUpvote && post.isLiked === false) return 'flat'
-  return 'text'
+  if (post.isLiked === null) return "text";
+  if (isUpvote && post.isLiked === true) return "flat";
+  if (!isUpvote && post.isLiked === false) return "flat";
+  return "text";
 }
 
 // Post sahibi kontrolü
 function isPostOwner(post) {
-  return currentUser && post.publisherId === currentUser.id
+  return currentUser && post.publisherId === currentUser.id;
 }
 </script>
 
@@ -113,9 +112,6 @@ function isPostOwner(post) {
         </v-col>
       </v-row>
 
-      <!-- Error State -->
-      <v-alert v-else-if="error" type="error" :text="error" class="mb-4" />
-
       <!-- Posts List -->
       <v-row v-else-if="posts.length" justify="center">
         <v-col cols="12" md="8">
@@ -138,12 +134,12 @@ function isPostOwner(post) {
                   class="mb-1 vote-button"
                   rounded="lg"
                 />
-                
+
                 <!-- Vote Count -->
                 <span class="text-body-2 font-weight-bold my-1 vote-count">
                   {{ post.voteCount || 0 }}
                 </span>
-                
+
                 <!-- Downvote Button -->
                 <v-btn
                   :color="getVoteButtonColor(post, false)"
@@ -177,15 +173,19 @@ function isPostOwner(post) {
 
                   <template v-slot:prepend>
                     <v-avatar>
-                      <v-img 
+                      <v-img
                         :src="getPostAuthorAvatar(post)"
                         :alt="post.publisherName"
                       />
                     </v-avatar>
                   </template>
 
-                  <v-card-title class="text-h6">{{ post.publisherName }}</v-card-title>
-                  <v-card-subtitle>{{ new Date(post.createdAt).toLocaleString() }}</v-card-subtitle>
+                  <v-card-title class="text-h6">{{
+                    post.publisherName
+                  }}</v-card-title>
+                  <v-card-subtitle>{{
+                    new Date(post.createdAt).toLocaleString()
+                  }}</v-card-subtitle>
                 </v-card-item>
 
                 <v-card-text class="text-body-1">
@@ -232,7 +232,7 @@ function isPostOwner(post) {
 
 .v-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
 }
 
 .vote-button {
@@ -245,7 +245,7 @@ function isPostOwner(post) {
 
 .vote-button:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .vote-count {

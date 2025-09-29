@@ -1,19 +1,19 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { updatePost, posts } from '../store/posts'
-import { getCurrentUser } from '../store/auth.js'
+import { ref, onMounted, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { updatePost, posts } from "../store/posts";
+import { getCurrentUser } from "../store/auth.js";
 
-const route = useRoute()
-const router = useRouter()
-const currentUser = getCurrentUser()
+const route = useRoute();
+const router = useRouter();
+const currentUser = getCurrentUser();
 
-const content = ref('')
-const username = ref('')
-const loading = ref(false)
-const postId = ref(route.params.id)
-const selectedImage = ref(null)
-const imagePreview = ref(null)
+const content = ref("");
+const username = ref("");
+const loading = ref(false);
+const postId = ref(route.params.id);
+const selectedImage = ref(null);
+const imagePreview = ref(null);
 
 const characterCount = computed(() => content.value.length);
 const isOverLimit = computed(() => characterCount.value > 500);
@@ -23,76 +23,74 @@ const currentPost = computed(() => {
   return posts.value.find((p) => p.id === parseInt(postId.value));
 });
 
-
 // Get full image URL for post images
 const getPostImageUrl = (post) => {
   if (post?.contentPhotoPath) {
-    return `/api/images/${post.contentPhotoPath.split('/').pop()}`
+    return `/api/images/${post.contentPhotoPath.split("/").pop()}`;
   }
-  return null
-}
+  return null;
+};
 
 onMounted(() => {
   if (currentPost.value) {
-    content.value = currentPost.value.contentText
-    username.value = currentPost.value.publisherName || ''
+    content.value = currentPost.value.contentText;
+    username.value = currentPost.value.publisherName || "";
   } else {
     // Post bulunamadı, ana sayfaya yönlendir
-    router.push('/posts')
+    router.push("/posts");
   }
-})
+});
 
 function handleImageUpload(event) {
-  const file = event.target.files[0]
+  const file = event.target.files[0];
   if (file) {
     // File size validation (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-      alert('Image size must be less than 10MB')
-      return
+      alert("Image size must be less than 10MB");
+      return;
     }
-    
+
     // File type validation
-    if (!file.type.startsWith('image/')) {
-      alert('Please select a valid image file')
-      return
+    if (!file.type.startsWith("image/")) {
+      alert("Please select a valid image file");
+      return;
     }
-    
-    selectedImage.value = file
-    const reader = new FileReader()
+
+    selectedImage.value = file;
+    const reader = new FileReader();
     reader.onload = (e) => {
-      imagePreview.value = e.target.result
-    }
-    reader.readAsDataURL(file)
+      imagePreview.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 }
 
 function removeImage() {
-  selectedImage.value = null
-  imagePreview.value = null
+  selectedImage.value = null;
+  imagePreview.value = null;
 }
 
 async function handleSave() {
   if (!content.value.trim() || isOverLimit.value) {
-    return
+    return;
   }
-  
-  loading.value = true
-  
+
+  loading.value = true;
+
   try {
     // Image varsa editPostWithImage, yoksa normal editPost kullan
     await updatePost(
-      parseInt(postId.value), 
-      currentUser.id, 
-      content.value.trim(), 
+      parseInt(postId.value),
+      currentUser.id,
+      content.value.trim(),
       username.value.trim(),
       selectedImage.value
-    )
-    router.push('/posts')
+    );
+    router.push("/posts");
   } catch (error) {
-    console.error('Error updating post:', error)
-    alert('Post güncellenirken bir hata oluştu: ' + error.message)
+    console.error("Error updating post:", error);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
@@ -171,7 +169,11 @@ function handleCancel() {
               />
 
               <!-- Current Image Display -->
-              <v-card v-if="getPostImageUrl(currentPost)" variant="outlined" class="mb-4">
+              <v-card
+                v-if="getPostImageUrl(currentPost)"
+                variant="outlined"
+                class="mb-4"
+              >
                 <v-card-title class="text-body-1 py-3">
                   <v-icon start>mdi-image</v-icon>
                   Current Image
@@ -194,7 +196,7 @@ function handleCancel() {
                   <v-icon start>mdi-image-plus</v-icon>
                   Update Image (Optional)
                 </v-card-title>
-                
+
                 <v-card-text class="pt-0">
                   <!-- New Image Preview -->
                   <div v-if="imagePreview" class="mb-4">
@@ -204,7 +206,12 @@ function handleCancel() {
                       class="rounded"
                     />
                     <div class="d-flex justify-end mt-2">
-                      <v-btn size="small" color="error" variant="text" @click="removeImage">
+                      <v-btn
+                        size="small"
+                        color="error"
+                        variant="text"
+                        @click="removeImage"
+                      >
                         <v-icon start>mdi-delete</v-icon>
                         Remove New Image
                       </v-btn>
@@ -269,11 +276,9 @@ function handleCancel() {
               prepend-icon="mdi-content-save"
               size="large"
             >
-              <template v-if="loading">
-                Saving...
-              </template>
+              <template v-if="loading"> Saving... </template>
               <template v-else>
-                {{ selectedImage ? 'Save with New Image' : 'Save Changes' }}
+                {{ selectedImage ? "Save with New Image" : "Save Changes" }}
               </template>
             </v-btn>
           </v-card-actions>
@@ -296,20 +301,23 @@ function handleCancel() {
               <v-card-item>
                 <template v-slot:prepend>
                   <v-avatar size="40">
-                    <v-img 
-                      :src="currentPost?.publisherPhoto || `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(username || 'anon')}`"
+                    <v-img
+                      :src="
+                        currentPost?.publisherPhoto ||
+                        `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(
+                          username || 'anon'
+                        )}`
+                      "
                       :alt="username || currentPost?.publisherName"
                     />
                   </v-avatar>
                 </template>
 
                 <v-card-title class="text-body-1 font-weight-bold">
-                  {{ username || currentPost?.publisherName || 'Your Name' }}
+                  {{ username || currentPost?.publisherName || "Your Name" }}
                 </v-card-title>
 
-                <v-card-subtitle>
-                  Updated just now
-                </v-card-subtitle>
+                <v-card-subtitle> Updated just now </v-card-subtitle>
               </v-card-item>
 
               <v-card-text class="text-body-1 pt-2">
@@ -317,16 +325,25 @@ function handleCancel() {
               </v-card-text>
 
               <!-- Preview Image - Show new image if selected, otherwise current image -->
-              <v-card-text v-if="imagePreview || getPostImageUrl(currentPost)" class="pt-0">
+              <v-card-text
+                v-if="imagePreview || getPostImageUrl(currentPost)"
+                class="pt-0"
+              >
                 <v-img
                   :src="imagePreview || getPostImageUrl(currentPost)"
                   max-height="250"
                   class="rounded"
                 />
-                <div v-if="imagePreview" class="text-caption text-medium-emphasis mt-2 text-center">
+                <div
+                  v-if="imagePreview"
+                  class="text-caption text-medium-emphasis mt-2 text-center"
+                >
                   * New image preview
                 </div>
-                <div v-else class="text-caption text-medium-emphasis mt-2 text-center">
+                <div
+                  v-else
+                  class="text-caption text-medium-emphasis mt-2 text-center"
+                >
                   * Current image
                 </div>
               </v-card-text>

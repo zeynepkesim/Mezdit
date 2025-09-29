@@ -11,6 +11,9 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import '@mdi/font/css/materialdesignicons.css'
 
+import VueToast from "vue-toast-notification"
+import "vue-toast-notification/dist/theme-sugar.css" // pick theme: 'default', 'sugar', 'bootstrap'
+
 const vuetify = createVuetify({
   components,
   directives,
@@ -32,7 +35,17 @@ const vuetify = createVuetify({
   }
 })
 
-// Auth'u başlat
+// Auth
 initializeAuth()
 
-createApp(App).use(router).use(vuetify).mount('#app')
+// Create app
+const app = createApp(App)
+
+app.use(router)
+app.use(vuetify)
+
+app.use(VueToast, {
+  duration: 3000,
+})
+
+app.mount('#app')
