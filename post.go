@@ -3,10 +3,15 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 )
@@ -36,6 +41,7 @@ type Post struct {
 	ContentPhotoID   *int      `json:"contentPhotoId"`
 	ContentPhotoPath *string   `json:"contentPhotoPath"` // JOIN from images table
 	VoteCount        int       `json:"voteCount"`
+	IsLiked          *bool     `json:"isLiked"`          // User's vote status: true=liked, false=disliked, null=no vote
 	CreatedAt        time.Time `json:"createdAt"`
 }
 
@@ -289,7 +295,7 @@ func VotePost(postID int, userID int, upvoted bool) (*Post, error) {
 	if postID <= 0 {
 		return nil, fmt.Errorf("invalid post id")
 	}
-	
+
 	if userID <= 0 {
 		return nil, fmt.Errorf("invalid user id")
 	}
@@ -330,36 +336,53 @@ func VotePost(postID int, userID int, upvoted bool) (*Post, error) {
 		return nil, fmt.Errorf("database error occurred")
 	}
 
-	// Calculate vote count change
+	// Calculate vote count change and decide action
 	var voteCountDelta int = 0
+	var shouldDeleteVote bool = false
+	var shouldUpdateVote bool = false
+	var shouldInsertVote bool = false
 
 	if previousVote.Valid {
 		// User has voted before
 		if previousVote.Bool == upvoted {
-			// Same vote, no change needed
+			// Same vote (toggle off) - remove the vote
+			shouldDeleteVote = true
+			if upvoted {
+				voteCountDelta = -1 // Remove upvote
+			} else {
+				voteCountDelta = 1 // Remove downvote
+			}
 		} else {
-			// Different vote, cancel previous and apply new
+			// Different vote - change the vote
+			shouldUpdateVote = true
 			if previousVote.Bool {
 				voteCountDelta = -2 // Remove upvote, add downvote
 			} else {
 				voteCountDelta = 2 // Remove downvote, add upvote
 			}
 		}
-		
-		// Update existing vote
-		_, err = tx.Exec(
-			"UPDATE user_votes SET upvoted = $1 WHERE post_id = $2 AND user_id = $3",
-			upvoted, postID, userID,
-		)
 	} else {
 		// New vote
+		shouldInsertVote = true
 		if upvoted {
 			voteCountDelta = 1
 		} else {
 			voteCountDelta = -1
 		}
-		
-		// Insert new vote
+	}
+
+	// Execute the appropriate database operation
+	if shouldDeleteVote {
+		_, err = tx.Exec(
+			"DELETE FROM user_votes WHERE post_id = $1 AND user_id = $2",
+			postID, userID,
+		)
+	} else if shouldUpdateVote {
+		_, err = tx.Exec(
+			"UPDATE user_votes SET upvoted = $1 WHERE post_id = $2 AND user_id = $3",
+			upvoted, postID, userID,
+		)
+	} else if shouldInsertVote {
 		_, err = tx.Exec(
 			"INSERT INTO user_votes (post_id, user_id, upvoted) VALUES ($1, $2, $3)",
 			postID, userID, upvoted,
@@ -381,28 +404,31 @@ func VotePost(postID int, userID int, upvoted bool) (*Post, error) {
 		}
 	}
 
-	// Get updated post with JOIN to get publisher photo and content photo path
+	// Get updated post with isLiked status
 	var post Post
 	var contentPhotoIDNull sql.NullInt32
 	var contentPhotoPath sql.NullString
 	var publisherPhoto sql.NullString
+	var isLiked sql.NullBool
 
 	query := `
-		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text, 
+		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
 			   p.content_photo_id, p.vote_count, p.created_at,
 			   u.profile_photo as publisher_photo,
-			   i.path as content_photo_path
+			   i.path as content_photo_path,
+			   uv.upvoted as is_liked
 		FROM posts p
 		JOIN users u ON p.publisher_id = u.id
 		LEFT JOIN images i ON p.content_photo_id = i.id
+		LEFT JOIN user_votes uv ON p.id = uv.post_id AND uv.user_id = $2
 		WHERE p.id = $1`
 
-	err = tx.QueryRow(query, postID).Scan(
+	err = tx.QueryRow(query, postID, userID).Scan(
 		&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
 		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
-		&publisherPhoto, &contentPhotoPath,
+		&publisherPhoto, &contentPhotoPath, &isLiked,
 	)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve updated post")
 	}
@@ -417,6 +443,9 @@ func VotePost(postID int, userID int, upvoted bool) (*Post, error) {
 	if contentPhotoPath.Valid {
 		post.ContentPhotoPath = &contentPhotoPath.String
 	}
+	if isLiked.Valid {
+		post.IsLiked = &isLiked.Bool
+	}
 
 	err = tx.Commit()
 	if err != nil {
@@ -427,17 +456,41 @@ func VotePost(postID int, userID int, upvoted bool) (*Post, error) {
 }
 
 func GetPosts() ([]Post, error) {
-	query := `
-		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text, 
-			   p.content_photo_id, p.vote_count, p.created_at,
-			   u.profile_photo as publisher_photo,
-			   i.path as content_photo_path
-		FROM posts p
-		JOIN users u ON p.publisher_id = u.id
-		LEFT JOIN images i ON p.content_photo_id = i.id
-		ORDER BY p.created_at DESC`
+	return GetPostsForUser(0) // 0 means no user context
+}
 
-	rows, err := db.Query(query)
+func GetPostsForUser(userID int) ([]Post, error) {
+	var query string
+	var args []interface{}
+
+	if userID > 0 {
+		query = `
+			SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
+				   p.content_photo_id, p.vote_count, p.created_at,
+				   u.profile_photo as publisher_photo,
+				   i.path as content_photo_path,
+				   uv.upvoted as is_liked
+			FROM posts p
+			JOIN users u ON p.publisher_id = u.id
+			LEFT JOIN images i ON p.content_photo_id = i.id
+			LEFT JOIN user_votes uv ON p.id = uv.post_id AND uv.user_id = $1
+			ORDER BY p.created_at DESC`
+		args = []interface{}{userID}
+	} else {
+		query = `
+			SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
+				   p.content_photo_id, p.vote_count, p.created_at,
+				   u.profile_photo as publisher_photo,
+				   i.path as content_photo_path,
+				   NULL as is_liked
+			FROM posts p
+			JOIN users u ON p.publisher_id = u.id
+			LEFT JOIN images i ON p.content_photo_id = i.id
+			ORDER BY p.created_at DESC`
+		args = []interface{}{}
+	}
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve posts")
 	}
@@ -449,11 +502,12 @@ func GetPosts() ([]Post, error) {
 		var publisherPhoto sql.NullString
 		var contentPhotoIDNull sql.NullInt32
 		var contentPhotoPath sql.NullString
+		var isLiked sql.NullBool
 
 		err := rows.Scan(
 			&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
 			&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
-			&publisherPhoto, &contentPhotoPath,
+			&publisherPhoto, &contentPhotoPath, &isLiked,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process post data")
@@ -469,6 +523,9 @@ func GetPosts() ([]Post, error) {
 		if contentPhotoPath.Valid {
 			post.ContentPhotoPath = &contentPhotoPath.String
 		}
+		if isLiked.Valid {
+			post.IsLiked = &isLiked.Bool
+		}
 
 		posts = append(posts, post)
 	}
@@ -482,4 +539,338 @@ func GetPosts() ([]Post, error) {
 	}
 
 	return posts, nil
+}
+
+func EditPost(postID int, userID int, newContentText string, newPublisherName string) (*Post, error) {
+	if postID <= 0 {
+		return nil, fmt.Errorf("invalid post id")
+	}
+
+	if userID <= 0 {
+		return nil, fmt.Errorf("invalid user id")
+	}
+
+	if newContentText == "" {
+		return nil, fmt.Errorf("content text cannot be empty")
+	}
+
+	// If publisherName is empty, set to Anonymous
+	if newPublisherName == "" {
+		newPublisherName = "Anonymous"
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start transaction")
+	}
+	defer tx.Rollback()
+
+	// Check if post exists and get its publisher_id
+	var publisherID int
+	err = tx.QueryRow("SELECT publisher_id FROM posts WHERE id = $1", postID).Scan(&publisherID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("post not found")
+		}
+		return nil, fmt.Errorf("database error occurred")
+	}
+
+	// Security check: verify that the user is the owner of the post
+	if publisherID != userID {
+		return nil, fmt.Errorf("you are not the owner of this post")
+	}
+
+	// Check if user exists
+	var exists bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", userID).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("database error occurred")
+	}
+	if !exists {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Update the post content and publisher name
+	_, err = tx.Exec(
+		"UPDATE posts SET content_text = $1, publisher_name = $2 WHERE id = $3",
+		newContentText, newPublisherName, postID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update post")
+	}
+
+	// Get updated post with all details including isLiked for the user
+	var post Post
+	var contentPhotoIDNull sql.NullInt32
+	var contentPhotoPath sql.NullString
+	var publisherPhoto sql.NullString
+	var isLiked sql.NullBool
+
+	query := `
+		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
+			   p.content_photo_id, p.vote_count, p.created_at,
+			   u.profile_photo as publisher_photo,
+			   i.path as content_photo_path,
+			   uv.upvoted as is_liked
+		FROM posts p
+		JOIN users u ON p.publisher_id = u.id
+		LEFT JOIN images i ON p.content_photo_id = i.id
+		LEFT JOIN user_votes uv ON p.id = uv.post_id AND uv.user_id = $2
+		WHERE p.id = $1`
+
+	err = tx.QueryRow(query, postID, userID).Scan(
+		&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
+		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
+		&publisherPhoto, &contentPhotoPath, &isLiked,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve updated post")
+	}
+
+	if publisherPhoto.Valid {
+		post.PublisherPhoto = &publisherPhoto.String
+	}
+	if contentPhotoIDNull.Valid {
+		contentPhotoIDInt := int(contentPhotoIDNull.Int32)
+		post.ContentPhotoID = &contentPhotoIDInt
+	}
+	if contentPhotoPath.Valid {
+		post.ContentPhotoPath = &contentPhotoPath.String
+	}
+	if isLiked.Valid {
+		post.IsLiked = &isLiked.Bool
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, fmt.Errorf("failed to save changes")
+	}
+
+	return &post, nil
+}
+
+func SaveImage(file multipart.File, filename string) (*Image, error) {
+	// Get file extension and validate
+	ext := filepath.Ext(filename)
+	ext = strings.ToLower(ext)
+
+	// Check allowed file types
+	allowedTypes := map[string]bool{
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+	}
+
+	if !allowedTypes[ext] {
+		return nil, fmt.Errorf("invalid file type. Only JPG, JPEG, and PNG files are allowed")
+	}
+
+	// Generate UUID for unique filename
+	imageUUID := uuid.New().String()
+
+	// Create unique filename: UUID_originalname
+	uniqueFilename := fmt.Sprintf("%s_%s", imageUUID, filename)
+	filePath := filepath.Join("images", uniqueFilename)
+
+	// Create the file
+	dst, err := os.Create(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file: %v", err)
+	}
+	defer dst.Close()
+
+	// Copy uploaded file to destination
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save file: %v", err)
+	}
+
+	// Insert image record to database
+	query := `
+		INSERT INTO images (path, created_at)
+		VALUES ($1, $2)
+		RETURNING id, post_id, path, created_at`
+
+	var image Image
+	var postIDNull sql.NullInt32
+
+	err = db.QueryRow(query, filePath, time.Now()).Scan(
+		&image.ID, &postIDNull, &image.Path, &image.CreatedAt,
+	)
+
+	if err != nil {
+		// Clean up file if database insert fails
+		os.Remove(filePath)
+		return nil, fmt.Errorf("failed to save image record: %v", err)
+	}
+
+	if postIDNull.Valid {
+		postIDInt := int(postIDNull.Int32)
+		image.PostID = &postIDInt
+	}
+
+	return &image, nil
+}
+
+func UpdateImagePostID(imageID int, postID int) error {
+	query := `UPDATE images SET post_id = $1 WHERE id = $2`
+	_, err := db.Exec(query, postID, imageID)
+	if err != nil {
+		return fmt.Errorf("failed to update image post_id: %v", err)
+	}
+	return nil
+}
+
+func EditPostWithImage(postID int, userID int, newContentText string, newPublisherName string, imageFile multipart.File, imageFilename string) (*Post, error) {
+	if postID <= 0 {
+		return nil, fmt.Errorf("invalid post id")
+	}
+
+	if userID <= 0 {
+		return nil, fmt.Errorf("invalid user id")
+	}
+
+	if newContentText == "" {
+		return nil, fmt.Errorf("content text cannot be empty")
+	}
+
+	// If publisherName is empty, set to Anonymous
+	if newPublisherName == "" {
+		newPublisherName = "Anonymous"
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start transaction")
+	}
+	defer tx.Rollback()
+
+	// Check if post exists and get its publisher_id and current image
+	var publisherID int
+	var currentImageID sql.NullInt32
+	err = tx.QueryRow("SELECT publisher_id, content_photo_id FROM posts WHERE id = $1", postID).Scan(&publisherID, &currentImageID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("post not found")
+		}
+		return nil, fmt.Errorf("database error occurred")
+	}
+
+	// Security check: verify that the user is the owner of the post
+	if publisherID != userID {
+		return nil, fmt.Errorf("you are not the owner of this post")
+	}
+
+	// Check if user exists
+	var exists bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", userID).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("database error occurred")
+	}
+	if !exists {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	var newImageID *int
+
+	// Handle image update if provided
+	if imageFile != nil && imageFilename != "" {
+		// Save the new image
+		savedImage, err := SaveImage(imageFile, imageFilename)
+		if err != nil {
+			return nil, fmt.Errorf("failed to save image: %v", err)
+		}
+
+		// Update the image to link with this post
+		_, err = tx.Exec("UPDATE images SET post_id = $1 WHERE id = $2", postID, savedImage.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to link image to post")
+		}
+
+		newImageID = &savedImage.ID
+
+		// Delete old image file if it exists
+		if currentImageID.Valid {
+			var oldImagePath string
+			err = tx.QueryRow("SELECT path FROM images WHERE id = $1", currentImageID.Int32).Scan(&oldImagePath)
+			if err == nil && oldImagePath != "" {
+				// Delete old image file from filesystem
+				os.Remove(oldImagePath)
+				// Delete old image record from database
+				_, err = tx.Exec("DELETE FROM images WHERE id = $1", currentImageID.Int32)
+				if err != nil {
+					// Log the error but don't fail the transaction
+					fmt.Printf("Warning: failed to delete old image record: %v\n", err)
+				}
+			}
+		}
+	}
+
+	// Update the post content, publisher name, and image if provided
+	var updateQuery string
+	var updateArgs []interface{}
+
+	if newImageID != nil {
+		updateQuery = "UPDATE posts SET content_text = $1, publisher_name = $2, content_photo_id = $3 WHERE id = $4"
+		updateArgs = []interface{}{newContentText, newPublisherName, *newImageID, postID}
+	} else {
+		updateQuery = "UPDATE posts SET content_text = $1, publisher_name = $2 WHERE id = $3"
+		updateArgs = []interface{}{newContentText, newPublisherName, postID}
+	}
+
+	_, err = tx.Exec(updateQuery, updateArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update post")
+	}
+
+	// Get updated post with all details including isLiked for the user
+	var post Post
+	var contentPhotoIDNull sql.NullInt32
+	var contentPhotoPath sql.NullString
+	var publisherPhoto sql.NullString
+	var isLiked sql.NullBool
+
+	query := `
+		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
+			   p.content_photo_id, p.vote_count, p.created_at,
+			   u.profile_photo as publisher_photo,
+			   i.path as content_photo_path,
+			   uv.upvoted as is_liked
+		FROM posts p
+		JOIN users u ON p.publisher_id = u.id
+		LEFT JOIN images i ON p.content_photo_id = i.id
+		LEFT JOIN user_votes uv ON p.id = uv.post_id AND uv.user_id = $2
+		WHERE p.id = $1`
+
+	err = tx.QueryRow(query, postID, userID).Scan(
+		&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
+		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
+		&publisherPhoto, &contentPhotoPath, &isLiked,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve updated post")
+	}
+
+	if publisherPhoto.Valid {
+		post.PublisherPhoto = &publisherPhoto.String
+	}
+	if contentPhotoIDNull.Valid {
+		contentPhotoIDInt := int(contentPhotoIDNull.Int32)
+		post.ContentPhotoID = &contentPhotoIDInt
+	}
+	if contentPhotoPath.Valid {
+		post.ContentPhotoPath = &contentPhotoPath.String
+	}
+	if isLiked.Valid {
+		post.IsLiked = &isLiked.Bool
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, fmt.Errorf("failed to save changes")
+	}
+
+	return &post, nil
 }

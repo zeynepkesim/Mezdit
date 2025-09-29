@@ -89,7 +89,8 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 ### Posts
 
 - `GET /posts` — Returns all posts (newest → oldest).
-  - Response 200
+  - Optional Query Parameter: `userId` — Get posts with user's vote status
+  - Response 200 (without userId)
     ```json
     {"success": true, "data": [
       {
@@ -101,10 +102,32 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
         "contentPhotoId": null,
         "contentPhotoPath": null,
         "voteCount": 5,
+        "isLiked": null,
         "createdAt": "2023-12-01T10:00:00Z"
       }
     ]}
     ```
+  - Response 200 (with userId)
+    ```json
+    {"success": true, "data": [
+      {
+        "id": 1,
+        "publisherId": 2,
+        "publisherName": "John Doe",
+        "publisherPhoto": null,
+        "contentText": "Hello world!",
+        "contentPhotoId": null,
+        "contentPhotoPath": null,
+        "voteCount": 5,
+        "isLiked": true,
+        "createdAt": "2023-12-01T10:00:00Z"
+      }
+    ]}
+    ```
+  - **isLiked Values**:
+    - `true`: User has liked (upvoted) the post
+    - `false`: User has disliked (downvoted) the post
+    - `null`: User hasn't voted or userId not provided
   - No posts: `{"success": true, "data": []}`
 
 - `POST /posts` — Creates a new post.
@@ -124,6 +147,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "contentPhotoId": null,
       "contentPhotoPath": null,
       "voteCount": 0,
+      "isLiked": null,
       "createdAt": "2023-12-01T10:00:00Z"
     }}
     ```
@@ -136,14 +160,165 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     {"success": false, "error": {"code": "invalid_publisher", "message": "Publisher user does not exist"}}
     ```
 
+- `POST /posts/edit` — Edit existing post (owner only).
+  - Request body
+    ```json
+    {"postId": 1, "userId": 2, "contentText": "Updated content text", "publisherName": "New Display Name"}
+    ```
+  - **Optional Fields**:
+    - `publisherName`: Updates the display name (defaults to "Anonymous" if empty or omitted)
+  - **Security**: Only the post owner (publisher) can edit their posts
+  - Response 200 (Success): Returns updated post with current data
+    ```json
+    {"success": true, "data": {
+      "id": 1,
+      "publisherId": 2,
+      "publisherName": "New Display Name",
+      "publisherPhoto": null,
+      "contentText": "Updated content text",
+      "contentPhotoId": null,
+      "contentPhotoPath": null,
+      "voteCount": 5,
+      "isLiked": true,
+      "createdAt": "2023-12-01T10:00:00Z"
+    }}
+    ```
+  - Response 403 (Not Owner)
+    ```json
+    {"success": false, "error": {"code": "not_post_owner", "message": "You are not the owner of this post"}}
+    ```
+  - Response 404 (Post Not Found)
+    ```json
+    {"success": false, "error": {"code": "post_not_found", "message": "Post not found"}}
+    ```
+  - Response 400 (User Not Found)
+    ```json
+    {"success": false, "error": {"code": "user_not_found", "message": "User not found"}}
+    ```
+  - Response 400 (Validation Error)
+    ```json
+    {"success": false, "error": {"code": "validation_error", "message": "Content text cannot be empty"}}
+    ```
+
+- `POST /posts/edit-with-image` — Edit existing post with image update capability (owner only).
+  - Content-Type: `multipart/form-data`
+  - Form fields:
+    - `postId`: Post ID (required)
+    - `userId`: User ID (required)
+    - `contentText`: Updated post content (required)
+    - `publisherName`: Updated display name (optional, defaults to "Anonymous")
+    - `image`: New image file (optional, only JPG/JPEG/PNG allowed)
+  - **Image Handling**:
+    - If image is provided, it replaces the existing image
+    - Old image file is automatically deleted
+    - Same file type validation as other image uploads
+  - **Security**: Only the post owner (publisher) can edit their posts
+  - Response 200 (Success): Returns updated post with current data
+    ```json
+    {"success": true, "data": {
+      "id": 1,
+      "publisherId": 2,
+      "publisherName": "Updated Name",
+      "publisherPhoto": null,
+      "contentText": "Updated content with new image",
+      "contentPhotoId": 5,
+      "contentPhotoPath": "images/uuid_newimage.jpg",
+      "voteCount": 5,
+      "isLiked": true,
+      "createdAt": "2023-12-01T10:00:00Z"
+    }}
+    ```
+  - Response 403 (Not Owner)
+    ```json
+    {"success": false, "error": {"code": "not_post_owner", "message": "You are not the owner of this post"}}
+    ```
+  - Response 404 (Post Not Found)
+    ```json
+    {"success": false, "error": {"code": "post_not_found", "message": "Post not found"}}
+    ```
+  - Response 400 (User Not Found)
+    ```json
+    {"success": false, "error": {"code": "user_not_found", "message": "User not found"}}
+    ```
+  - Response 400 (Invalid File Type)
+    ```json
+    {"success": false, "error": {"code": "invalid_file_type", "message": "invalid file type. Only JPG, JPEG, and PNG files are allowed"}}
+    ```
+  - Response 400 (Validation Error)
+    ```json
+    {"success": false, "error": {"code": "validation_error", "message": "Content text cannot be empty"}}
+    ```
+
+- `POST /posts/upload` — Create post with image upload.
+  - Content-Type: `multipart/form-data`
+  - Form fields:
+    - `publisherId`: User ID (required)
+    - `publisherName`: Display name (optional, defaults to "Anonymous")
+    - `contentText`: Post content (required)
+    - `image`: Image file (optional, only JPG/JPEG/PNG allowed)
+  - Response 201 (Success): Returns created post with image data
+    ```json
+    {"success": true, "data": {
+      "id": 8,
+      "publisherId": 122,
+      "publisherName": "Image Tester",
+      "publisherPhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=122",
+      "contentText": "Post with image!",
+      "contentPhotoId": 2,
+      "contentPhotoPath": "images/uuid_filename.jpg",
+      "voteCount": 0,
+      "isLiked": null,
+      "createdAt": "2025-09-28T18:29:45.017517Z"
+    }}
+    ```
+  - **Image Processing**: Images are saved with UUID_originalname format in `/images/` directory
+  - **File Type Validation**: Only JPG, JPEG, and PNG files are allowed (case-insensitive)
+  - **Static Access**: Images accessible via `GET /images/{filename}`
+
+- `POST /upload` — Standalone image upload.
+  - Content-Type: `multipart/form-data`
+  - Form fields:
+    - `image`: Image file (required, only JPG/JPEG/PNG allowed)
+  - Response 200 (Success): Returns image data
+    ```json
+    {"success": true, "data": {
+      "id": 1,
+      "postId": null,
+      "path": "images/uuid_filename.jpg",
+      "createdAt": "2025-09-28T18:29:39.001133Z"
+    }}
+    ```
+  - Response 400 (Invalid File Type)
+    ```json
+    {"success": false, "error": {"code": "invalid_file_type", "message": "invalid file type. Only JPG, JPEG, and PNG files are allowed"}}
+    ```
+
 ### Voting
 
-- `POST /vote` — Upvote/Downvote.
+- `POST /vote` — Upvote/Downvote with toggle functionality.
   - Request body
     ```json
     {"postId": 1, "userId": 2, "upvoted": true}
     ```
-  - Response 200 (Success): Same as post creation response with updated voteCount
+  - **Toggle Behavior**:
+    - If user hasn't voted: Creates new vote
+    - If user votes same type again: Removes the vote (toggle off)
+    - If user votes different type: Changes the vote
+  - Response 200 (Success): Returns updated post with current vote status
+    ```json
+    {"success": true, "data": {
+      "id": 1,
+      "publisherId": 2,
+      "publisherName": "John Doe",
+      "publisherPhoto": null,
+      "contentText": "Hello world!",
+      "contentPhotoId": null,
+      "contentPhotoPath": null,
+      "voteCount": 1,
+      "isLiked": true,
+      "createdAt": "2023-12-01T10:00:00Z"
+    }}
+    ```
   - Response 404 (Post Not Found)
     ```json
     {"success": false, "error": {"code": "post_not_found", "message": "Post not found"}}
@@ -170,6 +345,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 ### Common Error Examples
 - **Invalid Content-Type**: `{"success": false, "error": {"code": "invalid_content_type", "message": "Content-Type must be application/json"}}`
 - **Invalid JSON**: `{"success": false, "error": {"code": "invalid_json", "message": "Request body is not valid JSON"}}`
+- **Invalid File Type**: `{"success": false, "error": {"code": "invalid_file_type", "message": "invalid file type. Only JPG, JPEG, and PNG files are allowed"}}`
 - **Method Not Allowed**: `{"success": false, "error": {"code": "method_not_allowed", "message": "Only GET and POST methods are allowed"}}`
 - **Server Error**: `{"success": false, "error": {"code": "server_error", "message": "An internal server error occurred"}}`
 
@@ -180,8 +356,12 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 - **Auto Profile Photos**: Automatic DiceBear avatar generation for all users  
 - **Image Support**: Ready for post images (images table linked to posts)
 - **Custom Publisher Names**: Users can post with different display names
-- **Voting System**: Each user can vote on a post only once
-- **Vote Logic**: If a different vote type is sent to the same post, the previous vote is cancelled (net `voteCount` accordingly changes and can be negative)
+- **Enhanced Voting System**: Toggle-based voting with user context
+- **Vote States**: Each user can like (upvote), dislike (downvote), or have no vote on posts
+- **Toggle Logic**: Same vote removes it, different vote changes it
+- **User Vote Context**: Posts include `isLiked` field showing user's current vote status
+- **Post Editing**: Users can edit their own posts with ownership validation
+- **Image Upload**: Support for image uploads with unique UUID naming, file type validation (JPG/JPEG/PNG only), and static file serving
 - **Sorting**: Posts are sorted by creation date (newest first)
 - **JOIN Queries**: Efficient data retrieval with publisher names and profile photos
 - **Transaction Support**: ACID compliance for vote operations
@@ -205,8 +385,11 @@ curl -X POST \
 # Get user info
 curl http://localhost:8080/users/john_doe
 
-# List all posts
+# List all posts (without user context)
 curl http://localhost:8080/posts
+
+# List posts with user's vote status
+curl "http://localhost:8080/posts?userId=1"
 
 # Create post with custom name
 curl -X POST \
@@ -220,6 +403,56 @@ curl -X POST \
   -d '{"publisherId":1, "contentText":"Anonymous post!"}' \
   http://localhost:8080/posts
 
+# Edit a post (only owner can edit)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"postId":1, "userId":2, "contentText":"Updated post content", "publisherName":"New Display Name"}' \
+  http://localhost:8080/posts/edit
+
+# Edit post without publisherName (defaults to Anonymous)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"postId":1, "userId":2, "contentText":"Updated content only"}' \
+  http://localhost:8080/posts/edit
+
+# Edit post with image update
+curl -X POST \
+  -F "postId=1" \
+  -F "userId=2" \
+  -F "contentText=Updated post content with new image" \
+  -F "publisherName=Updated Display Name" \
+  -F "image=@newphoto.jpg" \
+  http://localhost:8080/posts/edit-with-image
+
+# Edit post with image but without publisherName (defaults to Anonymous)
+curl -X POST \
+  -F "postId=1" \
+  -F "userId=2" \
+  -F "contentText=Updated content with new image" \
+  -F "image=@newphoto.jpg" \
+  http://localhost:8080/posts/edit-with-image
+
+# Edit post text only (without changing image)
+curl -X POST \
+  -F "postId=1" \
+  -F "userId=2" \
+  -F "contentText=Updated text content only" \
+  -F "publisherName=Updated Name" \
+  http://localhost:8080/posts/edit-with-image
+
+# Upload standalone image
+curl -X POST \
+  -F "image=@photo.jpg" \
+  http://localhost:8080/upload
+
+# Create post with image upload
+curl -X POST \
+  -F "publisherId=1" \
+  -F "publisherName=Image Publisher" \
+  -F "contentText=Check out this image!" \
+  -F "image=@photo.jpg" \
+  http://localhost:8080/posts/upload
+
 # Upvote a post
 curl -X POST \
   -H "Content-Type: application/json" \
@@ -230,6 +463,12 @@ curl -X POST \
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"postId":1, "userId":4, "upvoted": false}' \
+  http://localhost:8080/vote
+
+# Toggle vote off (if user already voted, same vote removes it)
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"postId":1, "userId":4, "upvoted": true}' \
   http://localhost:8080/vote
 
 # Example error responses
