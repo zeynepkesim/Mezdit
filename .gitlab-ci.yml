@@ -1,0 +1,38 @@
+stages:
+  - test
+  - build
+  - run
+
+variables:
+  GO_VERSION: "1.23" # change if you use another Go version
+  GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
+
+before_script:
+  - export PATH=$PATH:/usr/local/go/bin
+  - go version
+
+# Run unit tests
+test:
+  stage: test
+  image: golang:${GO_VERSION}
+  script:
+    - go mod download
+    - go test -v ./...
+
+# Build binary
+build:
+  stage: build
+  image: golang:${GO_VERSION}
+  script:
+    - go mod download
+    - go build -o myapp .
+  artifacts:
+    paths:
+      - myapp
+
+# Run the application (for review apps or deployments)
+run:
+  stage: run
+  image: golang:${GO_VERSION}
+  script:
+    - ./myapp
