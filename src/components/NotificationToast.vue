@@ -1,13 +1,13 @@
 <script setup>
-import { useNotifications } from '../composables/notifications'
+import { useNotifications } from "../composables/notifications";
 
-const { notifications, removeNotification } = useNotifications()
+const { notifications, removeNotification } = useNotifications();
 </script>
 
 <template>
   <div class="toast-container">
-    <div 
-      v-for="notification in notifications" 
+    <div
+      v-for="notification in notifications"
       :key="notification.id"
       class="toast"
       :class="notification.type"
