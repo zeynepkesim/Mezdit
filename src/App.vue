@@ -73,7 +73,6 @@ function viewProfile() {
         Create Post
       </v-btn>
 
-      <!-- User Menu - Sadece Avatar -->
       <v-menu>
         <template v-slot:activator="{ props }">
           <v-btn v-bind="props" icon size="large" class="user-avatar-btn">
@@ -87,7 +86,6 @@ function viewProfile() {
         </template>
 
         <v-list min-width="200">
-          <!-- User Info Section -->
           <v-list-item class="px-4 py-3">
             <template v-slot:prepend>
               <v-avatar size="48">
@@ -119,19 +117,18 @@ function viewProfile() {
       </v-menu>
     </v-app-bar>
 
-    <!-- Main Content -->
     <v-main v-if="!isLoginPage">
       <v-container>
         <router-view />
       </v-container>
     </v-main>
 
-    <!-- Login Page - Full Screen -->
     <v-main v-else class="pa-0">
       <router-view />
     </v-main>
-
-    <NotificationToast />
+    <!--
+   <NotificationToast />
+  -->
   </v-app>
 </template>
 
