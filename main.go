@@ -18,9 +18,6 @@ func main() {
 	http.HandleFunc("/login", handlers.LoginHandler)
 	http.HandleFunc("/register", handlers.RegisterHandler)
 
-	// User endpoints
-	http.HandleFunc("/users/", handlers.UserHandler) // GET /users/{username}
-
 	// Post endpoints
 	http.HandleFunc("/posts", handlers.PostsHandler)
 	http.HandleFunc("/posts/edit", handlers.EditPostHandler)
@@ -48,6 +45,5 @@ func main() {
 	fmt.Println("  POST /posts/upload")
 	fmt.Println("  POST /upload")
 	fmt.Println("  POST /vote")
-	fmt.Println("  GET  /users/{username}")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
