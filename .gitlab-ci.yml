@@ -8,7 +8,7 @@ run_dev_server:
     - npm install
     - npm run dev &
     - sleep 10
-    - curl --silent --fail http://localhost:5173 || exit 1 #if it fails throw error on gitlaba.
+    - curl --silent --fail http://localhost:5173 || exit 1 #if it fails throw error on gitlab
   environment:
     name: development
     url: http://localhost:5173

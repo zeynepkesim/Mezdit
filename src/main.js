@@ -45,7 +45,6 @@ app.use(router)
 app.use(vuetify)
 
 app.use(VueToast, {
-  duration: 3000,
 })
 
 app.mount('#app')
