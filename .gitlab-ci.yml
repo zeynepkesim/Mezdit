@@ -1,38 +1,36 @@
+# This file is a template, and might need editing before it works on your project.
+# You can copy and paste this template into a new `.gitlab-ci.yml` file.
+# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
+#
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/development/cicd/templates/
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Go.gitlab-ci.yml
+
+image: golang:latest
+
 stages:
   - test
   - build
-  - run
+  - deploy
 
-variables:
-  GO_VERSION: "1.25" # change if you use another Go version
-  GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
-
-before_script:
-  - export PATH=$PATH:/usr/local/go/bin
-  - go version
-
-# Run unit tests
-test:
+format:
   stage: test
-  image: golang:${GO_VERSION}
   script:
-    - go mod download
-    - go test -v ./...
+    - go fmt $(go list ./... | grep -v /vendor/)
+    - go vet $(go list ./... | grep -v /vendor/)
+    - go test -race $(go list ./... | grep -v /vendor/)
 
-# Build binary
-build:
+compile:
   stage: build
-  image: golang:${GO_VERSION}
   script:
-    - go mod download
-    - go build -o myapp .
+    - mkdir -p mybinaries
+    - go build -o mybinaries ./...
   artifacts:
     paths:
-      - myapp
+      - mybinaries
 
-# Run the application (for review apps or deployments)
-run:
-  stage: run
-  image: golang:${GO_VERSION}
-  script:
-    - ./myapp
+deploy:
+  stage: deploy
+  script: echo "Define your deployment script!"
+  environment: production
