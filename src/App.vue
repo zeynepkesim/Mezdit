@@ -38,11 +38,6 @@ function handleLogout() {
   logout();
   router.push("/");
 }
-
-function viewProfile() {
-  // TODO: Profile sayfasına yönlendir
-  console.log("View profile clicked");
-}
 </script>
 
 <template>
@@ -104,11 +99,6 @@ function viewProfile() {
           </v-list-item>
 
           <v-divider />
-
-          <!-- Menu Actions -->
-          <v-list-item @click="viewProfile" prepend-icon="mdi-account">
-            <v-list-item-title>View Profile</v-list-item-title>
-          </v-list-item>
 
           <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
             <v-list-item-title>Logout</v-list-item-title>

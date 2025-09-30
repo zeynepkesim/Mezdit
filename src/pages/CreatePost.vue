@@ -99,11 +99,6 @@ function handleLogout() {
   logout();
   router.push("/");
 }
-
-function viewProfile() {
-  // TODO: Profile sayfasına yönlendir
-  console.log("View profile clicked");
-}
 </script>
 
 <template>
