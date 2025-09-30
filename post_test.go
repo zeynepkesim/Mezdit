@@ -456,7 +456,7 @@ func TestEditPostWithMockData(t *testing.T) {
 	//test pipeliennow.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			post, err := mockEditPost(tt.postID, tt.userID, tt.newContentText, tt.newPublisherName, tt.contentPhotoID)
+			post, err := mockEditPost(0, tt.userID, tt.newContentText, tt.newPublisherName, tt.contentPhotoID)
 
 			if tt.wantError {
 				if err == nil {
