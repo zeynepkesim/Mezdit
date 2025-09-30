@@ -39,14 +39,15 @@ async function handleLogin() {
         <v-sheet
           class="fill-height d-flex flex-column justify-center align-center text-center"
           color="primary"
-          style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+          style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 100%;
+          "
         >
-          <div class="text-white">
+          <div class="text-white w-100">
             <v-icon size="120" class="mb-6">mdi-flash</v-icon>
-            <h1 class="text-h2 font-weight-bold mb-4">DevOps Progress</h1>
-            <p class="text-h5 opacity-80">
-              Streamline your development workflow
-            </p>
+            <h1 class="text-h2 font-weight-bold mb-4">Mezdit</h1>
+            <p class="text-h5 opacity-80">Share your thoughts with others</p>
           </div>
         </v-sheet>
       </v-col>
