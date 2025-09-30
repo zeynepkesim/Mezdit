@@ -286,3 +286,228 @@ func TestVotePostLogic(t *testing.T) {
 func boolPtr(b bool) *bool {
 	return &b
 }
+
+func intPtr(i int) *int {
+	return &i
+}
+
+// Mock EditPost function
+func mockEditPost(postID int, userID int, newContentText string, newPublisherName string, contentPhotoID *int) (*models.Post, error) {
+	// Validation
+	if postID <= 0 {
+		return nil, fmt.Errorf("invalid post id")
+	}
+	if userID <= 0 {
+		return nil, fmt.Errorf("invalid user id")
+	}
+	if newContentText == "" {
+		return nil, fmt.Errorf("content text cannot be empty")
+	}
+
+	// If publisherName is empty, set to Anonymous
+	if newPublisherName == "" {
+		newPublisherName = "Anonymous"
+	}
+
+	// Find the post
+	var targetPost *models.Post
+	for i := range mockPosts {
+		if mockPosts[i].ID == postID {
+			targetPost = &mockPosts[i]
+			break
+		}
+	}
+
+	if targetPost == nil {
+		return nil, fmt.Errorf("post not found")
+	}
+
+	// Check if user exists
+	user := mockGetUserByIDHelper(userID)
+	if user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Security check: verify that the user is the owner of the post
+	if targetPost.PublisherID != userID {
+		return nil, fmt.Errorf("you are not the owner of this post")
+	}
+
+	// Update the post
+	targetPost.ContentText = newContentText
+	targetPost.PublisherName = newPublisherName
+	if contentPhotoID != nil {
+		targetPost.ContentPhotoID = contentPhotoID
+	}
+
+	return targetPost, nil
+}
+
+// Test edit post functionality
+func TestEditPostWithMockData(t *testing.T) {
+	tests := []struct {
+		name             string
+		postID           int
+		userID           int
+		newContentText   string
+		newPublisherName string
+		contentPhotoID   *int
+		wantError        bool
+		expectedError    string
+	}{
+		{
+			name:             "Valid post edit",
+			postID:           1,
+			userID:           1, // testuser is the owner of post 1
+			newContentText:   "Güncellenmiş içerik",
+			newPublisherName: "Updated Name",
+			wantError:        false,
+		},
+		{
+			name:             "Valid post edit with photo",
+			postID:           1,
+			userID:           1,
+			newContentText:   "Resimli güncelleme",
+			newPublisherName: "Photo Update",
+			contentPhotoID:   intPtr(123),
+			wantError:        false,
+		},
+		{
+			name:             "Edit with empty publisher name (should become Anonymous)",
+			postID:           1,
+			userID:           1,
+			newContentText:   "Anonim güncelleme",
+			newPublisherName: "",
+			wantError:        false,
+		},
+		{
+			name:             "Invalid post ID - zero",
+			postID:           0,
+			userID:           1,
+			newContentText:   "Content",
+			newPublisherName: "Name",
+			wantError:        true,
+			expectedError:    "invalid post id",
+		},
+		{
+			name:             "Invalid post ID - negative",
+			postID:           -1,
+			userID:           1,
+			newContentText:   "Content",
+			newPublisherName: "Name",
+			wantError:        true,
+			expectedError:    "invalid post id",
+		},
+		{
+			name:             "Invalid user ID - zero",
+			postID:           1,
+			userID:           0,
+			newContentText:   "Content",
+			newPublisherName: "Name",
+			wantError:        true,
+			expectedError:    "invalid user id",
+		},
+		{
+			name:             "Invalid user ID - negative",
+			postID:           1,
+			userID:           -1,
+			newContentText:   "Content",
+			newPublisherName: "Name",
+			wantError:        true,
+			expectedError:    "invalid user id",
+		},
+		{
+			name:             "Empty content text",
+			postID:           1,
+			userID:           1,
+			newContentText:   "",
+			newPublisherName: "Name",
+			wantError:        true,
+			expectedError:    "content text cannot be empty",
+		},
+		{
+			name:             "Non-existent post",
+			postID:           999,
+			userID:           1,
+			newContentText:   "Content",
+			newPublisherName: "Name",
+			wantError:        true,
+			expectedError:    "post not found",
+		},
+		{
+			name:             "Non-existent user",
+			postID:           1,
+			userID:           999,
+			newContentText:   "Content",
+			newPublisherName: "Name",
+			wantError:        true,
+			expectedError:    "user not found",
+		},
+		{
+			name:             "User is not the post owner",
+			postID:           1,
+			userID:           2, // admin user trying to edit testuser's post
+			newContentText:   "Unauthorized update",
+			newPublisherName: "Hacker",
+			wantError:        true,
+			expectedError:    "you are not the owner of this post",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			post, err := mockEditPost(tt.postID, tt.userID, tt.newContentText, tt.newPublisherName, tt.contentPhotoID)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+					return
+				}
+				if err.Error() != tt.expectedError {
+					t.Errorf("Expected error message '%s', got '%s'", tt.expectedError, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if post == nil {
+				t.Error("Expected post but got nil")
+				return
+			}
+
+			// Verify post properties
+			if post.ID != tt.postID {
+				t.Errorf("Expected postID %d, got %d", tt.postID, post.ID)
+			}
+
+			if post.ContentText != tt.newContentText {
+				t.Errorf("Expected contentText '%s', got '%s'", tt.newContentText, post.ContentText)
+			}
+
+			expectedPublisherName := tt.newPublisherName
+			if expectedPublisherName == "" {
+				expectedPublisherName = "Anonymous"
+			}
+			if post.PublisherName != expectedPublisherName {
+				t.Errorf("Expected publisherName '%s', got '%s'", expectedPublisherName, post.PublisherName)
+			}
+
+			if tt.contentPhotoID != nil {
+				if post.ContentPhotoID == nil {
+					t.Error("Expected contentPhotoID to be set")
+				} else if *post.ContentPhotoID != *tt.contentPhotoID {
+					t.Errorf("Expected contentPhotoID %d, got %d", *tt.contentPhotoID, *post.ContentPhotoID)
+				}
+			}
+
+			// Verify that the publisher ID hasn't changed
+			if post.PublisherID != tt.userID {
+				t.Errorf("Expected publisherID %d, got %d", tt.userID, post.PublisherID)
+			}
+		})
+	}
+}
