@@ -1,13 +1,14 @@
 package main
 
 import (
+	"devops-be/internal/models"
 	"fmt"
 	"testing"
 	"time"
 )
 
 // Mock data for testing
-var mockUsers = []User{
+var mockUsers = []models.User{
 	{
 		ID:           1,
 		Name:         "Test User",
@@ -26,7 +27,7 @@ var mockUsers = []User{
 	},
 }
 
-var mockPosts = []Post{
+var mockPosts = []models.Post{
 	{
 		ID:            1,
 		PublisherID:   1,
@@ -51,7 +52,7 @@ func stringPtr(s string) *string {
 }
 
 // Mock helper function
-func mockGetUserByIDHelper(id int) *User {
+func mockGetUserByIDHelper(id int) *models.User {
 	for _, user := range mockUsers {
 		if user.ID == id {
 			return &user
@@ -61,7 +62,7 @@ func mockGetUserByIDHelper(id int) *User {
 }
 
 // Mock AddPost function
-func mockAddPost(publisherID int, publisherName string, contentText string, contentPhotoID *int) (*Post, error) {
+func mockAddPost(publisherID int, publisherName string, contentText string, contentPhotoID *int) (*models.Post, error) {
 	// Validation
 	if publisherID <= 0 {
 		return nil, fmt.Errorf("invalid publisher id")
@@ -83,7 +84,7 @@ func mockAddPost(publisherID int, publisherName string, contentText string, cont
 	}
 
 	// Create new post
-	newPost := Post{
+	newPost := models.Post{
 		ID:             len(mockPosts) + 1,
 		PublisherID:    publisherID,
 		PublisherName:  publisherName,

@@ -6,6 +6,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"devops-be/internal/handlers"
+	"devops-be/internal/models"
 )
 
 // Test setup - skip tests that require database connection
@@ -75,7 +78,7 @@ func TestLoginHandler(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(loginHandler)
+			handler := http.HandlerFunc(handlers.LoginHandler)
 			handler.ServeHTTP(rr, req)
 
 			if rr.Code != tt.expectedStatus {
@@ -89,7 +92,7 @@ func TestLoginHandler(t *testing.T) {
 
 			// Check error message if expected
 			if tt.expectedError != "" {
-				var response apiError
+				var response models.APIError
 				err = json.Unmarshal(rr.Body.Bytes(), &response)
 				if err != nil {
 					t.Errorf("Failed to unmarshal error response: %v", err)
@@ -141,7 +144,7 @@ func TestRegisterHandler(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(registerHandler)
+			handler := http.HandlerFunc(handlers.RegisterHandler)
 			handler.ServeHTTP(rr, req)
 
 			if rr.Code != tt.expectedStatus {
@@ -150,7 +153,7 @@ func TestRegisterHandler(t *testing.T) {
 
 			// Check error message if expected
 			if tt.expectedError != "" {
-				var response apiError
+				var response models.APIError
 				err = json.Unmarshal(rr.Body.Bytes(), &response)
 				if err != nil {
 					t.Errorf("Failed to unmarshal error response: %v", err)
