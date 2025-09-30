@@ -4,7 +4,7 @@ stages:
   - run
 
 variables:
-  GO_VERSION: "1.23" # change if you use another Go version
+  GO_VERSION: "1.25" # change if you use another Go version
   GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
 
 before_script:

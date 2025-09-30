@@ -367,6 +367,82 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 - **Transaction Support**: ACID compliance for vote operations
 - **CORS Support**: Full Cross-Origin Resource Sharing for frontend integration
 
+## Testing
+
+The project includes comprehensive unit tests with mock data to validate core functionality without requiring database setup.
+
+### Running Tests
+
+```bash
+# Run all tests
+go test -v ./...
+
+# Run specific test file
+go test -v -run TestAddPostWithMockData
+go test -v -run TestEditPostWithMockData
+go test -v -run TestVotePostLogic
+
+# Run tests with coverage
+go test -cover ./...
+```
+
+### Test Coverage
+
+#### Post Tests (`post_test.go`)
+
+**TestAddPostWithMockData** - Post Creation Tests:
+- ✅ Valid post creation with all fields
+- ✅ Valid post with empty publisher name (defaults to "Anonymous")
+- ✅ Valid post with image (contentPhotoId)
+- ✅ Invalid publisher ID validation (zero/negative)
+- ✅ Empty content text validation
+- ✅ Non-existent publisher validation
+
+**TestEditPostWithMockData** - Post Editing Tests:
+- ✅ Valid post edit
+- ✅ Valid post edit with photo update
+- ✅ Edit with empty publisher name (defaults to "Anonymous")
+- ✅ Invalid post ID validation (zero/negative)
+- ✅ Invalid user ID validation (zero/negative)
+- ✅ Empty content text validation
+- ✅ Non-existent post validation
+- ✅ Non-existent user validation
+- ✅ **Security**: User is not the post owner (authorization check)
+
+**TestVotePostLogic** - Voting Logic Tests:
+- ✅ New upvote
+- ✅ New downvote
+- ✅ Toggle upvote off (remove vote)
+- ✅ Change from upvote to downvote
+
+#### Main Tests (`main_test.go`)
+
+- TestLoginHandler (requires database setup - currently skipped)
+- TestRegisterHandler (requires database setup - currently skipped)
+
+### Test Features
+
+- **Mock Data**: Tests use mock users and posts to avoid database dependencies
+- **Validation Testing**: Comprehensive input validation checks
+- **Security Testing**: Authorization checks (e.g., post ownership validation)
+- **Image Support**: Tests include scenarios with image uploads (contentPhotoId)
+- **Edge Cases**: Zero/negative IDs, empty strings, non-existent entities
+- **Error Messages**: Verifies correct error codes and messages
+
+### CI/CD Integration
+
+The project uses GitLab CI/CD with the following pipeline:
+
+```yaml
+# .gitlab-ci.yml
+test:
+  stage: test
+  script:
+    - go test -v ./...
+```
+
+Tests run automatically on every commit to ensure code quality and catch regressions early.
+
 ## Example Requests (curl)
 
 ```bash
