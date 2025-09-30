@@ -191,9 +191,6 @@ function isPostOwner(post) {
                 <v-card-text class="text-body-1">
                   {{ post.contentText }}
                 </v-card-text>
-                <v-card-text class="text-body-1">
-                  {{ post.contentText }}
-                </v-card-text>
 
                 <!-- Show image if exists -->
                 <v-card-text v-if="getPostImageUrl(post)" class="pt-0">

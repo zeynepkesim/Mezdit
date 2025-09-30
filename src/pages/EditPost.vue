@@ -131,20 +131,6 @@ function handleCancel() {
               />
 
               <!-- Content Field -->
-              <!-- Username Field -->
-              <v-text-field
-                v-model="username"
-                label="Display Name"
-                placeholder="Enter your display name (optional)"
-                prepend-inner-icon="mdi-account"
-                variant="outlined"
-                :disabled="loading"
-                class="mb-4"
-                hint="Leave empty to use your account name"
-                persistent-hint
-              />
-
-              <!-- Content Field -->
               <v-textarea
                 v-model="content"
                 label="Post Content"
