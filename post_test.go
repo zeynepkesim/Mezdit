@@ -225,45 +225,6 @@ func TestAddPostWithMockData(t *testing.T) {
 
 // Additional tests you could add to post_test.go:
 
-// Test user validation
-func TestCreateUserValidation(t *testing.T) {
-	tests := []struct {
-		name      string
-		username  string
-		password  string
-		wantError bool
-		errorMsg  string
-	}{
-		{
-			name:      "Valid user creation",
-			username:  "newuser",
-			password:  "password123",
-			wantError: false,
-		},
-		{
-			name:      "Empty username",
-			username:  "",
-			password:  "password123",
-			wantError: true,
-			errorMsg:  "username is required",
-		},
-		{
-			name:      "Empty password",
-			username:  "newuser",
-			password:  "",
-			wantError: true,
-			errorMsg:  "password is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// This would test the validation logic of CreateUser function
-			// You'd need to mock the database calls or use a test database
-		})
-	}
-}
-
 // Test vote logic
 func TestVotePostLogic(t *testing.T) {
 	tests := []struct {
