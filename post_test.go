@@ -30,7 +30,7 @@ var mockUsers = []models.User{
 var mockPosts = []models.Post{
 	{
 		ID:            1,
-		PublisherID:   1,
+		PublisherID:   1, // to get fail, change this
 		PublisherName: "Test Publisher",
 		ContentText:   "Bu bir test postudur",
 		VoteCount:     5,
@@ -98,7 +98,7 @@ func mockAddPost(publisherID int, publisherName string, contentText string, cont
 	return &newPost, nil
 }
 
-// Post creation test
+///////////////////////// Post creation test
 func TestAddPostWithMockData(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -224,9 +224,7 @@ func TestAddPostWithMockData(t *testing.T) {
 	}
 }
 
-// Additional tests you could add to post_test.go:
-
-// Test vote logic
+//////////////////////// Test vote logic
 func TestVotePostLogic(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -343,7 +341,7 @@ func mockEditPost(postID int, userID int, newContentText string, newPublisherNam
 	return targetPost, nil
 }
 
-// Test edit post functionality
+//////////////////////////// Test edit post functionality
 func TestEditPostWithMockData(t *testing.T) {
 	tests := []struct {
 		name             string
