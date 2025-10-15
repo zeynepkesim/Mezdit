@@ -70,7 +70,7 @@ func mockAddPost(publisherID int, publisherName string, contentText string, cont
 
 	// If publisher name is empty, set to Anonymous
 	if publisherName == "" {
-		publisherName = "Anonymous"
+		publisherName = ""
 	}
 
 	if contentText == "" {

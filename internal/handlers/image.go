@@ -77,11 +77,16 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	// Get form data
 	publisherIDStr := r.FormValue("publisherId")
 	publisherName := strings.TrimSpace(r.FormValue("publisherName"))
+	header := strings.TrimSpace(r.FormValue("header"))
 	contentText := strings.TrimSpace(r.FormValue("contentText"))
 
 	// Validate input
 	if publisherIDStr == "" {
 		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Publisher ID is required")
+		return
+	}
+	if header == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Header cannot be empty")
 		return
 	}
 	if contentText == "" {
@@ -97,11 +102,11 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check for uploaded image
 	var imageID *int
-	file, header, err := r.FormFile("image")
+	file, fileHeader, err := r.FormFile("image")
 	if err == nil {
 		// Image uploaded, save it
 		defer file.Close()
-		image, err := database.SaveImage(file, header.Filename)
+		image, err := database.SaveImage(file, fileHeader.Filename)
 		if err != nil {
 			log.Printf("Error saving image: %v", err)
 			if strings.Contains(err.Error(), "invalid file type") {
@@ -115,7 +120,7 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create post
-	post, err := database.AddPost(publisherID, publisherName, contentText, imageID)
+	post, err := database.AddPost(publisherID, publisherName, header, contentText, imageID)
 	if err != nil {
 		if strings.Contains(err.Error(), "publisher not found") {
 			middleware.WriteError(w, http.StatusBadRequest, "invalid_publisher", "Publisher user does not exist")
@@ -160,6 +165,7 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract form values
 	postIDStr := r.FormValue("postId")
 	userIDStr := r.FormValue("userId")
+	header := strings.TrimSpace(r.FormValue("header"))
 	contentText := strings.TrimSpace(r.FormValue("contentText"))
 	publisherName := strings.TrimSpace(r.FormValue("publisherName"))
 
@@ -170,6 +176,10 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if userIDStr == "" {
 		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "User ID is required")
+		return
+	}
+	if header == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Header cannot be empty")
 		return
 	}
 	if contentText == "" {
@@ -210,9 +220,9 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 	// Update post with image
 	var post interface{}
 	if imageFilename != "" {
-		post, err = database.EditPostWithImage(postID, userID, contentText, publisherName, imageFile, imageFilename)
+		post, err = database.EditPostWithImage(postID, userID, header, contentText, publisherName, imageFile, imageFilename)
 	} else {
-		post, err = database.EditPost(postID, userID, contentText, publisherName)
+		post, err = database.EditPost(postID, userID, header, contentText, publisherName)
 	}
 
 	if err != nil {

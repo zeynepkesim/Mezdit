@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-func AddPost(publisherID int, publisherName string, contentText string, contentPhotoID *int) (*models.Post, error) {
+func AddPost(publisherID int, publisherName string, header string, contentText string, contentPhotoID *int) (*models.Post, error) {
 	if publisherID <= 0 {
 		return nil, fmt.Errorf("invalid publisher id")
 	}
@@ -14,6 +14,10 @@ func AddPost(publisherID int, publisherName string, contentText string, contentP
 	// If publisher name is empty, set to Anonymous
 	if publisherName == "" {
 		publisherName = "Anonymous"
+	}
+
+	if header == "" {
+		return nil, fmt.Errorf("header cannot be empty")
 	}
 
 	if contentText == "" {
@@ -27,15 +31,15 @@ func AddPost(publisherID int, publisherName string, contentText string, contentP
 	}
 
 	query := `
-		INSERT INTO posts (publisher_id, publisher_name, content_text, content_photo_id)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, publisher_id, publisher_name, content_text, content_photo_id, vote_count, created_at`
+		INSERT INTO posts (publisher_id, publisher_name, header, content_text, content_photo_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, publisher_id, publisher_name, header, content_text, content_photo_id, vote_count, created_at`
 
 	var post models.Post
 	var contentPhotoIDNull sql.NullInt32
 
-	err = DB.QueryRow(query, publisherID, publisherName, contentText, contentPhotoID).Scan(
-		&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
+	err = DB.QueryRow(query, publisherID, publisherName, header, contentText, contentPhotoID).Scan(
+		&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
 		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
 	)
 
@@ -66,7 +70,7 @@ func GetPostsForUser(userID int) ([]models.Post, error) {
 
 	if userID > 0 {
 		query = `
-			SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
+			SELECT p.id, p.publisher_id, p.publisher_name, p.header, p.content_text,
 				   p.content_photo_id, p.vote_count, p.created_at,
 				   u.profile_photo as publisher_photo,
 				   i.path as content_photo_path,
@@ -79,7 +83,7 @@ func GetPostsForUser(userID int) ([]models.Post, error) {
 		args = []interface{}{userID}
 	} else {
 		query = `
-			SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
+			SELECT p.id, p.publisher_id, p.publisher_name, p.header, p.content_text,
 				   p.content_photo_id, p.vote_count, p.created_at,
 				   u.profile_photo as publisher_photo,
 				   i.path as content_photo_path,
@@ -106,7 +110,7 @@ func GetPostsForUser(userID int) ([]models.Post, error) {
 		var isLiked sql.NullBool
 
 		err := rows.Scan(
-			&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
+			&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
 			&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
 			&publisherPhoto, &contentPhotoPath, &isLiked,
 		)
@@ -142,13 +146,17 @@ func GetPostsForUser(userID int) ([]models.Post, error) {
 	return posts, nil
 }
 
-func EditPost(postID int, userID int, newContentText string, newPublisherName string) (*models.Post, error) {
+func EditPost(postID int, userID int, newHeader string, newContentText string, newPublisherName string) (*models.Post, error) {
 	if postID <= 0 {
 		return nil, fmt.Errorf("invalid post id")
 	}
 
 	if userID <= 0 {
 		return nil, fmt.Errorf("invalid user id")
+	}
+
+	if newHeader == "" {
+		return nil, fmt.Errorf("header cannot be empty")
 	}
 
 	if newContentText == "" {
@@ -191,10 +199,10 @@ func EditPost(postID int, userID int, newContentText string, newPublisherName st
 		return nil, fmt.Errorf("user not found")
 	}
 
-	// Update the post content and publisher name
+	// Update the post header, content and publisher name
 	_, err = tx.Exec(
-		"UPDATE posts SET content_text = $1, publisher_name = $2 WHERE id = $3",
-		newContentText, newPublisherName, postID,
+		"UPDATE posts SET header = $1, content_text = $2, publisher_name = $3 WHERE id = $4",
+		newHeader, newContentText, newPublisherName, postID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update post")
@@ -208,7 +216,7 @@ func EditPost(postID int, userID int, newContentText string, newPublisherName st
 	var isLiked sql.NullBool
 
 	query := `
-		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
+		SELECT p.id, p.publisher_id, p.publisher_name, p.header, p.content_text,
 			   p.content_photo_id, p.vote_count, p.created_at,
 			   u.profile_photo as publisher_photo,
 			   i.path as content_photo_path,
@@ -220,7 +228,7 @@ func EditPost(postID int, userID int, newContentText string, newPublisherName st
 		WHERE p.id = $1`
 
 	err = tx.QueryRow(query, postID, userID).Scan(
-		&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
+		&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
 		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
 		&publisherPhoto, &contentPhotoPath, &isLiked,
 	)

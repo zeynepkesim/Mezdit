@@ -86,13 +86,17 @@ func UpdateImagePostID(imageID int, postID int) error {
 	return nil
 }
 
-func EditPostWithImage(postID int, userID int, newContentText string, newPublisherName string, imageFile multipart.File, imageFilename string) (*models.Post, error) {
+func EditPostWithImage(postID int, userID int, newHeader string, newContentText string, newPublisherName string, imageFile multipart.File, imageFilename string) (*models.Post, error) {
 	if postID <= 0 {
 		return nil, fmt.Errorf("invalid post id")
 	}
 
 	if userID <= 0 {
 		return nil, fmt.Errorf("invalid user id")
+	}
+
+	if newHeader == "" {
+		return nil, fmt.Errorf("header cannot be empty")
 	}
 
 	if newContentText == "" {
@@ -171,16 +175,16 @@ func EditPostWithImage(postID int, userID int, newContentText string, newPublish
 		}
 	}
 
-	// Update the post content, publisher name, and image if provided
+	// Update the post header, content, publisher name, and image if provided
 	var updateQuery string
 	var updateArgs []interface{}
 
 	if newImageID != nil {
-		updateQuery = "UPDATE posts SET content_text = $1, publisher_name = $2, content_photo_id = $3 WHERE id = $4"
-		updateArgs = []interface{}{newContentText, newPublisherName, *newImageID, postID}
+		updateQuery = "UPDATE posts SET header = $1, content_text = $2, publisher_name = $3, content_photo_id = $4 WHERE id = $5"
+		updateArgs = []interface{}{newHeader, newContentText, newPublisherName, *newImageID, postID}
 	} else {
-		updateQuery = "UPDATE posts SET content_text = $1, publisher_name = $2 WHERE id = $3"
-		updateArgs = []interface{}{newContentText, newPublisherName, postID}
+		updateQuery = "UPDATE posts SET header = $1, content_text = $2, publisher_name = $3 WHERE id = $4"
+		updateArgs = []interface{}{newHeader, newContentText, newPublisherName, postID}
 	}
 
 	_, err = tx.Exec(updateQuery, updateArgs...)
@@ -196,7 +200,7 @@ func EditPostWithImage(postID int, userID int, newContentText string, newPublish
 	var isLiked sql.NullBool
 
 	query := `
-		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
+		SELECT p.id, p.publisher_id, p.publisher_name, p.header, p.content_text,
 			   p.content_photo_id, p.vote_count, p.created_at,
 			   u.profile_photo as publisher_photo,
 			   i.path as content_photo_path,
@@ -208,7 +212,7 @@ func EditPostWithImage(postID int, userID int, newContentText string, newPublish
 		WHERE p.id = $1`
 
 	err = tx.QueryRow(query, postID, userID).Scan(
-		&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
+		&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
 		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
 		&publisherPhoto, &contentPhotoPath, &isLiked,
 	)

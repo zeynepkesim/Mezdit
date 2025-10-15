@@ -23,6 +23,7 @@ type Post struct {
 	PublisherID      int       `json:"publisherId"`
 	PublisherName    string    `json:"publisherName"`    // From posts table
 	PublisherPhoto   *string   `json:"publisherPhoto"`   // JOIN from users table
+	Header           string    `json:"header"`           // Post header/title
 	ContentText      string    `json:"contentText"`
 	ContentPhotoID   *int      `json:"contentPhotoId"`
 	ContentPhotoPath *string   `json:"contentPhotoPath"` // JOIN from images table
@@ -53,6 +54,7 @@ type CreatePostRequest struct {
 	PublisherID    int    `json:"publisherId"`
 	PublisherName  string `json:"publisherName"`
 	Name           string `json:"name"`
+	Header         string `json:"header"`
 	ContentText    string `json:"contentText"`
 	ContentPhotoID *int   `json:"contentPhotoId"`
 }
@@ -66,6 +68,7 @@ type VoteRequest struct {
 type EditPostRequest struct {
 	PostID        int    `json:"postId"`
 	UserID        int    `json:"userId"`
+	Header        string `json:"header"`
 	ContentText   string `json:"contentText"`
 	PublisherName string `json:"publisherName"`
 }

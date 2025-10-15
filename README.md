@@ -98,6 +98,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
         "publisherId": 2,
         "publisherName": "John Doe",
         "publisherPhoto": null,
+        "header": "First Post",
         "contentText": "Hello world!",
         "contentPhotoId": null,
         "contentPhotoPath": null,
@@ -115,6 +116,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
         "publisherId": 2,
         "publisherName": "John Doe",
         "publisherPhoto": null,
+        "header": "First Post",
         "contentText": "Hello world!",
         "contentPhotoId": null,
         "contentPhotoPath": null,
@@ -133,9 +135,9 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 - `POST /posts` — Creates a new post.
   - Request body
     ```json
-    {"publisherId": 1, "publisherName": "Custom Display Name", "contentText": "string", "contentPhotoId": null}
+    {"publisherId": 1, "publisherName": "Custom Display Name", "header": "Post Title", "contentText": "string", "contentPhotoId": null}
     ```
-  - **Note**: `publisherName` is optional. If empty or not provided, defaults to "Anonymous".
+  - **Note**: `publisherName` is optional. If empty or not provided, defaults to "Anonymous". `header` is required.
   - Response 201 (Success)
     ```json
     {"success": true, "data": {
@@ -143,6 +145,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "publisherId": 2,
       "publisherName": "John Doe",
       "publisherPhoto": null,
+      "header": "Post Title",
       "contentText": "Hello world!",
       "contentPhotoId": null,
       "contentPhotoPath": null,
@@ -153,7 +156,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     ```
   - Response 400 (Validation Error)
     ```json
-    {"success": false, "error": {"code": "validation_error", "message": "Content text cannot be empty"}}
+    {"success": false, "error": {"code": "validation_error", "message": "Header cannot be empty"}}
     ```
   - Response 400 (Invalid Publisher)
     ```json
@@ -163,10 +166,12 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 - `POST /posts/edit` — Edit existing post (owner only).
   - Request body
     ```json
-    {"postId": 1, "userId": 2, "contentText": "Updated content text", "publisherName": "New Display Name"}
+    {"postId": 1, "userId": 2, "header": "Updated Title", "contentText": "Updated content text", "publisherName": "New Display Name"}
     ```
   - **Optional Fields**:
     - `publisherName`: Updates the display name (defaults to "Anonymous" if empty or omitted)
+  - **Required Fields**:
+    - `header`: Post title/header (must not be empty)
   - **Security**: Only the post owner (publisher) can edit their posts
   - Response 200 (Success): Returns updated post with current data
     ```json
@@ -175,6 +180,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "publisherId": 2,
       "publisherName": "New Display Name",
       "publisherPhoto": null,
+      "header": "Updated Title",
       "contentText": "Updated content text",
       "contentPhotoId": null,
       "contentPhotoPath": null,
@@ -205,6 +211,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
   - Form fields:
     - `postId`: Post ID (required)
     - `userId`: User ID (required)
+    - `header`: Updated post header/title (required)
     - `contentText`: Updated post content (required)
     - `publisherName`: Updated display name (optional, defaults to "Anonymous")
     - `image`: New image file (optional, only JPG/JPEG/PNG allowed)
@@ -220,6 +227,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "publisherId": 2,
       "publisherName": "Updated Name",
       "publisherPhoto": null,
+      "header": "Updated Title",
       "contentText": "Updated content with new image",
       "contentPhotoId": 5,
       "contentPhotoPath": "images/uuid_newimage.jpg",
@@ -254,6 +262,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
   - Form fields:
     - `publisherId`: User ID (required)
     - `publisherName`: Display name (optional, defaults to "Anonymous")
+    - `header`: Post title/header (required)
     - `contentText`: Post content (required)
     - `image`: Image file (optional, only JPG/JPEG/PNG allowed)
   - Response 201 (Success): Returns created post with image data
@@ -263,6 +272,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "publisherId": 122,
       "publisherName": "Image Tester",
       "publisherPhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=122",
+      "header": "My Photo Post",
       "contentText": "Post with image!",
       "contentPhotoId": 2,
       "contentPhotoPath": "images/uuid_filename.jpg",
@@ -311,6 +321,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "publisherId": 2,
       "publisherName": "John Doe",
       "publisherPhoto": null,
+      "header": "First Post",
       "contentText": "Hello world!",
       "contentPhotoId": null,
       "contentPhotoPath": null,
@@ -470,31 +481,32 @@ curl "http://localhost:8080/posts?userId=1"
 # Create post with custom name
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"publisherId":1, "publisherName":"My Custom Name", "contentText":"Hello world from API!"}' \
+  -d '{"publisherId":1, "publisherName":"My Custom Name", "header":"My First Post", "contentText":"Hello world from API!"}' \
   http://localhost:8080/posts
 
 # Create post without name (defaults to "Anonymous")
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"publisherId":1, "contentText":"Anonymous post!"}' \
+  -d '{"publisherId":1, "header":"Anonymous Post", "contentText":"Anonymous post!"}' \
   http://localhost:8080/posts
 
 # Edit a post (only owner can edit)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"postId":1, "userId":2, "contentText":"Updated post content", "publisherName":"New Display Name"}' \
+  -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated post content", "publisherName":"New Display Name"}' \
   http://localhost:8080/posts/edit
 
 # Edit post without publisherName (defaults to Anonymous)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"postId":1, "userId":2, "contentText":"Updated content only"}' \
+  -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated content only"}' \
   http://localhost:8080/posts/edit
 
 # Edit post with image update
 curl -X POST \
   -F "postId=1" \
   -F "userId=2" \
+  -F "header=Updated Title" \
   -F "contentText=Updated post content with new image" \
   -F "publisherName=Updated Display Name" \
   -F "image=@newphoto.jpg" \
@@ -504,6 +516,7 @@ curl -X POST \
 curl -X POST \
   -F "postId=1" \
   -F "userId=2" \
+  -F "header=Updated Title" \
   -F "contentText=Updated content with new image" \
   -F "image=@newphoto.jpg" \
   http://localhost:8080/posts/edit-with-image
@@ -512,6 +525,7 @@ curl -X POST \
 curl -X POST \
   -F "postId=1" \
   -F "userId=2" \
+  -F "header=Updated Title" \
   -F "contentText=Updated text content only" \
   -F "publisherName=Updated Name" \
   http://localhost:8080/posts/edit-with-image
@@ -525,6 +539,7 @@ curl -X POST \
 curl -X POST \
   -F "publisherId=1" \
   -F "publisherName=Image Publisher" \
+  -F "header=My Photo" \
   -F "contentText=Check out this image!" \
   -F "image=@photo.jpg" \
   http://localhost:8080/posts/upload
