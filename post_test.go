@@ -70,7 +70,7 @@ func mockAddPost(publisherID int, publisherName string, contentText string, cont
 
 	// If publisher name is empty, set to Anonymous
 	if publisherName == "" {
-		publisherName = ""
+		publisherName = "Anonymous"
 	}
 
 	if contentText == "" {
@@ -98,7 +98,7 @@ func mockAddPost(publisherID int, publisherName string, contentText string, cont
 	return &newPost, nil
 }
 
-///////////////////////// Post creation test
+// /////////////////////// Post creation test
 func TestAddPostWithMockData(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -224,7 +224,7 @@ func TestAddPostWithMockData(t *testing.T) {
 	}
 }
 
-//////////////////////// Test vote logic
+// ////////////////////// Test vote logic
 func TestVotePostLogic(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -341,7 +341,7 @@ func mockEditPost(postID int, userID int, newContentText string, newPublisherNam
 	return targetPost, nil
 }
 
-//////////////////////////// Test edit post functionality
+// ////////////////////////// Test edit post functionality
 func TestEditPostWithMockData(t *testing.T) {
 	tests := []struct {
 		name             string
