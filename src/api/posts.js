@@ -6,10 +6,11 @@ export async function getAllPosts(userId = null) {
   return response.data.data
 }
 
-export async function createPost(publisherId, contentText, publisherName = "") {
+export async function createPost(publisherId, header, contentText, publisherName = "") {
   const requestBody = {
     publisherId,
     publisherName,
+    header,
     contentText,
     contentPhotoId: null,
   }
@@ -18,10 +19,11 @@ export async function createPost(publisherId, contentText, publisherName = "") {
   return response.data.data
 }
 
-export async function createPostWithImage(publisherId, contentText, publisherName = "", imageFile = null) {
+export async function createPostWithImage(publisherId, header, contentText, publisherName = "", imageFile = null) {
   const formData = new FormData()
   formData.append("publisherId", publisherId)
   formData.append("publisherName", publisherName)
+  formData.append("header", header)
   formData.append("contentText", contentText)
 
   if (imageFile) {
@@ -34,10 +36,11 @@ export async function createPostWithImage(publisherId, contentText, publisherNam
   return response.data.data
 }
 
-export async function editPost(postId, userId, contentText, publisherName = "") {
+export async function editPost(postId, userId, header, contentText, publisherName = "") {
   const requestBody = {
     postId: parseInt(postId),
     userId: parseInt(userId),
+    header: String(header || "").trim(),
     contentText: String(contentText || "").trim(),
     publisherName: String(publisherName || "").trim(),
   }
@@ -46,10 +49,11 @@ export async function editPost(postId, userId, contentText, publisherName = "") 
   return response.data.data
 }
 
-export async function editPostWithImage(postId, userId, contentText, publisherName = "", imageFile = null) {
+export async function editPostWithImage(postId, userId, header, contentText, publisherName = "", imageFile = null) {
   const formData = new FormData()
   formData.append("postId", postId)
   formData.append("userId", userId)
+  formData.append("header", header)
   formData.append("contentText", contentText)
   formData.append("publisherName", publisherName)
 

@@ -9,6 +9,7 @@ const currentUser = getCurrentUser();
 
 // Name alanı değiştirilebilir olsun, default olarak current user'ın adı gelsin
 const author = ref(currentUser?.name || "");
+const header = ref("");
 const content = ref("");
 const loading = ref(false);
 const error = ref("");
@@ -66,7 +67,7 @@ function removeImage() {
 }
 
 async function handleSubmit() {
-  if (!content.value.trim()) {
+  if (!header.value.trim() || !content.value.trim()) {
     error.value = "Please fill in all fields";
     return;
   }
@@ -79,6 +80,7 @@ async function handleSubmit() {
     const publisherId = currentUser?.id || 1;
     await addPost(
       publisherId,
+      header.value.trim(),
       content.value.trim(),
       author.value.trim(),
       selectedImage.value
@@ -129,6 +131,18 @@ function handleLogout() {
                   persistent-hint
                 />
 
+                <v-text-field
+                  v-model="header"
+                  label="Post Title"
+                  prepend-inner-icon="mdi-format-title"
+                  variant="outlined"
+                  :disabled="loading"
+                  class="mb-4"
+                  placeholder="Give your post a catchy title"
+                  required
+                  :rules="[(v) => !!v || 'Title is required']"
+                />
+
                 <v-textarea
                   v-model="content"
                   label="What's on your mind?"
@@ -140,6 +154,7 @@ function handleLogout() {
                   auto-grow
                   counter="500"
                   :rules="[
+                    (v) => !!v || 'Content is required',
                     (v) =>
                       v.length <= 500 ||
                       'Content must be less than 500 characters',
@@ -206,7 +221,7 @@ function handleLogout() {
                 color="primary"
                 variant="elevated"
                 :loading="loading"
-                :disabled="!content.trim() || content.length > 500"
+                :disabled="!header.trim() || !content.trim() || content.length > 500"
                 @click="handleSubmit"
                 size="large"
               >
@@ -218,7 +233,7 @@ function handleLogout() {
 
           <!-- Preview Card -->
           <v-card
-            v-if="content.trim()"
+            v-if="content.trim() && header.trim()"
             class="mt-6"
             variant="tonal"
             color="primary"
@@ -245,6 +260,10 @@ function handleLogout() {
                   }}</v-card-title>
                   <v-card-subtitle>Just now</v-card-subtitle>
                 </v-card-item>
+
+                <v-card-title class="text-h5 font-weight-bold mt-2 mb-2">
+                  {{ header }}
+                </v-card-title>
 
                 <v-card-text class="text-body-1 pb-2">
                   {{ content }}

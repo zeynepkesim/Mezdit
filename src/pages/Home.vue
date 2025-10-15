@@ -184,9 +184,16 @@ function isPostOwner(post) {
                     post.publisherName
                   }}</v-card-title>
                   <v-card-subtitle>{{
-                    new Date(post.createdAt).toLocaleString()
+                    new Date(post.createdAt).toLocaleString("en-US", {
+                      timeZone: "UTC",
+                    })
                   }}</v-card-subtitle>
                 </v-card-item>
+
+                <!-- Post Header/Title -->
+                <v-card-title v-if="post.header" class="text-h5 font-weight-bold mb-2">
+                  {{ post.header }}
+                </v-card-title>
 
                 <v-card-text class="text-body-1">
                   {{ post.contentText }}

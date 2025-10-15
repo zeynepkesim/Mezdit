@@ -19,17 +19,17 @@ export async function loadPosts(userId = null) {
   }
 }
 
-export async function addPost(publisherId, contentText, publisherName = "", imageFile = null) {
+export async function addPost(publisherId, header, contentText, publisherName = "", imageFile = null) {
   try {
     let newPost
     if (imageFile) {
       // Image ile post oluştur
-      newPost = await createPostWithImage(publisherId, contentText, publisherName, imageFile)
+      newPost = await createPostWithImage(publisherId, header, contentText, publisherName, imageFile)
     } else {
       // Normal post oluştur
-      newPost = await createPost(publisherId, contentText, publisherName)
+      newPost = await createPost(publisherId, header, contentText, publisherName)
     }
-    
+
     // Backend'den dönen yeni post'u listenin başına ekle
     posts.value.unshift(newPost)
     return newPost
@@ -39,23 +39,23 @@ export async function addPost(publisherId, contentText, publisherName = "", imag
   }
 }
 
-export async function updatePost(postId, userId, contentText, publisherName = "", imageFile = null) {
+export async function updatePost(postId, userId, header, contentText, publisherName = "", imageFile = null) {
   try {
     let updatedPost
     if (imageFile) {
       // Image ile post güncelle
-      updatedPost = await editPostWithImage(postId, userId, contentText, publisherName, imageFile)
+      updatedPost = await editPostWithImage(postId, userId, header, contentText, publisherName, imageFile)
     } else {
       // Normal post güncelle
-      updatedPost = await editPost(postId, userId, contentText, publisherName)
+      updatedPost = await editPost(postId, userId, header, contentText, publisherName)
     }
-    
+
     // Local state'i güncelle
     const postIndex = posts.value.findIndex(p => p.id === postId)
     if (postIndex !== -1) {
       posts.value[postIndex] = updatedPost
     }
-    
+
     return updatedPost
   } catch (err) {
     console.error('Error updating post:', err)

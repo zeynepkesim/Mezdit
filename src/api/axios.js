@@ -24,7 +24,7 @@ api.interceptors.response.use(
                 error.response?.data?.error?.message ||
                 error.message ||
                 "Something went wrong"
-            toast.error("Something went wrong!", {
+            toast.error(message, {
                 duration: 6000, // default is 5000
             });
         }

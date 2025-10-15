@@ -52,7 +52,7 @@ function handleLogout() {
           color="primary"
         >
           <v-icon start>mdi-flash</v-icon>
-          DevOps Progress
+          Mezdit
         </v-btn>
       </v-app-bar-title>
 

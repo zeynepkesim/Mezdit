@@ -8,6 +8,7 @@ const route = useRoute();
 const router = useRouter();
 const currentUser = getCurrentUser();
 
+const header = ref("");
 const content = ref("");
 const username = ref("");
 const loading = ref(false);
@@ -33,6 +34,7 @@ const getPostImageUrl = (post) => {
 
 onMounted(() => {
   if (currentPost.value) {
+    header.value = currentPost.value.header || "";
     content.value = currentPost.value.contentText;
     username.value = currentPost.value.publisherName || "";
   } else {
@@ -71,7 +73,7 @@ function removeImage() {
 }
 
 async function handleSave() {
-  if (!content.value.trim() || isOverLimit.value) {
+  if (!header.value.trim() || !content.value.trim() || isOverLimit.value) {
     return;
   }
 
@@ -82,6 +84,7 @@ async function handleSave() {
     await updatePost(
       parseInt(postId.value),
       currentUser.id,
+      header.value.trim(),
       content.value.trim(),
       username.value.trim(),
       selectedImage.value
@@ -128,6 +131,19 @@ function handleCancel() {
                 class="mb-4"
                 hint="Leave empty to use your account name"
                 persistent-hint
+              />
+
+              <!-- Header Field -->
+              <v-text-field
+                v-model="header"
+                label="Post Title"
+                placeholder="Update your post title"
+                prepend-inner-icon="mdi-format-title"
+                variant="outlined"
+                :disabled="loading"
+                :rules="[(v) => !!v || 'Title is required']"
+                required
+                class="mb-4"
               />
 
               <!-- Content Field -->
@@ -257,7 +273,7 @@ function handleCancel() {
               color="warning"
               variant="elevated"
               :loading="loading"
-              :disabled="!content.trim() || isOverLimit"
+              :disabled="!header.trim() || !content.trim() || isOverLimit"
               @click="handleSave"
               prepend-icon="mdi-content-save"
               size="large"
@@ -272,7 +288,7 @@ function handleCancel() {
 
         <!-- Preview Card -->
         <v-card
-          v-if="content.trim()"
+          v-if="content.trim() && header.trim()"
           class="mt-6"
           variant="tonal"
           color="warning"
@@ -305,6 +321,10 @@ function handleCancel() {
 
                 <v-card-subtitle> Updated just now </v-card-subtitle>
               </v-card-item>
+
+              <v-card-title class="text-h5 font-weight-bold mt-2 mb-2">
+                {{ header }}
+              </v-card-title>
 
               <v-card-text class="text-body-1 pt-2">
                 {{ content }}
