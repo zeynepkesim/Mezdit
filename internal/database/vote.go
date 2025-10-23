@@ -127,8 +127,8 @@ func VotePost(postID int, userID int, upvoted bool) (*models.Post, error) {
 	var isLiked sql.NullBool
 
 	query := `
-		SELECT p.id, p.publisher_id, p.publisher_name, p.content_text,
-			   p.content_photo_id, p.vote_count, p.created_at,
+		SELECT p.id, p.publisher_id, p.publisher_name, p.header, p.content_text,
+			   p.content_photo_id, p.is_private, p.vote_count, p.created_at,
 			   u.profile_photo as publisher_photo,
 			   i.path as content_photo_path,
 			   uv.upvoted as is_liked
@@ -139,8 +139,8 @@ func VotePost(postID int, userID int, upvoted bool) (*models.Post, error) {
 		WHERE p.id = $1`
 
 	err = tx.QueryRow(query, postID, userID).Scan(
-		&post.ID, &post.PublisherID, &post.PublisherName, &post.ContentText,
-		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
+		&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
+		&contentPhotoIDNull, &post.IsPrivate, &post.VoteCount, &post.CreatedAt,
 		&publisherPhoto, &contentPhotoPath, &isLiked,
 	)
 
