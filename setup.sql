@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS posts (
     header TEXT NOT NULL,
     content_text TEXT NOT NULL,
     content_photo_id INTEGER REFERENCES images(id),
+    is_private BOOLEAN DEFAULT FALSE,
     vote_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -52,10 +53,11 @@ INSERT INTO users (name, username, password, profile_photo) VALUES
 ('Bob Wilson', 'bob_wilson', '$2a$10$example_hashed_password_3', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=3')
 ON CONFLICT (username) DO NOTHING;
 
-INSERT INTO posts (publisher_id, publisher_name, header, content_text, vote_count) VALUES
-(1, 'John Doe', 'First Post', 'Hello world! This is my first post.', 5),
-(2, 'Jane Smith', 'Welcome', 'Great to be here!', 3),
-(1, 'John Doe', 'Update', 'Just had a great day learning DevOps!', 8)
+INSERT INTO posts (publisher_id, publisher_name, header, content_text, is_private, vote_count) VALUES
+(1, 'John Doe', 'First Post', 'Hello world! This is my first post.', false, 5),
+(2, 'Jane Smith', 'Welcome', 'Great to be here!', false, 3),
+(1, 'John Doe', 'Update', 'Just had a great day learning DevOps!', false, 8),
+(1, 'John Doe', 'Private Note', 'This is my private thought.', true, 0)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO user_votes (post_id, user_id, upvoted) VALUES

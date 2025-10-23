@@ -86,7 +86,7 @@ func UpdateImagePostID(imageID int, postID int) error {
 	return nil
 }
 
-func EditPostWithImage(postID int, userID int, newHeader string, newContentText string, newPublisherName string, imageFile multipart.File, imageFilename string) (*models.Post, error) {
+func EditPostWithImage(postID int, userID int, newHeader string, newContentText string, newPublisherName string, isPrivate bool, imageFile multipart.File, imageFilename string) (*models.Post, error) {
 	if postID <= 0 {
 		return nil, fmt.Errorf("invalid post id")
 	}
@@ -175,16 +175,16 @@ func EditPostWithImage(postID int, userID int, newHeader string, newContentText 
 		}
 	}
 
-	// Update the post header, content, publisher name, and image if provided
+	// Update the post header, content, publisher name, privacy, and image if provided
 	var updateQuery string
 	var updateArgs []interface{}
 
 	if newImageID != nil {
-		updateQuery = "UPDATE posts SET header = $1, content_text = $2, publisher_name = $3, content_photo_id = $4 WHERE id = $5"
-		updateArgs = []interface{}{newHeader, newContentText, newPublisherName, *newImageID, postID}
+		updateQuery = "UPDATE posts SET header = $1, content_text = $2, publisher_name = $3, is_private = $4, content_photo_id = $5 WHERE id = $6"
+		updateArgs = []interface{}{newHeader, newContentText, newPublisherName, isPrivate, *newImageID, postID}
 	} else {
-		updateQuery = "UPDATE posts SET header = $1, content_text = $2, publisher_name = $3 WHERE id = $4"
-		updateArgs = []interface{}{newHeader, newContentText, newPublisherName, postID}
+		updateQuery = "UPDATE posts SET header = $1, content_text = $2, publisher_name = $3, is_private = $4 WHERE id = $5"
+		updateArgs = []interface{}{newHeader, newContentText, newPublisherName, isPrivate, postID}
 	}
 
 	_, err = tx.Exec(updateQuery, updateArgs...)
@@ -201,7 +201,7 @@ func EditPostWithImage(postID int, userID int, newHeader string, newContentText 
 
 	query := `
 		SELECT p.id, p.publisher_id, p.publisher_name, p.header, p.content_text,
-			   p.content_photo_id, p.vote_count, p.created_at,
+			   p.content_photo_id, p.is_private, p.vote_count, p.created_at,
 			   u.profile_photo as publisher_photo,
 			   i.path as content_photo_path,
 			   uv.upvoted as is_liked
@@ -213,7 +213,7 @@ func EditPostWithImage(postID int, userID int, newHeader string, newContentText 
 
 	err = tx.QueryRow(query, postID, userID).Scan(
 		&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
-		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
+		&contentPhotoIDNull, &post.IsPrivate, &post.VoteCount, &post.CreatedAt,
 		&publisherPhoto, &contentPhotoPath, &isLiked,
 	)
 

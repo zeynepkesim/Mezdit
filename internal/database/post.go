@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-func AddPost(publisherID int, publisherName string, header string, contentText string, contentPhotoID *int) (*models.Post, error) {
+func AddPost(publisherID int, publisherName string, header string, contentText string, contentPhotoID *int, isPrivate bool) (*models.Post, error) {
 	if publisherID <= 0 {
 		return nil, fmt.Errorf("invalid publisher id")
 	}
@@ -31,16 +31,16 @@ func AddPost(publisherID int, publisherName string, header string, contentText s
 	}
 
 	query := `
-		INSERT INTO posts (publisher_id, publisher_name, header, content_text, content_photo_id)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, publisher_id, publisher_name, header, content_text, content_photo_id, vote_count, created_at`
+		INSERT INTO posts (publisher_id, publisher_name, header, content_text, content_photo_id, is_private)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, publisher_id, publisher_name, header, content_text, content_photo_id, is_private, vote_count, created_at`
 
 	var post models.Post
 	var contentPhotoIDNull sql.NullInt32
 
-	err = DB.QueryRow(query, publisherID, publisherName, header, contentText, contentPhotoID).Scan(
+	err = DB.QueryRow(query, publisherID, publisherName, header, contentText, contentPhotoID, isPrivate).Scan(
 		&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
-		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
+		&contentPhotoIDNull, &post.IsPrivate, &post.VoteCount, &post.CreatedAt,
 	)
 
 	if err != nil {
@@ -71,7 +71,7 @@ func GetPostsForUser(userID int) ([]models.Post, error) {
 	if userID > 0 {
 		query = `
 			SELECT p.id, p.publisher_id, p.publisher_name, p.header, p.content_text,
-				   p.content_photo_id, p.vote_count, p.created_at,
+				   p.content_photo_id, p.is_private, p.vote_count, p.created_at,
 				   u.profile_photo as publisher_photo,
 				   i.path as content_photo_path,
 				   uv.upvoted as is_liked
@@ -79,18 +79,20 @@ func GetPostsForUser(userID int) ([]models.Post, error) {
 			JOIN users u ON p.publisher_id = u.id
 			LEFT JOIN images i ON p.content_photo_id = i.id
 			LEFT JOIN user_votes uv ON p.id = uv.post_id AND uv.user_id = $1
+			WHERE p.is_private = FALSE OR p.publisher_id = $1
 			ORDER BY p.created_at DESC`
 		args = []interface{}{userID}
 	} else {
 		query = `
 			SELECT p.id, p.publisher_id, p.publisher_name, p.header, p.content_text,
-				   p.content_photo_id, p.vote_count, p.created_at,
+				   p.content_photo_id, p.is_private, p.vote_count, p.created_at,
 				   u.profile_photo as publisher_photo,
 				   i.path as content_photo_path,
 				   NULL as is_liked
 			FROM posts p
 			JOIN users u ON p.publisher_id = u.id
 			LEFT JOIN images i ON p.content_photo_id = i.id
+			WHERE p.is_private = FALSE
 			ORDER BY p.created_at DESC`
 		args = []interface{}{}
 	}
@@ -111,7 +113,7 @@ func GetPostsForUser(userID int) ([]models.Post, error) {
 
 		err := rows.Scan(
 			&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
-			&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
+			&contentPhotoIDNull, &post.IsPrivate, &post.VoteCount, &post.CreatedAt,
 			&publisherPhoto, &contentPhotoPath, &isLiked,
 		)
 		if err != nil {
@@ -146,7 +148,7 @@ func GetPostsForUser(userID int) ([]models.Post, error) {
 	return posts, nil
 }
 
-func EditPost(postID int, userID int, newHeader string, newContentText string, newPublisherName string) (*models.Post, error) {
+func EditPost(postID int, userID int, newHeader string, newContentText string, newPublisherName string, isPrivate bool) (*models.Post, error) {
 	if postID <= 0 {
 		return nil, fmt.Errorf("invalid post id")
 	}
@@ -199,10 +201,10 @@ func EditPost(postID int, userID int, newHeader string, newContentText string, n
 		return nil, fmt.Errorf("user not found")
 	}
 
-	// Update the post header, content and publisher name
+	// Update the post header, content, publisher name, and privacy
 	_, err = tx.Exec(
-		"UPDATE posts SET header = $1, content_text = $2, publisher_name = $3 WHERE id = $4",
-		newHeader, newContentText, newPublisherName, postID,
+		"UPDATE posts SET header = $1, content_text = $2, publisher_name = $3, is_private = $4 WHERE id = $5",
+		newHeader, newContentText, newPublisherName, isPrivate, postID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update post")
@@ -217,7 +219,7 @@ func EditPost(postID int, userID int, newHeader string, newContentText string, n
 
 	query := `
 		SELECT p.id, p.publisher_id, p.publisher_name, p.header, p.content_text,
-			   p.content_photo_id, p.vote_count, p.created_at,
+			   p.content_photo_id, p.is_private, p.vote_count, p.created_at,
 			   u.profile_photo as publisher_photo,
 			   i.path as content_photo_path,
 			   uv.upvoted as is_liked
@@ -229,7 +231,7 @@ func EditPost(postID int, userID int, newHeader string, newContentText string, n
 
 	err = tx.QueryRow(query, postID, userID).Scan(
 		&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
-		&contentPhotoIDNull, &post.VoteCount, &post.CreatedAt,
+		&contentPhotoIDNull, &post.IsPrivate, &post.VoteCount, &post.CreatedAt,
 		&publisherPhoto, &contentPhotoPath, &isLiked,
 	)
 

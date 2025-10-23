@@ -161,3 +161,48 @@ func GetUserByID(id int) (*models.User, error) {
 
 	return &user, nil
 }
+
+func ChangePassword(userID int, currentPassword string, newPassword string) error {
+	if userID <= 0 {
+		return fmt.Errorf("invalid user id")
+	}
+
+	if currentPassword == "" {
+		return fmt.Errorf("current password is required")
+	}
+
+	if newPassword == "" {
+		return fmt.Errorf("new password is required")
+	}
+
+	if len(newPassword) < 6 {
+		return fmt.Errorf("new password must be at least 6 characters")
+	}
+
+	if currentPassword == newPassword {
+		return fmt.Errorf("new password must be different from current password")
+	}
+
+	// Get user to verify current password
+	user, err := GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found")
+	}
+
+	// Verify current password
+	if user.Password != currentPassword {
+		log.Printf("Password change failed: Current password mismatch for user %d", userID)
+		return fmt.Errorf("current password is incorrect")
+	}
+
+	// Update password
+	query := `UPDATE users SET password = $1 WHERE id = $2`
+	_, err = DB.Exec(query, newPassword, userID)
+	if err != nil {
+		log.Printf("Failed to update password for user %d: %v", userID, err)
+		return fmt.Errorf("failed to update password")
+	}
+
+	log.Printf("Password changed successfully for user %d", userID)
+	return nil
+}

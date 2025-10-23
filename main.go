@@ -17,6 +17,7 @@ func main() {
 	// Auth endpoints
 	http.HandleFunc("/login", handlers.LoginHandler)
 	http.HandleFunc("/register", handlers.RegisterHandler)
+	http.HandleFunc("/change-password", handlers.ChangePasswordHandler)
 
 	// Post endpoints
 	http.HandleFunc("/posts", handlers.PostsHandler)
@@ -38,6 +39,7 @@ func main() {
 	fmt.Println("Available endpoints:")
 	fmt.Println("  POST /login")
 	fmt.Println("  POST /register")
+	fmt.Println("  POST /change-password")
 	fmt.Println("  GET  /posts")
 	fmt.Println("  POST /posts")
 	fmt.Println("  POST /posts/edit")

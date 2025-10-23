@@ -86,6 +86,34 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     {"success": false, "error": {"code": "username_exists", "message": "Username is already taken"}}
     ```
 
+- `POST /change-password` — Change user password.
+  - Request body
+    ```json
+    {"userId": 1, "currentPassword": "oldpass123", "newPassword": "newpass456"}
+    ```
+  - **Password Requirements**:
+    - New password must be at least 6 characters
+    - New password must be different from current password
+    - Current password must be correct
+  - Response 200 (Success)
+    ```json
+    {"success": true, "data": {
+      "message": "Password changed successfully"
+    }}
+    ```
+  - Response 400 (Validation Error)
+    ```json
+    {"success": false, "error": {"code": "validation_error", "message": "New password must be at least 6 characters"}}
+    ```
+  - Response 401 (Incorrect Password)
+    ```json
+    {"success": false, "error": {"code": "incorrect_password", "message": "Current password is incorrect"}}
+    ```
+  - Response 404 (User Not Found)
+    ```json
+    {"success": false, "error": {"code": "user_not_found", "message": "User not found"}}
+    ```
+
 ### Posts
 
 - `GET /posts` — Returns all posts (newest → oldest).
@@ -102,6 +130,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
         "contentText": "Hello world!",
         "contentPhotoId": null,
         "contentPhotoPath": null,
+        "isPrivate": false,
         "voteCount": 5,
         "isLiked": null,
         "createdAt": "2023-12-01T10:00:00Z"
@@ -120,12 +149,16 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
         "contentText": "Hello world!",
         "contentPhotoId": null,
         "contentPhotoPath": null,
+        "isPrivate": false,
         "voteCount": 5,
         "isLiked": true,
         "createdAt": "2023-12-01T10:00:00Z"
       }
     ]}
     ```
+  - **Privacy Filtering**:
+    - Without `userId`: Only public posts are returned (`isPrivate = false`)
+    - With `userId`: Public posts + private posts owned by the user are returned
   - **isLiked Values**:
     - `true`: User has liked (upvoted) the post
     - `false`: User has disliked (downvoted) the post
@@ -135,9 +168,12 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 - `POST /posts` — Creates a new post.
   - Request body
     ```json
-    {"publisherId": 1, "publisherName": "Custom Display Name", "header": "Post Title", "contentText": "string", "contentPhotoId": null}
+    {"publisherId": 1, "publisherName": "Custom Display Name", "header": "Post Title", "contentText": "string", "contentPhotoId": null, "isPrivate": false}
     ```
-  - **Note**: `publisherName` is optional. If empty or not provided, defaults to "Anonymous". `header` is required.
+  - **Note**:
+    - `publisherName` is optional. If empty or not provided, defaults to "Anonymous"
+    - `header` is required
+    - `isPrivate` is optional. Defaults to `false` (public). Set to `true` for private posts (only visible to owner)
   - Response 201 (Success)
     ```json
     {"success": true, "data": {
@@ -149,6 +185,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "contentText": "Hello world!",
       "contentPhotoId": null,
       "contentPhotoPath": null,
+      "isPrivate": false,
       "voteCount": 0,
       "isLiked": null,
       "createdAt": "2023-12-01T10:00:00Z"
@@ -166,10 +203,11 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 - `POST /posts/edit` — Edit existing post (owner only).
   - Request body
     ```json
-    {"postId": 1, "userId": 2, "header": "Updated Title", "contentText": "Updated content text", "publisherName": "New Display Name"}
+    {"postId": 1, "userId": 2, "header": "Updated Title", "contentText": "Updated content text", "publisherName": "New Display Name", "isPrivate": false}
     ```
   - **Optional Fields**:
     - `publisherName`: Updates the display name (defaults to "Anonymous" if empty or omitted)
+    - `isPrivate`: Privacy setting (defaults to `false` if not provided)
   - **Required Fields**:
     - `header`: Post title/header (must not be empty)
   - **Security**: Only the post owner (publisher) can edit their posts
@@ -184,6 +222,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "contentText": "Updated content text",
       "contentPhotoId": null,
       "contentPhotoPath": null,
+      "isPrivate": false,
       "voteCount": 5,
       "isLiked": true,
       "createdAt": "2023-12-01T10:00:00Z"
@@ -214,6 +253,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     - `header`: Updated post header/title (required)
     - `contentText`: Updated post content (required)
     - `publisherName`: Updated display name (optional, defaults to "Anonymous")
+    - `isPrivate`: Privacy setting - "true" or "false" as string (optional, defaults to "false")
     - `image`: New image file (optional, only JPG/JPEG/PNG allowed)
   - **Image Handling**:
     - If image is provided, it replaces the existing image
@@ -231,6 +271,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "contentText": "Updated content with new image",
       "contentPhotoId": 5,
       "contentPhotoPath": "images/uuid_newimage.jpg",
+      "isPrivate": false,
       "voteCount": 5,
       "isLiked": true,
       "createdAt": "2023-12-01T10:00:00Z"
@@ -264,6 +305,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     - `publisherName`: Display name (optional, defaults to "Anonymous")
     - `header`: Post title/header (required)
     - `contentText`: Post content (required)
+    - `isPrivate`: Privacy setting - "true" or "false" as string (optional, defaults to "false")
     - `image`: Image file (optional, only JPG/JPEG/PNG allowed)
   - Response 201 (Success): Returns created post with image data
     ```json
@@ -276,6 +318,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "contentText": "Post with image!",
       "contentPhotoId": 2,
       "contentPhotoPath": "images/uuid_filename.jpg",
+      "isPrivate": false,
       "voteCount": 0,
       "isLiked": null,
       "createdAt": "2025-09-28T18:29:45.017517Z"
@@ -325,6 +368,7 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
       "contentText": "Hello world!",
       "contentPhotoId": null,
       "contentPhotoPath": null,
+      "isPrivate": false,
       "voteCount": 1,
       "isLiked": true,
       "createdAt": "2023-12-01T10:00:00Z"
@@ -364,9 +408,18 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 
 - **PostgreSQL Database**: Full database integration with proper relations
 - **User System**: Complete user authentication with login/register
-- **Auto Profile Photos**: Automatic DiceBear avatar generation for all users  
+- **Password Management**: Secure password change functionality with validation
+  - Current password verification
+  - Minimum 6 character requirement for new passwords
+  - Prevents using same password
+- **Auto Profile Photos**: Automatic DiceBear avatar generation for all users
 - **Image Support**: Ready for post images (images table linked to posts)
 - **Custom Publisher Names**: Users can post with different display names
+- **Post Headers**: All posts have both a title/header and content text
+- **Privacy Controls**: Posts can be public or private
+  - **Public posts** (`isPrivate: false`): Visible to all users
+  - **Private posts** (`isPrivate: true`): Only visible to the post owner
+  - Privacy filtering automatically applied in GET /posts based on userId
 - **Enhanced Voting System**: Toggle-based voting with user context
 - **Vote States**: Each user can like (upvote), dislike (downvote), or have no vote on posts
 - **Toggle Logic**: Same vote removes it, different vote changes it
@@ -469,6 +522,12 @@ curl -X POST \
   -d '{"username":"john_doe", "password":"$2a$10$example_hashed_password_1"}' \
   http://localhost:8080/login
 
+# Change password
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"userId":1, "currentPassword":"oldpass123", "newPassword":"newpass456"}' \
+  http://localhost:8080/change-password
+
 # Get user info
 curl http://localhost:8080/users/john_doe
 
@@ -478,28 +537,28 @@ curl http://localhost:8080/posts
 # List posts with user's vote status
 curl "http://localhost:8080/posts?userId=1"
 
-# Create post with custom name
+# Create public post with custom name
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"publisherId":1, "publisherName":"My Custom Name", "header":"My First Post", "contentText":"Hello world from API!"}' \
+  -d '{"publisherId":1, "publisherName":"My Custom Name", "header":"My First Post", "contentText":"Hello world from API!", "isPrivate":false}' \
   http://localhost:8080/posts
 
-# Create post without name (defaults to "Anonymous")
+# Create private post (only owner can see)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"publisherId":1, "header":"Anonymous Post", "contentText":"Anonymous post!"}' \
+  -d '{"publisherId":1, "header":"My Private Note", "contentText":"This is private!", "isPrivate":true}' \
   http://localhost:8080/posts
 
 # Edit a post (only owner can edit)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated post content", "publisherName":"New Display Name"}' \
+  -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated post content", "publisherName":"New Display Name", "isPrivate":false}' \
   http://localhost:8080/posts/edit
 
-# Edit post without publisherName (defaults to Anonymous)
+# Make a post private
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated content only"}' \
+  -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated content", "isPrivate":true}' \
   http://localhost:8080/posts/edit
 
 # Edit post with image update
@@ -509,15 +568,17 @@ curl -X POST \
   -F "header=Updated Title" \
   -F "contentText=Updated post content with new image" \
   -F "publisherName=Updated Display Name" \
+  -F "isPrivate=false" \
   -F "image=@newphoto.jpg" \
   http://localhost:8080/posts/edit-with-image
 
-# Edit post with image but without publisherName (defaults to Anonymous)
+# Edit post with image and make it private
 curl -X POST \
   -F "postId=1" \
   -F "userId=2" \
   -F "header=Updated Title" \
   -F "contentText=Updated content with new image" \
+  -F "isPrivate=true" \
   -F "image=@newphoto.jpg" \
   http://localhost:8080/posts/edit-with-image
 
@@ -528,6 +589,7 @@ curl -X POST \
   -F "header=Updated Title" \
   -F "contentText=Updated text content only" \
   -F "publisherName=Updated Name" \
+  -F "isPrivate=false" \
   http://localhost:8080/posts/edit-with-image
 
 # Upload standalone image
@@ -535,12 +597,22 @@ curl -X POST \
   -F "image=@photo.jpg" \
   http://localhost:8080/upload
 
-# Create post with image upload
+# Create public post with image upload
 curl -X POST \
   -F "publisherId=1" \
   -F "publisherName=Image Publisher" \
   -F "header=My Photo" \
   -F "contentText=Check out this image!" \
+  -F "isPrivate=false" \
+  -F "image=@photo.jpg" \
+  http://localhost:8080/posts/upload
+
+# Create private post with image
+curl -X POST \
+  -F "publisherId=1" \
+  -F "header=Private Photo" \
+  -F "contentText=This is my private photo!" \
+  -F "isPrivate=true" \
   -F "image=@photo.jpg" \
   http://localhost:8080/posts/upload
 

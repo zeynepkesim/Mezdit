@@ -27,6 +27,7 @@ type Post struct {
 	ContentText      string    `json:"contentText"`
 	ContentPhotoID   *int      `json:"contentPhotoId"`
 	ContentPhotoPath *string   `json:"contentPhotoPath"` // JOIN from images table
+	IsPrivate        bool      `json:"isPrivate"`        // Privacy setting: true=private (only owner can see), false=public
 	VoteCount        int       `json:"voteCount"`
 	IsLiked          *bool     `json:"isLiked"` // User's vote status: true=liked, false=disliked, null=no vote
 	CreatedAt        time.Time `json:"createdAt"`
@@ -57,6 +58,7 @@ type CreatePostRequest struct {
 	Header         string `json:"header"`
 	ContentText    string `json:"contentText"`
 	ContentPhotoID *int   `json:"contentPhotoId"`
+	IsPrivate      bool   `json:"isPrivate"`
 }
 
 type VoteRequest struct {
@@ -71,6 +73,13 @@ type EditPostRequest struct {
 	Header        string `json:"header"`
 	ContentText   string `json:"contentText"`
 	PublisherName string `json:"publisherName"`
+	IsPrivate     bool   `json:"isPrivate"`
+}
+
+type ChangePasswordRequest struct {
+	UserID          int    `json:"userId"`
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
 }
 
 // Response types

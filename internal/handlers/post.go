@@ -58,6 +58,7 @@ func PostsHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Header: '%s'", body.Header)
 			log.Printf("ContentText: '%s'", body.ContentText)
 			log.Printf("ContentPhotoID: %v", body.ContentPhotoID)
+			log.Printf("IsPrivate: %v", body.IsPrivate)
 			log.Printf("==========================")
 			body.Header = strings.TrimSpace(body.Header)
 			body.ContentText = strings.TrimSpace(body.ContentText)
@@ -82,7 +83,7 @@ func PostsHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			post, err := database.AddPost(body.PublisherID, effectivePublisherName, body.Header, body.ContentText, body.ContentPhotoID)
+			post, err := database.AddPost(body.PublisherID, effectivePublisherName, body.Header, body.ContentText, body.ContentPhotoID, body.IsPrivate)
 			if err != nil {
 				if strings.Contains(err.Error(), "publisher not found") {
 					middleware.WriteError(w, http.StatusBadRequest, "invalid_publisher", "Publisher user does not exist")
@@ -147,7 +148,7 @@ func EditPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	post, err := database.EditPost(body.PostID, body.UserID, body.Header, body.ContentText, body.PublisherName)
+	post, err := database.EditPost(body.PostID, body.UserID, body.Header, body.ContentText, body.PublisherName, body.IsPrivate)
 	if err != nil {
 		if err.Error() == "post not found" {
 			middleware.WriteError(w, http.StatusNotFound, "post_not_found", "Post not found")

@@ -100,6 +100,13 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get isPrivate value from form (default false)
+	isPrivateStr := r.FormValue("isPrivate")
+	isPrivate := false
+	if isPrivateStr == "true" {
+		isPrivate = true
+	}
+
 	// Check for uploaded image
 	var imageID *int
 	file, fileHeader, err := r.FormFile("image")
@@ -120,7 +127,7 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create post
-	post, err := database.AddPost(publisherID, publisherName, header, contentText, imageID)
+	post, err := database.AddPost(publisherID, publisherName, header, contentText, imageID, isPrivate)
 	if err != nil {
 		if strings.Contains(err.Error(), "publisher not found") {
 			middleware.WriteError(w, http.StatusBadRequest, "invalid_publisher", "Publisher user does not exist")
@@ -200,6 +207,13 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get isPrivate value from form (default false)
+	isPrivateStr := r.FormValue("isPrivate")
+	isPrivate := false
+	if isPrivateStr == "true" {
+		isPrivate = true
+	}
+
 	// Handle image file (optional)
 	var imageFile multipart.File
 	var imageFilename string
@@ -220,9 +234,9 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 	// Update post with image
 	var post interface{}
 	if imageFilename != "" {
-		post, err = database.EditPostWithImage(postID, userID, header, contentText, publisherName, imageFile, imageFilename)
+		post, err = database.EditPostWithImage(postID, userID, header, contentText, publisherName, isPrivate, imageFile, imageFilename)
 	} else {
-		post, err = database.EditPost(postID, userID, header, contentText, publisherName)
+		post, err = database.EditPost(postID, userID, header, contentText, publisherName, isPrivate)
 	}
 
 	if err != nil {
