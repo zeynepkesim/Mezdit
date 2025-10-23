@@ -19,15 +19,15 @@ export async function loadPosts(userId = null) {
   }
 }
 
-export async function addPost(publisherId, header, contentText, publisherName = "", imageFile = null) {
+export async function addPost(publisherId, header, contentText, publisherName = "", imageFile = null, isPrivate = false) {
   try {
     let newPost
     if (imageFile) {
       // Image ile post oluştur
-      newPost = await createPostWithImage(publisherId, header, contentText, publisherName, imageFile)
+      newPost = await createPostWithImage(publisherId, header, contentText, publisherName, imageFile, isPrivate)
     } else {
       // Normal post oluştur
-      newPost = await createPost(publisherId, header, contentText, publisherName)
+      newPost = await createPost(publisherId, header, contentText, publisherName, isPrivate)
     }
 
     // Backend'den dönen yeni post'u listenin başına ekle
@@ -39,15 +39,15 @@ export async function addPost(publisherId, header, contentText, publisherName = 
   }
 }
 
-export async function updatePost(postId, userId, header, contentText, publisherName = "", imageFile = null) {
+export async function updatePost(postId, userId, header, contentText, publisherName = "", imageFile = null, isPrivate = false) {
   try {
     let updatedPost
     if (imageFile) {
       // Image ile post güncelle
-      updatedPost = await editPostWithImage(postId, userId, header, contentText, publisherName, imageFile)
+      updatedPost = await editPostWithImage(postId, userId, header, contentText, publisherName, imageFile, isPrivate)
     } else {
       // Normal post güncelle
-      updatedPost = await editPost(postId, userId, header, contentText, publisherName)
+      updatedPost = await editPost(postId, userId, header, contentText, publisherName, isPrivate)
     }
 
     // Local state'i güncelle

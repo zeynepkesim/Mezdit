@@ -16,3 +16,12 @@ export async function registerUser(name, username, password) {
   const response = await api.post("/register", { name, username, password })
   return response.data.data
 }
+
+export async function changePassword(userId, currentPassword, newPassword) {
+  const response = await api.post("/change-password", {
+    userId,
+    currentPassword,
+    newPassword,
+  })
+  return response.data.data
+}

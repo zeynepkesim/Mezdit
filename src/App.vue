@@ -100,6 +100,10 @@ function handleLogout() {
 
           <v-divider />
 
+          <v-list-item @click="router.push('/change-password')" prepend-icon="mdi-lock-reset">
+            <v-list-item-title>Change Password</v-list-item-title>
+          </v-list-item>
+
           <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
             <v-list-item-title>Logout</v-list-item-title>
           </v-list-item>

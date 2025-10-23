@@ -5,6 +5,7 @@ import Home from '../pages/Home.vue'
 import CreatePost from '../pages/CreatePost.vue'
 import EditPost from '../pages/EditPost.vue'
 import Register from '../pages/Register.vue'
+import ChangePassword from '../pages/ChangePassword.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -29,16 +30,21 @@ const router = createRouter({
       name: 'create-post', 
       component: CreatePost
     },
-    { 
-      path: '/edit-post/:id', 
-      name: 'edit-post', 
+    {
+      path: '/edit-post/:id',
+      name: 'edit-post',
       component: EditPost
+    },
+    {
+      path: '/change-password',
+      name: 'change-password',
+      component: ChangePassword
     }
   ],
 });
 
 router.beforeEach((to, from, next) => {
-  if ((to.name === 'posts' || to.name === 'create-post' || to.name === 'edit-post') && !isAuthenticated()) {
+  if ((to.name === 'posts' || to.name === 'create-post' || to.name === 'edit-post' || to.name === 'change-password') && !isAuthenticated()) {
     next({ name: 'login' })
   } else if ((to.name === 'login' || to.name === 'register') && isAuthenticated()) {
     next({ name: 'posts' })

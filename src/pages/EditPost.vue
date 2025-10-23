@@ -11,6 +11,8 @@ const currentUser = getCurrentUser();
 const header = ref("");
 const content = ref("");
 const username = ref("");
+const isAnonymous = ref(false);
+const isPrivate = ref(false);
 const loading = ref(false);
 const postId = ref(route.params.id);
 const selectedImage = ref(null);
@@ -37,6 +39,10 @@ onMounted(() => {
     header.value = currentPost.value.header || "";
     content.value = currentPost.value.contentText;
     username.value = currentPost.value.publisherName || "";
+    // Eğer publisherName boş veya "Anonymous" ise, toggle'ı aktif et
+    isAnonymous.value = !currentPost.value.publisherName || currentPost.value.publisherName === "Anonymous";
+    // isPrivate değerini yükle
+    isPrivate.value = currentPost.value.isPrivate || false;
   } else {
     // Post bulunamadı, ana sayfaya yönlendir
     router.push("/posts");
@@ -77,17 +83,26 @@ async function handleSave() {
     return;
   }
 
+  // Anonymous değilse username alanı zorunlu
+  if (!isAnonymous.value && !username.value.trim()) {
+    alert("Display name is required when not posting anonymously");
+    return;
+  }
+
   loading.value = true;
 
   try {
+    // Anonymous ise boş string gönder, değilse username değerini gönder
+    const publisherName = isAnonymous.value ? "" : username.value.trim();
     // Image varsa editPostWithImage, yoksa normal editPost kullan
     await updatePost(
       parseInt(postId.value),
       currentUser.id,
       header.value.trim(),
       content.value.trim(),
-      username.value.trim(),
-      selectedImage.value
+      publisherName,
+      selectedImage.value,
+      isPrivate.value
     );
     router.push("/posts");
   } catch (error) {
@@ -120,16 +135,63 @@ function handleCancel() {
 
           <v-card-text class="pa-6">
             <v-form @submit.prevent="handleSave">
+              <!-- Privacy and Anonymous Toggles -->
+              <v-card variant="outlined" class="mb-4">
+                <v-card-text>
+                  <!-- Anonymous Toggle -->
+                  <div class="d-flex align-center mb-3">
+                    <v-switch
+                      v-model="isAnonymous"
+                      color="primary"
+                      hide-details
+                      class="me-3"
+                    />
+                    <div>
+                      <div class="text-body-1 font-weight-medium">
+                        <v-icon start>mdi-incognito</v-icon>
+                        Post as Anonymous
+                      </div>
+                      <div class="text-caption text-medium-emphasis">
+                        Your identity will be hidden from other users
+                      </div>
+                    </div>
+                  </div>
+
+                  <v-divider class="my-3" />
+
+                  <!-- Private Toggle -->
+                  <div class="d-flex align-center">
+                    <v-switch
+                      v-model="isPrivate"
+                      color="warning"
+                      hide-details
+                      class="me-3"
+                    />
+                    <div>
+                      <div class="text-body-1 font-weight-medium">
+                        <v-icon start>mdi-lock</v-icon>
+                        Make Post Private
+                      </div>
+                      <div class="text-caption text-medium-emphasis">
+                        Only you will be able to see this post
+                      </div>
+                    </div>
+                  </div>
+                </v-card-text>
+              </v-card>
+
               <!-- Username Field -->
               <v-text-field
                 v-model="username"
                 label="Display Name"
-                placeholder="Enter your display name (optional)"
+                placeholder="Enter your display name"
                 prepend-inner-icon="mdi-account"
                 variant="outlined"
-                :disabled="loading"
+                :disabled="loading || isAnonymous"
+                :required="!isAnonymous"
+                :rules="!isAnonymous ? [(v) => !!v || 'Display name is required'] : []"
                 class="mb-4"
-                hint="Leave empty to use your account name"
+                :hint="isAnonymous ? 'Disabled when posting anonymously' : 'Display name is required when not posting anonymously'"
                 persistent-hint
               />
 
@@ -273,7 +335,7 @@ function handleCancel() {
               color="warning"
               variant="elevated"
               :loading="loading"
-              :disabled="!header.trim() || !content.trim() || isOverLimit"
+              :disabled="!header.trim() || !content.trim() || isOverLimit || (!isAnonymous && !username.trim())"
               @click="handleSave"
               prepend-icon="mdi-content-save"
               size="large"
@@ -316,7 +378,13 @@ function handleCancel() {
                 </template>
 
                 <v-card-title class="text-body-1 font-weight-bold">
-                  {{ username || currentPost?.publisherName || "Your Name" }}
+                  <span v-if="isAnonymous">
+                    <v-icon start size="small">mdi-incognito</v-icon>
+                    Anonymous
+                  </span>
+                  <span v-else>
+                    {{ username || currentPost?.publisherName || "Your Name" }}
+                  </span>
                 </v-card-title>
 
                 <v-card-subtitle> Updated just now </v-card-subtitle>

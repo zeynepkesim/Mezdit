@@ -1,33 +1,16 @@
 import axios from "axios"
-import { toast } from "../toast.js"
 
 const api = axios.create({
     baseURL: "/api",
     headers: { "Content-Type": "application/json" },
 })
 
+// Error handling yapılıyor ama toast gösterilmiyor
+// Toast notifications component seviyesinde gösteriliyor
 api.interceptors.response.use(
-    (response) => {
-
-        if (["post", "put", "delete"].includes(response.config.method)) {
-            toast.success("Success!!")
-        }
-        return response
-    },
+    (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
-            toast.error("Please check your credentials.", {
-                duration: 6000,
-            });
-        } else {
-            const message =
-                error.response?.data?.error?.message ||
-                error.message ||
-                "Something went wrong"
-            toast.error(message, {
-                duration: 6000, // default is 5000
-            });
-        }
+        console.error("API Error:", error.response?.data || error.message);
         return Promise.reject(error)
     }
 )

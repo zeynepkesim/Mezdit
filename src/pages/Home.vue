@@ -190,10 +190,21 @@ function isPostOwner(post) {
                   }}</v-card-subtitle>
                 </v-card-item>
 
-                <!-- Post Header/Title -->
-                <v-card-title v-if="post.header" class="text-h5 font-weight-bold mb-2">
-                  {{ post.header }}
-                </v-card-title>
+                <!-- Post Header/Title with Private Badge -->
+                <div class="d-flex align-center mb-2">
+                  <v-card-title v-if="post.header" class="text-h5 font-weight-bold flex-grow-0 pa-0 ps-4">
+                    {{ post.header }}
+                  </v-card-title>
+                  <v-chip
+                    v-if="post.isPrivate"
+                    color="warning"
+                    size="small"
+                    class="ms-3"
+                  >
+                    <v-icon start size="small">mdi-lock</v-icon>
+                    Private
+                  </v-chip>
+                </div>
 
                 <v-card-text class="text-body-1">
                   {{ post.contentText }}
