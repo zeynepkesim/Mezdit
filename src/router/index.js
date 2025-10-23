@@ -12,6 +12,10 @@ const router = createRouter({
   routes: [
     {
       path: "/",
+      redirect: "/posts",
+    },
+    {
+      path: "/login",
       name: "login",
       component: Login,
     },
@@ -20,9 +24,9 @@ const router = createRouter({
       name: "register",
       component: Register,
     },
-    { 
-      path: '/posts', 
-      name: 'posts', 
+    {
+      path: '/posts',
+      name: 'posts',
       component: Home
     },
     { 
@@ -44,9 +48,15 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  if ((to.name === 'posts' || to.name === 'create-post' || to.name === 'edit-post' || to.name === 'change-password') && !isAuthenticated()) {
+  // Posts sayfası herkese açık, diğer sayfalar authentication gerektirir
+  const publicRoutes = ['login', 'register', 'posts'];
+  const requiresAuth = !publicRoutes.includes(to.name);
+
+  if (requiresAuth && !isAuthenticated()) {
+    // Auth gerektiren sayfalara giriş yapmadan erişilmeye çalışılırsa login'e yönlendir
     next({ name: 'login' })
   } else if ((to.name === 'login' || to.name === 'register') && isAuthenticated()) {
+    // Giriş yapmış kullanıcı login/register'a gitmeye çalışırsa posts'a yönlendir
     next({ name: 'posts' })
   } else {
     next();

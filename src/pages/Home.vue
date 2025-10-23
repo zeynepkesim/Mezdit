@@ -1,11 +1,13 @@
 <script setup>
 import { onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { useToast } from "vue-toast-notification";
 import { posts, loading, error, loadPosts, voteOnPost } from "../store/posts";
 import { getCurrentUser } from "../store/auth.js";
 
 const router = useRouter();
 const currentUser = getCurrentUser();
+const toast = useToast();
 
 // User avatar helper (not used in template now, kept for future use)
 const getUserAvatar = (user) => {
@@ -53,6 +55,10 @@ function goToEditPost(postId) {
 // Vote fonksiyonu
 async function handleVote(postId, upvoted) {
   if (!currentUser) {
+    toast.error("You must login to vote", {
+      position: "bottom-right",
+      duration: 4000,
+    });
     return;
   }
 
@@ -87,8 +93,8 @@ function isPostOwner(post) {
 <template>
   <div>
     <v-container class="mt-4">
-      <!-- User Welcome Card -->
-      <v-row justify="center" class="mb-4">
+      <!-- User Welcome Card - Only show for authenticated users -->
+      <v-row v-if="currentUser" justify="center" class="mb-4">
         <v-col cols="12" md="8">
           <v-card variant="tonal" color="primary" class="text-center">
             <v-card-text>
@@ -230,7 +236,7 @@ function isPostOwner(post) {
         <v-col cols="auto" class="text-center">
           <v-icon size="80" color="grey">mdi-post-outline</v-icon>
           <div class="text-h6 mt-4">No posts yet</div>
-          <v-btn class="mt-4" color="primary" @click="goToCreatePost">
+          <v-btn v-if="currentUser" class="mt-4" color="primary" @click="goToCreatePost">
             <v-icon start>mdi-plus</v-icon>
             Create First Post
           </v-btn>

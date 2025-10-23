@@ -1,9 +1,11 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { useToast } from "vue-toast-notification";
 import { register } from "../store/auth.js";
 
 const router = useRouter();
+const toast = useToast();
 
 const name = ref("");
 const username = ref("");
@@ -14,16 +16,27 @@ const showPassword = ref(false);
 
 async function handleRegister() {
   if (!name.value || !username.value || !password.value) {
-    error.value = "Please fill in all fields";
+    toast.error("Please fill in all fields", {
+      position: "bottom-right",
+      duration: 4000,
+    });
     return;
   }
   loading.value = true;
   error.value = "";
   try {
     await register(name.value, username.value, password.value);
+    toast.success("Account created successfully!", {
+      position: "bottom-right",
+      duration: 3000,
+    });
     router.push("/posts");
   } catch (err) {
-    error.value = err.message || "Registration failed";
+    const errorMsg = err.response?.data?.error?.message || err.message || "Registration failed. Please try again.";
+    toast.error(errorMsg, {
+      position: "bottom-right",
+      duration: 5000,
+    });
   } finally {
     loading.value = false;
   }
@@ -112,7 +125,7 @@ async function handleRegister() {
                 <span class="text-medium-emphasis"
                   >Already have an account?</span
                 >
-                <v-btn variant="text" color="primary" @click="router.push('/')"
+                <v-btn variant="text" color="primary" @click="router.push('/login')"
                   >Sign In</v-btn
                 >
               </div>

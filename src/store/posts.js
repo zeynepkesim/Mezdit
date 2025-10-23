@@ -66,13 +66,13 @@ export async function updatePost(postId, userId, header, contentText, publisherN
 export async function voteOnPost(postId, userId, upvoted) {
   try {
     const updatedPost = await votePost(postId, userId, upvoted)
-    
+
     // Local state'i güncelle
     const postIndex = posts.value.findIndex(p => p.id === postId)
     if (postIndex !== -1) {
       posts.value[postIndex] = updatedPost
     }
-    
+
     return updatedPost
   } catch (err) {
     console.error('Error voting on post:', err)

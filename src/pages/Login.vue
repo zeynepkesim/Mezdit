@@ -1,9 +1,11 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { useToast } from "vue-toast-notification";
 import { login } from "../store/auth.js";
 
 const router = useRouter();
+const toast = useToast();
 
 const username = ref("");
 const password = ref("");
@@ -13,7 +15,10 @@ const showPassword = ref(false);
 
 async function handleLogin() {
   if (!username.value || !password.value) {
-    error.value = "Please enter username and password";
+    toast.error("Please enter username and password", {
+      position: "bottom-right",
+      duration: 4000,
+    });
     return;
   }
 
@@ -22,9 +27,17 @@ async function handleLogin() {
 
   try {
     await login(username.value, password.value);
+    toast.success("Successfully logged in!", {
+      position: "bottom-right",
+      duration: 3000,
+    });
     router.push("/posts");
   } catch (err) {
-    error.value = err.message || "Login failed. Please check your credentials.";
+    const errorMsg = err.response?.data?.error?.message || err.message || "Login failed. Please check your credentials.";
+    toast.error(errorMsg, {
+      position: "bottom-right",
+      duration: 5000,
+    });
   } finally {
     loading.value = false;
   }

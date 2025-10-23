@@ -1,10 +1,12 @@
 <script setup>
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useToast } from "vue-toast-notification";
 import { logout, getCurrentUser } from "./store/auth.js";
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 // Reactive currentUser - her değişiklikte güncellenir
 const currentUser = computed(() => getCurrentUser());
@@ -36,7 +38,16 @@ const getUserAvatar = (user) => {
 
 function handleLogout() {
   logout();
-  router.push("/");
+
+  toast.success("Successfully logged out!", {
+    position: "bottom-right",
+    duration: 3000,
+  });
+
+  // If not on posts page, redirect to posts
+  if (route.name !== 'posts') {
+    router.push("/posts");
+  }
 }
 </script>
 
@@ -58,57 +69,72 @@ function handleLogout() {
 
       <v-spacer />
 
-      <v-btn
-        color="primary"
-        variant="elevated"
-        prepend-icon="mdi-plus"
-        @click="router.push('/create-post')"
-        class="mr-4"
-      >
-        Create Post
-      </v-btn>
+      <!-- Authenticated User Controls -->
+      <template v-if="currentUser">
+        <v-btn
+          color="primary"
+          variant="elevated"
+          prepend-icon="mdi-plus"
+          @click="router.push('/create-post')"
+          class="mr-4"
+        >
+          Create Post
+        </v-btn>
 
-      <v-menu>
-        <template v-slot:activator="{ props }">
-          <v-btn v-bind="props" icon size="large" class="user-avatar-btn">
-            <v-avatar size="40">
-              <v-img
-                :src="getUserAvatar(currentUser)"
-                :alt="currentUser?.name || currentUser?.username"
-              />
-            </v-avatar>
-          </v-btn>
-        </template>
-
-        <v-list min-width="200">
-          <v-list-item class="px-4 py-3">
-            <template v-slot:prepend>
-              <v-avatar size="48">
+        <v-menu>
+          <template v-slot:activator="{ props }">
+            <v-btn v-bind="props" icon size="large" class="user-avatar-btn">
+              <v-avatar size="40">
                 <v-img
                   :src="getUserAvatar(currentUser)"
-                  :alt="currentUser?.name"
+                  :alt="currentUser?.name || currentUser?.username"
                 />
               </v-avatar>
-            </template>
-            <v-list-item-title class="font-weight-bold">
-              {{ currentUser?.name }}
-            </v-list-item-title>
-            <v-list-item-subtitle>
-              @{{ currentUser?.username }}
-            </v-list-item-subtitle>
-          </v-list-item>
+            </v-btn>
+          </template>
 
-          <v-divider />
+          <v-list min-width="200">
+            <v-list-item class="px-4 py-3">
+              <template v-slot:prepend>
+                <v-avatar size="48">
+                  <v-img
+                    :src="getUserAvatar(currentUser)"
+                    :alt="currentUser?.name"
+                  />
+                </v-avatar>
+              </template>
+              <v-list-item-title class="font-weight-bold">
+                {{ currentUser?.name }}
+              </v-list-item-title>
+              <v-list-item-subtitle>
+                @{{ currentUser?.username }}
+              </v-list-item-subtitle>
+            </v-list-item>
 
-          <v-list-item @click="router.push('/change-password')" prepend-icon="mdi-lock-reset">
-            <v-list-item-title>Change Password</v-list-item-title>
-          </v-list-item>
+            <v-divider />
 
-          <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
-            <v-list-item-title>Logout</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
+            <v-list-item @click="router.push('/change-password')" prepend-icon="mdi-lock-reset">
+              <v-list-item-title>Change Password</v-list-item-title>
+            </v-list-item>
+
+            <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
+              <v-list-item-title>Logout</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
+      </template>
+
+      <!-- Guest User Controls -->
+      <template v-else>
+        <v-btn
+          color="primary"
+          variant="elevated"
+          prepend-icon="mdi-login"
+          @click="router.push('/login')"
+        >
+          Login
+        </v-btn>
+      </template>
     </v-app-bar>
 
     <v-main v-if="!isLoginPage">
