@@ -9,6 +9,7 @@ import (
 
 	"devops-be/internal/database"
 	"devops-be/internal/middleware"
+	ws "devops-be/internal/websocket"
 )
 
 // UploadImageHandler handles POST /upload - standalone image upload
@@ -146,6 +147,11 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Broadcast new post to all connected clients
+	if ws.GlobalHub != nil {
+		ws.GlobalHub.BroadcastMessage(ws.MessageTypePostCreated, post)
+	}
+
 	middleware.WriteCreated(w, post)
 }
 
@@ -258,6 +264,11 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		middleware.WriteError(w, http.StatusInternalServerError, "server_error", "Failed to update post")
 		return
+	}
+
+	// Broadcast post update to all connected clients
+	if ws.GlobalHub != nil {
+		ws.GlobalHub.BroadcastMessage(ws.MessageTypePostUpdated, post)
 	}
 
 	middleware.WriteOK(w, post)

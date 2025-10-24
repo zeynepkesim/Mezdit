@@ -7,6 +7,7 @@ import (
 	"devops-be/internal/database"
 	"devops-be/internal/middleware"
 	"devops-be/internal/models"
+	ws "devops-be/internal/websocket"
 )
 
 // VoteHandler handles POST /vote
@@ -51,5 +52,11 @@ func VoteHandler(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, http.StatusInternalServerError, "server_error", "Failed to process vote")
 		return
 	}
+
+	// Broadcast vote update to all connected clients
+	if ws.GlobalHub != nil {
+		ws.GlobalHub.BroadcastMessage(ws.MessageTypePostVoted, post)
+	}
+
 	middleware.WriteOK(w, post)
 }

@@ -7,12 +7,19 @@ import (
 
 	"devops-be/internal/database"
 	"devops-be/internal/handlers"
+	"devops-be/internal/websocket"
 )
 
 func main() {
 	// Initialize database connection
 	database.Init()
 	defer database.Close()
+
+	// Initialize WebSocket hub
+	websocket.InitHub()
+
+	// WebSocket endpoint
+	http.HandleFunc("/ws", handlers.WebSocketHandler)
 
 	// Auth endpoints
 	http.HandleFunc("/login", handlers.LoginHandler)
@@ -35,8 +42,11 @@ func main() {
 	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("./images/"))))
 
 	fmt.Println("Server running on http://localhost:8080")
+	fmt.Println("WebSocket Hub initialized - Real-time updates enabled")
 	fmt.Println("CORS enabled for all origins")
+	fmt.Println("")
 	fmt.Println("Available endpoints:")
+	fmt.Println("  WS   /ws (WebSocket - Real-time updates)")
 	fmt.Println("  POST /login")
 	fmt.Println("  POST /register")
 	fmt.Println("  POST /change-password")
@@ -47,5 +57,6 @@ func main() {
 	fmt.Println("  POST /posts/upload")
 	fmt.Println("  POST /upload")
 	fmt.Println("  POST /vote")
+	fmt.Println("  GET  /images/* (Static file serving)")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
