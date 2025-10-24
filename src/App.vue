@@ -3,20 +3,21 @@ import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useToast } from "vue-toast-notification";
 import { logout, getCurrentUser } from "./store/auth.js";
+import { loadPosts } from "./store/posts.js";
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 
-// Reactive currentUser - her değişiklikte güncellenir
+// Reactive currentUser - updates automatically
 const currentUser = computed(() => getCurrentUser());
 
-// Login sayfası kontrolü
+// Check if current page is login or register
 const isLoginPage = computed(
   () => route.name === "login" || route.name === "register"
 );
 
-// Backend'den gelen profil fotoğrafını kullan, yoksa Dicebear avatar'ı göster
+// Use profile photo from backend, fallback to Dicebear avatar
 const getUserAvatar = (user) => {
   if (user?.profilePhoto) {
     return user.profilePhoto;
@@ -36,13 +37,16 @@ const getUserAvatar = (user) => {
   )}`;
 };
 
-function handleLogout() {
+async function handleLogout() {
   logout();
 
   toast.success("Successfully logged out!", {
     position: "bottom-right",
     duration: 3000,
   });
+
+  // Reload posts without userId (guest view)
+  await loadPosts(null);
 
   // If not on posts page, redirect to posts
   if (route.name !== 'posts') {

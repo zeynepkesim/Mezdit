@@ -7,7 +7,7 @@ import { getCurrentUser } from "../store/auth.js";
 const router = useRouter();
 const currentUser = getCurrentUser();
 
-// Name alanı değiştirilebilir olsun, default olarak current user'ın adı gelsin
+// Display name field is editable, defaults to current user's name
 const author = ref(currentUser?.name || "");
 const isAnonymous = ref(false);
 const isPrivate = ref(false);
@@ -18,7 +18,7 @@ const error = ref("");
 const selectedImage = ref(null);
 const imagePreview = ref(null);
 
-// Backend'den gelen profil fotoğrafını kullan, yoksa Dicebear avatar'ı göster
+// Use profile photo from backend, fallback to Dicebear avatar
 const getUserAvatar = (user) => {
   if (user?.profilePhoto) {
     return user.profilePhoto;
@@ -74,7 +74,7 @@ async function handleSubmit() {
     return;
   }
 
-  // Anonymous değilse name alanı zorunlu
+  // Display name is required when not posting anonymously
   if (!isAnonymous.value && !author.value.trim()) {
     error.value = "Display name is required when not posting anonymously";
     return;
@@ -84,9 +84,9 @@ async function handleSubmit() {
   error.value = "";
 
   try {
-    // Giriş yapan kullanıcının ID'sini kullan
+    // Use authenticated user's ID
     const publisherId = currentUser?.id || 1;
-    // Anonymous ise boş string gönder, değilse author değerini gönder
+    // Send empty string if anonymous, otherwise send author name
     const publisherName = isAnonymous.value ? "" : author.value.trim();
     await addPost(
       publisherId,

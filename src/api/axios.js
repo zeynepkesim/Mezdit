@@ -5,8 +5,8 @@ const api = axios.create({
     headers: { "Content-Type": "application/json" },
 })
 
-// Error handling yapılıyor ama toast gösterilmiyor
-// Toast notifications component seviyesinde gösteriliyor
+// Error handling without toast notifications
+// Toast notifications are handled at component level
 api.interceptors.response.use(
     (response) => response,
     (error) => {

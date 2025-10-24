@@ -5,6 +5,78 @@ const posts = ref([]);
 const loading = ref(false);
 const error = ref("");
 
+// WebSocket message handlers
+export function handleWebSocketMessage(message) {
+  const { type, payload } = message
+
+  switch (type) {
+    case 'POST_CREATED':
+      handlePostCreated(payload)
+      break
+    case 'POST_UPDATED':
+      handlePostUpdated(payload)
+      break
+    case 'POST_VOTED':
+      handlePostVoted(payload)
+      break
+    case 'POST_PRIVACY_CHANGED':
+      handlePostPrivacyChanged(payload)
+      break
+    default:
+      console.log('Unknown WebSocket message type:', type)
+  }
+}
+
+function handlePostCreated(newPost) {
+  // Check if post already exists (avoid duplicates)
+  const existingIndex = posts.value.findIndex(p => p.id === newPost.id)
+  if (existingIndex === -1) {
+    // Add new post to the beginning of the list
+    posts.value.unshift(newPost)
+    console.log('New post added via WebSocket:', newPost.id)
+  }
+}
+
+function handlePostUpdated(updatedPost) {
+  const postIndex = posts.value.findIndex(p => p.id === updatedPost.id)
+  if (postIndex !== -1) {
+    // Update existing post
+    posts.value[postIndex] = updatedPost
+    console.log('Post updated via WebSocket:', updatedPost.id)
+  } else {
+    // Post doesn't exist locally, might be a new post that became visible
+    posts.value.unshift(updatedPost)
+  }
+}
+
+function handlePostVoted(updatedPost) {
+  const postIndex = posts.value.findIndex(p => p.id === updatedPost.id)
+  if (postIndex !== -1) {
+    // Update vote count and isLiked status
+    posts.value[postIndex] = updatedPost
+    console.log('Post vote updated via WebSocket:', updatedPost.id, 'new count:', updatedPost.voteCount)
+  }
+}
+
+function handlePostPrivacyChanged(updatedPost) {
+  const postIndex = posts.value.findIndex(p => p.id === updatedPost.id)
+  if (postIndex !== -1) {
+    if (updatedPost.isPrivate && updatedPost.publisherId !== updatedPost.currentUserId) {
+      // Post became private and user is not owner - remove it
+      posts.value.splice(postIndex, 1)
+      console.log('Private post removed via WebSocket:', updatedPost.id)
+    } else {
+      // Update the post
+      posts.value[postIndex] = updatedPost
+      console.log('Post privacy changed via WebSocket:', updatedPost.id)
+    }
+  } else if (!updatedPost.isPrivate) {
+    // Post became public - add it if not exists
+    posts.value.unshift(updatedPost)
+    console.log('Public post added via WebSocket:', updatedPost.id)
+  }
+}
+
 export async function loadPosts(userId = null) {
   loading.value = true
   error.value = ''
@@ -23,14 +95,14 @@ export async function addPost(publisherId, header, contentText, publisherName = 
   try {
     let newPost
     if (imageFile) {
-      // Image ile post oluştur
+      // Create post with image
       newPost = await createPostWithImage(publisherId, header, contentText, publisherName, imageFile, isPrivate)
     } else {
-      // Normal post oluştur
+      // Create post without image
       newPost = await createPost(publisherId, header, contentText, publisherName, isPrivate)
     }
 
-    // Backend'den dönen yeni post'u listenin başına ekle
+    // Add new post from backend to the beginning of the list
     posts.value.unshift(newPost)
     return newPost
   } catch (err) {
@@ -43,14 +115,14 @@ export async function updatePost(postId, userId, header, contentText, publisherN
   try {
     let updatedPost
     if (imageFile) {
-      // Image ile post güncelle
+      // Update post with image
       updatedPost = await editPostWithImage(postId, userId, header, contentText, publisherName, imageFile, isPrivate)
     } else {
-      // Normal post güncelle
+      // Update post without image
       updatedPost = await editPost(postId, userId, header, contentText, publisherName, isPrivate)
     }
 
-    // Local state'i güncelle
+    // Update local state
     const postIndex = posts.value.findIndex(p => p.id === postId)
     if (postIndex !== -1) {
       posts.value[postIndex] = updatedPost
@@ -67,7 +139,7 @@ export async function voteOnPost(postId, userId, upvoted) {
   try {
     const updatedPost = await votePost(postId, userId, upvoted)
 
-    // Local state'i güncelle
+    // Update local state
     const postIndex = posts.value.findIndex(p => p.id === postId)
     if (postIndex !== -1) {
       posts.value[postIndex] = updatedPost
