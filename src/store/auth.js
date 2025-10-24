@@ -7,15 +7,15 @@ const isLoggedIn = ref(false)
 export async function login(username, password) {
   try {
     const userData = await loginUser(username, password)
-    
-    // Kullanıcı verilerini state'e kaydet
+
+    // Save user data to state
     currentUser.value = userData
     isLoggedIn.value = true
-    
-    // localStorage'a kaydet
+
+    // Save to localStorage
     localStorage.setItem('devops_user', JSON.stringify(userData))
     localStorage.setItem('devops_logged_in', 'true')
-    
+
     return userData
   } catch (error) {
     console.error('Login failed:', error)
@@ -26,24 +26,24 @@ export async function login(username, password) {
 export function logout() {
   currentUser.value = null
   isLoggedIn.value = false
-  
-  // localStorage'dan temizle
+
+  // Clear from localStorage
   localStorage.removeItem('devops_user')
   localStorage.removeItem('devops_logged_in')
 }
 
 export function initializeAuth() {
-  // Sayfa yüklendiğinde localStorage'dan kontrol et
+  // Check localStorage on page load
   const storedUser = localStorage.getItem('devops_user')
   const storedLoggedIn = localStorage.getItem('devops_logged_in')
-  
+
   if (storedUser && storedLoggedIn === 'true') {
     try {
       currentUser.value = JSON.parse(storedUser)
       isLoggedIn.value = true
     } catch (error) {
       console.error('Error parsing stored user data:', error)
-      logout() // Hatalı data varsa temizle
+      logout() // Clear if data is corrupted
     }
   }
 }

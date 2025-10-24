@@ -21,7 +21,7 @@ const imagePreview = ref(null);
 const characterCount = computed(() => content.value.length);
 const isOverLimit = computed(() => characterCount.value > 500);
 
-// Mevcut post'u bul ve içeriğini yükle
+// Find current post and load its content
 const currentPost = computed(() => {
   return posts.value.find((p) => p.id === parseInt(postId.value));
 });
@@ -39,12 +39,12 @@ onMounted(() => {
     header.value = currentPost.value.header || "";
     content.value = currentPost.value.contentText;
     username.value = currentPost.value.publisherName || "";
-    // Eğer publisherName boş veya "Anonymous" ise, toggle'ı aktif et
+    // Activate anonymous toggle if publisherName is empty or "Anonymous"
     isAnonymous.value = !currentPost.value.publisherName || currentPost.value.publisherName === "Anonymous";
-    // isPrivate değerini yükle
+    // Load isPrivate value
     isPrivate.value = currentPost.value.isPrivate || false;
   } else {
-    // Post bulunamadı, ana sayfaya yönlendir
+    // Post not found, redirect to posts page
     router.push("/posts");
   }
 });
@@ -83,7 +83,7 @@ async function handleSave() {
     return;
   }
 
-  // Anonymous değilse username alanı zorunlu
+  // Display name is required when not posting anonymously
   if (!isAnonymous.value && !username.value.trim()) {
     alert("Display name is required when not posting anonymously");
     return;
@@ -92,9 +92,8 @@ async function handleSave() {
   loading.value = true;
 
   try {
-    // Anonymous ise boş string gönder, değilse username değerini gönder
+    // Send empty string if anonymous, otherwise send username
     const publisherName = isAnonymous.value ? "" : username.value.trim();
-    // Image varsa editPostWithImage, yoksa normal editPost kullan
     await updatePost(
       parseInt(postId.value),
       currentUser.id,

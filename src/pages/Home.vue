@@ -1,13 +1,15 @@
 <script setup>
-import { onMounted } from "vue";
+import { onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "vue-toast-notification";
-import { posts, loading, error, loadPosts, voteOnPost } from "../store/posts";
+import { posts, loading, loadPosts, voteOnPost, handleWebSocketMessage } from "../store/posts";
 import { getCurrentUser } from "../store/auth.js";
+import { useWebSocket } from "../composables/useWebSocket.js";
 
 const router = useRouter();
-const currentUser = getCurrentUser();
+const currentUser = computed(() => getCurrentUser());
 const toast = useToast();
+const { connect, disconnect, isConnected } = useWebSocket();
 
 // User avatar helper (not used in template now, kept for future use)
 const getUserAvatar = (user) => {
@@ -32,7 +34,7 @@ const getPostAuthorAvatar = (post) => {
 // Get full image URL for post images
 const getPostImageUrl = (post) => {
   if (post?.contentPhotoPath) {
-    // Backend'den gelen path'i full URL'ye çevir
+    // Convert backend path to full URL
     console.log(`/api/images/${post.contentPhotoPath.split("/").pop()}`);
     return `/api/images/${post.contentPhotoPath.split("/").pop()}`;
   }
@@ -40,8 +42,13 @@ const getPostImageUrl = (post) => {
 };
 
 onMounted(async () => {
-  // Kullanıcı giriş yapmışsa userId ile posts al, yoksa null ile
-  await loadPosts(currentUser?.id || null);
+  // Load posts with userId if authenticated, otherwise load as guest
+  await loadPosts(currentUser.value?.id || null);
+
+  // Connect to WebSocket for real-time updates
+  connect((message) => {
+    handleWebSocketMessage(message);
+  });
 });
 
 function goToCreatePost() {
@@ -54,7 +61,7 @@ function goToEditPost(postId) {
 
 // Vote fonksiyonu
 async function handleVote(postId, upvoted) {
-  if (!currentUser) {
+  if (!currentUser.value) {
     toast.error("You must login to vote", {
       position: "bottom-right",
       duration: 4000,
@@ -63,13 +70,13 @@ async function handleVote(postId, upvoted) {
   }
 
   try {
-    await voteOnPost(postId, currentUser.id, upvoted);
+    await voteOnPost(postId, currentUser.value.id, upvoted);
   } catch (error) {
     console.error("Vote error:", error);
   }
 }
 
-// Vote durum kontrolü için yardımcı fonksiyonlar
+// Helper functions for vote button state
 function getVoteButtonColor(post, isUpvote) {
   if (post.isLiked === null) return "grey";
   if (isUpvote && post.isLiked === true) return "success";
@@ -84,15 +91,32 @@ function getVoteButtonVariant(post, isUpvote) {
   return "text";
 }
 
-// Post sahibi kontrolü
+// Check if current user is post owner
 function isPostOwner(post) {
-  return currentUser && post.publisherId === currentUser.id;
+  return currentUser.value && post.publisherId === currentUser.value.id;
 }
 </script>
 
 <template>
   <div>
     <v-container class="mt-4">
+      <!-- WebSocket Connection Status -->
+      <v-row justify="center">
+        <v-col cols="12" md="8">
+          <v-chip
+            :color="isConnected ? 'success' : 'warning'"
+            size="small"
+            class="mb-2"
+            variant="tonal"
+          >
+            <v-icon start size="small">
+              {{ isConnected ? 'mdi-wifi' : 'mdi-wifi-off' }}
+            </v-icon>
+            {{ isConnected ? 'Live updates active' : 'Reconnecting...' }}
+          </v-chip>
+        </v-col>
+      </v-row>
+
       <!-- User Welcome Card - Only show for authenticated users -->
       <v-row v-if="currentUser" justify="center" class="mb-4">
         <v-col cols="12" md="8">

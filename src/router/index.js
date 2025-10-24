@@ -48,15 +48,15 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  // Posts sayfası herkese açık, diğer sayfalar authentication gerektirir
+  // Posts page is public, other pages require authentication
   const publicRoutes = ['login', 'register', 'posts'];
   const requiresAuth = !publicRoutes.includes(to.name);
 
   if (requiresAuth && !isAuthenticated()) {
-    // Auth gerektiren sayfalara giriş yapmadan erişilmeye çalışılırsa login'e yönlendir
+    // Redirect to login if trying to access protected pages without authentication
     next({ name: 'login' })
   } else if ((to.name === 'login' || to.name === 'register') && isAuthenticated()) {
-    // Giriş yapmış kullanıcı login/register'a gitmeye çalışırsa posts'a yönlendir
+    // Redirect authenticated users trying to access login/register to posts
     next({ name: 'posts' })
   } else {
     next();
