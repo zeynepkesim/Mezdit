@@ -383,6 +383,235 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     {"success": false, "error": {"code": "user_not_found", "message": "User not found"}}
     ```
 
+### WebSocket Real-Time Updates
+
+The API supports real-time updates via WebSocket connections. Connect to receive instant notifications about post creation, updates, votes, and privacy changes.
+
+- **WebSocket Endpoint**: `ws://localhost:8080/ws`
+
+#### Connecting to WebSocket
+
+```javascript
+// JavaScript example
+const ws = new WebSocket('ws://localhost:8080/ws');
+
+ws.onopen = () => {
+  console.log('Connected to WebSocket');
+};
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  console.log('Received:', message);
+
+  // Handle different message types
+  switch (message.type) {
+    case 'POST_CREATED':
+      // A new post was created
+      console.log('New post:', message.payload);
+      break;
+    case 'POST_UPDATED':
+      // A post was edited
+      console.log('Updated post:', message.payload);
+      break;
+    case 'POST_VOTED':
+      // A post received a vote
+      console.log('Vote update:', message.payload);
+      break;
+    case 'POST_PRIVACY_CHANGED':
+      // A post's privacy setting changed
+      console.log('Privacy changed:', message.payload);
+      break;
+  }
+};
+
+ws.onerror = (error) => {
+  console.error('WebSocket error:', error);
+};
+
+ws.onclose = () => {
+  console.log('Disconnected from WebSocket');
+};
+```
+
+#### Message Types
+
+All WebSocket messages follow this format:
+```json
+{
+  "type": "MESSAGE_TYPE",
+  "payload": { /* post object */ }
+}
+```
+
+**POST_CREATED** - Broadcasted when a new post is created
+- Triggered by: `POST /posts`, `POST /posts/upload`
+- Payload: Complete post object with all fields
+```json
+{
+  "type": "POST_CREATED",
+  "payload": {
+    "id": 8,
+    "publisherId": 1,
+    "publisherName": "John Doe",
+    "publisherPhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=1",
+    "header": "New Post Title",
+    "contentText": "Post content here",
+    "contentPhotoId": null,
+    "contentPhotoPath": null,
+    "isPrivate": false,
+    "voteCount": 0,
+    "isLiked": null,
+    "createdAt": "2025-10-24T12:00:00Z"
+  }
+}
+```
+
+**POST_UPDATED** - Broadcasted when a post is edited
+- Triggered by: `POST /posts/edit`, `POST /posts/edit-with-image`
+- Payload: Updated post object with current vote count and user's vote status
+```json
+{
+  "type": "POST_UPDATED",
+  "payload": {
+    "id": 1,
+    "publisherId": 2,
+    "publisherName": "Updated Name",
+    "publisherPhoto": null,
+    "header": "Updated Title",
+    "contentText": "Updated content",
+    "contentPhotoId": 5,
+    "contentPhotoPath": "images/uuid_newimage.jpg",
+    "isPrivate": false,
+    "voteCount": 5,
+    "isLiked": true,
+    "createdAt": "2023-12-01T10:00:00Z"
+  }
+}
+```
+
+**POST_VOTED** - Broadcasted when a post receives a vote (upvote/downvote/toggle)
+- Triggered by: `POST /vote`
+- Payload: Post object with updated vote count and voting user's vote status
+```json
+{
+  "type": "POST_VOTED",
+  "payload": {
+    "id": 1,
+    "publisherId": 2,
+    "publisherName": "John Doe",
+    "publisherPhoto": null,
+    "header": "First Post",
+    "contentText": "Hello world!",
+    "contentPhotoId": null,
+    "contentPhotoPath": null,
+    "isPrivate": false,
+    "voteCount": 6,
+    "isLiked": true,
+    "createdAt": "2023-12-01T10:00:00Z"
+  }
+}
+```
+
+**POST_PRIVACY_CHANGED** - Reserved for future privacy toggle operations
+- Will be triggered when a dedicated privacy toggle endpoint is implemented
+- Payload: Post object with updated privacy status
+
+#### WebSocket Features
+
+- **Bidirectional Communication**: Full duplex WebSocket connection (not polling)
+- **Multi-Client Support**: Broadcasts to all connected clients simultaneously
+- **Real-Time Updates**: Near-instant notifications (typically <100ms)
+- **Connection Management**: Automatic cleanup of disconnected clients
+- **Heartbeat**: Built-in ping/pong mechanism to detect dead connections
+  - Pong wait: 60 seconds
+  - Ping period: 54 seconds
+- **CORS Enabled**: Accepts connections from any origin (development mode)
+
+#### Client Implementation Example
+
+```javascript
+class PostsWebSocket {
+  constructor(url, onUpdate) {
+    this.url = url;
+    this.onUpdate = onUpdate;
+    this.ws = null;
+    this.reconnectDelay = 1000;
+  }
+
+  connect() {
+    this.ws = new WebSocket(this.url);
+
+    this.ws.onopen = () => {
+      console.log('✓ WebSocket connected');
+      this.reconnectDelay = 1000; // Reset reconnect delay
+    };
+
+    this.ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      this.onUpdate(message);
+    };
+
+    this.ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    this.ws.onclose = () => {
+      console.log('WebSocket disconnected. Reconnecting...');
+      setTimeout(() => this.connect(), this.reconnectDelay);
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
+    };
+  }
+
+  disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+}
+
+// Usage
+const postsWS = new PostsWebSocket('ws://localhost:8080/ws', (message) => {
+  console.log('Received update:', message.type, message.payload);
+
+  // Update UI based on message type
+  if (message.type === 'POST_CREATED') {
+    addPostToUI(message.payload);
+  } else if (message.type === 'POST_UPDATED') {
+    updatePostInUI(message.payload);
+  } else if (message.type === 'POST_VOTED') {
+    updateVoteCountInUI(message.payload);
+  }
+});
+
+postsWS.connect();
+```
+
+#### Use Cases
+
+1. **Live Feed Updates**: Users see new posts appear instantly without refreshing
+2. **Real-Time Vote Counts**: Vote counts update for all users viewing the same post
+3. **Collaborative Editing**: Multiple users see edits in real-time
+4. **Privacy Changes**: Users see when posts change from public to private (or vice versa)
+
+#### Testing WebSocket
+
+```bash
+# Install wscat for testing (Node.js required)
+npm install -g wscat
+
+# Connect to WebSocket endpoint
+wscat -c ws://localhost:8080/ws
+
+# In another terminal, trigger events
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"publisherId":1, "header":"Test", "contentText":"Testing WebSocket", "isPrivate":false}' \
+  http://localhost:8080/posts
+
+# You should see the POST_CREATED message in wscat terminal
+```
+
 ### Users
 
 - `GET /users/{username}` — Get user by username.
@@ -426,6 +655,12 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
 - **User Vote Context**: Posts include `isLiked` field showing user's current vote status
 - **Post Editing**: Users can edit their own posts with ownership validation
 - **Image Upload**: Support for image uploads with unique UUID naming, file type validation (JPG/JPEG/PNG only), and static file serving
+- **Real-Time WebSocket Updates**: Live broadcasts for post creation, updates, and votes
+  - Bidirectional WebSocket communication (not polling)
+  - Multi-client support with automatic connection management
+  - Heartbeat mechanism for connection health monitoring
+  - Message types: POST_CREATED, POST_UPDATED, POST_VOTED, POST_PRIVACY_CHANGED
+  - All connected clients receive instant updates (typically <100ms latency)
 - **Sorting**: Posts are sorted by creation date (newest first)
 - **JOIN Queries**: Efficient data retrieval with publisher names and profile photos
 - **Transaction Support**: ACID compliance for vote operations

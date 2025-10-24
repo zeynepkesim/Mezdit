@@ -13,10 +13,10 @@ import (
 var DB *sql.DB
 
 func Init() {
-	// PostgreSQL bağlantı string'i - environment variable'dan al
+	// PostgreSQL connection string - get from environment variable
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		// Default local PostgreSQL bağlantısı (şifresiz postgres user)
+		// Default local PostgreSQL connection (passwordless postgres user)
 		databaseURL = "postgres://postgres@localhost:5432/postgres?sslmode=disable"
 	}
 
