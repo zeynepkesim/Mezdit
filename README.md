@@ -40,6 +40,16 @@ psql -d postgres -f setup.sql
 psql -d postgres -f scripts/reset_passwords.sql
 ```
 
+**Generate bcrypt hash for new users:**
+```bash
+# Use the hash generator utility
+cd scripts
+go run generate_hash.go
+
+# Output will show bcrypt hashes you can use in SQL
+# Example: '$2a$10$YyMu9W4FgeVKLsKzRofXIesu4vSVF1Rk8yjfzrF.q4fZNxMsVZSoG'
+```
+
 ## Environment Variables
 
 This project uses a `.env` file for configuration.
@@ -88,6 +98,73 @@ go run .
 ```
 
 Server: http://localhost:8080
+
+## Project Structure
+
+```
+devops-be/
+├── main.go                          # Application entry point, route definitions
+├── setup.sql                        # Database schema and sample data
+├── .env                             # Environment variables (NOT in Git)
+├── .env.example                     # Example environment file (in Git)
+├── .gitignore                       # Git ignore rules
+├── go.mod                           # Go dependencies
+├── go.sum                           # Go dependency checksums
+├── post_test.go                     # Post-related tests
+├── internal/
+│   ├── auth/
+│   │   ├── jwt.go                   # JWT token generation and validation
+│   │   └── jwt_test.go              # JWT authentication tests
+│   ├── database/
+│   │   ├── database.go              # Database connection setup
+│   │   ├── post.go                  # Post-related database operations
+│   │   ├── user.go                  # User-related database operations (bcrypt)
+│   │   ├── user_test.go             # Password hashing and verification tests
+│   │   ├── vote.go                  # Vote-related database operations
+│   │   └── image.go                 # Image-related database operations
+│   ├── handlers/
+│   │   ├── auth.go                  # Authentication handlers (login, register)
+│   │   ├── post.go                  # Post handlers (CRUD operations)
+│   │   ├── vote.go                  # Vote handler
+│   │   ├── image.go                 # Image upload handlers
+│   │   └── websocket.go             # WebSocket connection handler
+│   ├── middleware/
+│   │   ├── middleware.go            # Common middleware (CORS, JSON, etc.)
+│   │   └── auth.go                  # Authentication middleware (JWT validation)
+│   ├── models/
+│   │   └── models.go                # Data structures (User, Post, etc.)
+│   └── websocket/
+│       ├── hub.go                   # WebSocket hub (connection manager)
+│       └── client.go                # WebSocket client handler
+└── scripts/
+    ├── generate_hash.go             # Utility to generate bcrypt hashes
+    └── reset_passwords.sql          # SQL script to reset user passwords
+```
+
+### Key Components
+
+**Authentication & Security:**
+- `internal/auth/jwt.go`: JWT token creation and validation with configurable secret
+- `internal/middleware/auth.go`: Authentication middleware (RequireAuth, OptionalAuth)
+- `internal/database/user.go`: Bcrypt password hashing and verification
+
+**Real-Time Updates:**
+- `internal/websocket/hub.go`: Manages WebSocket connections and broadcasts
+- `internal/websocket/client.go`: Individual client connection handling
+- `internal/handlers/websocket.go`: WebSocket HTTP upgrade handler
+
+**Database Operations:**
+- `internal/database/*.go`: All database interactions with PostgreSQL
+- Password security with bcrypt (never store plain text)
+- Privacy filtering for posts
+
+**Testing:**
+- `*_test.go`: Unit tests for password, JWT, posts, and voting
+- Minimum 50% code coverage target
+
+**Scripts:**
+- `scripts/generate_hash.go`: Generate bcrypt hashes for new users
+- `scripts/reset_passwords.sql`: Reset sample user passwords
 
 ## Authentication
 
