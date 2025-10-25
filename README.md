@@ -789,16 +789,81 @@ The project includes comprehensive unit tests with mock data to validate core fu
 # Run all tests
 go test -v ./...
 
-# Run specific test file
-go test -v -run TestAddPostWithMockData
-go test -v -run TestEditPostWithMockData
-go test -v -run TestVotePostLogic
+# Run specific test suites
+go test -v ./internal/database -run TestPassword      # Password tests
+go test -v ./internal/auth -run TestToken             # JWT tests
+go test -v -run TestAddPostWithMockData                # Post creation tests
+go test -v -run TestEditPostWithMockData               # Post edit tests
+go test -v -run TestVotePostLogic                      # Voting tests
 
 # Run tests with coverage
 go test -cover ./...
+
+# Get detailed coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
 ### Test Coverage
+
+#### Password & Authentication Tests (`internal/database/user_test.go`)
+
+**TestPasswordHashing** - Bcrypt Password Hashing:
+- ✅ Valid password hashing with various complexities
+- ✅ Hash generation for simple passwords
+- ✅ Hash generation for complex passwords with special characters
+- ✅ Hash generation for minimum length passwords
+- ✅ Hash generation for long passwords
+- ✅ Bcrypt format validation ($2a$ prefix)
+
+**TestPasswordVerification** - Bcrypt Password Verification:
+- ✅ Correct password verification
+- ✅ Incorrect password rejection
+- ✅ Case sensitivity validation
+- ✅ Password mismatch detection
+- ✅ Empty password handling
+
+**TestPasswordHashUniqueness** - Hash Uniqueness:
+- ✅ Same password generates different hashes (salt verification)
+- ✅ Both hashes verify the same password correctly
+
+**TestPasswordHashCost** - Bcrypt Cost Parameter:
+- ✅ Default cost (10) validation
+- ✅ Minimum cost (4) validation
+- ✅ High cost (12) validation
+- ✅ Invalid cost rejection
+
+**TestPasswordStrength** - Password Validation:
+- ✅ Minimum length requirements (6 characters)
+- ✅ Password length validation
+- ✅ Empty password rejection
+
+#### JWT Authentication Tests (`internal/auth/jwt_test.go`)
+
+**TestGenerateToken** - JWT Token Generation:
+- ✅ Valid token generation for normal users
+- ✅ Token generation with different user IDs
+- ✅ Token structure validation (3 parts)
+- ✅ Token payload validation
+- ✅ Claims verification (userID, username)
+
+**TestValidateToken** - JWT Token Validation:
+- ✅ Valid token verification
+- ✅ Invalid token rejection
+- ✅ Malformed token handling
+- ✅ Empty token rejection
+- ✅ Claims extraction from valid tokens
+
+**TestTokenExpiration** - Token Expiry:
+- ✅ Expiration time set to 24 hours
+- ✅ IssuedAt timestamp validation
+- ✅ NotBefore timestamp validation
+- ✅ Future expiration verification
+
+**TestTokenWithDifferentSecrets** - Secret Key Validation:
+- ✅ Token validation with correct secret
+- ✅ Token rejection with wrong secret
+- ✅ Secret key security verification
 
 #### Post Tests (`post_test.go`)
 
@@ -834,12 +899,19 @@ go test -cover ./...
 
 ### Test Features
 
+- **Password Security**: Bcrypt hashing and verification tests (requirement compliance)
+- **JWT Authentication**: Token generation, validation, and expiration tests
 - **Mock Data**: Tests use mock users and posts to avoid database dependencies
 - **Validation Testing**: Comprehensive input validation checks
-- **Security Testing**: Authorization checks (e.g., post ownership validation)
+- **Security Testing**:
+  - Password hashing security
+  - JWT secret key verification
+  - Authorization checks (e.g., post ownership validation)
+  - Token expiration validation
 - **Image Support**: Tests include scenarios with image uploads (contentPhotoId)
-- **Edge Cases**: Zero/negative IDs, empty strings, non-existent entities
+- **Edge Cases**: Zero/negative IDs, empty strings, non-existent entities, malformed tokens
 - **Error Messages**: Verifies correct error codes and messages
+- **Coverage Target**: Minimum 50% backend code coverage (requirement)
 
 ### CI/CD Integration
 
