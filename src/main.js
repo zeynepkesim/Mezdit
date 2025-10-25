@@ -45,6 +45,9 @@ app.use(router)
 app.use(vuetify)
 
 app.use(VueToast, {
+  position: "bottom-right",
+  duration: 4000,
+  dismissible: true,
 })
 
 app.mount('#app')

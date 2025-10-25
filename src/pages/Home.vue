@@ -42,8 +42,19 @@ const getPostImageUrl = (post) => {
 };
 
 onMounted(async () => {
-  // Load posts with userId if authenticated, otherwise load as guest
-  await loadPosts(currentUser.value?.id || null);
+  // Only send userId if we have a valid token
+  // This prevents sending userId with an invalid/tampered token
+  const token = localStorage.getItem('devops_token');
+  const userId = (token && currentUser.value) ? currentUser.value.id : null;
+
+  try {
+    // Load posts with userId if authenticated, otherwise load as guest
+    await loadPosts(userId);
+  } catch (error) {
+    // If error occurs (e.g., 401 with invalid token), load as guest
+    console.error("Failed to load posts with userId, loading as guest:", error);
+    await loadPosts(null);
+  }
 
   // Connect to WebSocket for real-time updates
   connect((message) => {

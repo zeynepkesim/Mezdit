@@ -56,11 +56,13 @@ async function handleSubmit() {
   loading.value = true;
 
   try {
-    await changePassword(
+    const response = await changePassword(
       currentUser.id,
       currentPassword.value,
       newPassword.value
     );
+
+    console.log("Change password response:", response);
 
     // Success
     toast.success("Password changed successfully!", {
@@ -74,9 +76,15 @@ async function handleSubmit() {
     confirmPassword.value = "";
 
     // Redirect to posts immediately
-    router.push("/posts");
+    setTimeout(() => {
+      router.push("/posts");
+    }, 1000);
   } catch (error) {
+    console.error("Change password error:", error);
+    console.error("Error response:", error.response);
+
     const errorMsg = error.response?.data?.error?.message || error.message || "Failed to change password. Please check your current password.";
+
     toast.error(errorMsg, {
       position: "bottom-right",
       duration: 5000,
