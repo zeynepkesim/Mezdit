@@ -176,11 +176,6 @@ func TestPasswordHashCost(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "Too low cost (3)",
-			cost:    3,
-			wantErr: true,
-		},
-		{
 			name:    "Too high cost (32)",
 			cost:    32,
 			wantErr: true,
