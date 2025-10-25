@@ -46,6 +46,14 @@ func PostsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
+		// POST requires authentication - check for valid token
+		_, ok := middleware.GetUserFromContext(r)
+		if !ok {
+			// No user in context - token validation failed or missing
+			middleware.WriteError(w, http.StatusUnauthorized, "missing_token", "Authorization header is required")
+			return
+		}
+
 		// Try new format first
 		var body models.CreatePostRequest
 

@@ -21,72 +21,170 @@ psql -d postgres -f setup.sql
 
 **Note**: We use the default `postgres` database that comes with PostgreSQL installation.
 
-## Environment Variables
+**Sample Users**: The setup script creates 3 test users. All have the password: `password123`
+- Username: `john_doe` (Password: `password123`)
+- Username: `jane_smith` (Password: `password123`)
+- Username: `bob_wilson` (Password: `password123`)
 
-Set the database connection string (optional):
+⚠️ **Security**: Passwords are stored as bcrypt hashes in the database, never as plain text.
+
+**If you need to reset the database completely:**
 ```bash
-export DATABASE_URL="postgres://postgres@localhost:5432/postgres?sslmode=disable"
+# ⚠️ Warning: This will delete ALL data!
+psql -d postgres -c "DROP TABLE IF EXISTS user_votes, posts, images, users CASCADE;"
+psql -d postgres -f setup.sql
 ```
 
-If not set, it defaults to: `postgres://postgres@localhost:5432/postgres?sslmode=disable`
+**If you only need to reset sample user passwords (keeps other data):**
+```bash
+psql -d postgres -f scripts/reset_passwords.sql
+```
+
+## Environment Variables
+
+This project uses a `.env` file for configuration.
+
+**Setup:**
+
+1. Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+2. Edit `.env` file and set your values:
+```bash
+# .env file
+DATABASE_URL=postgres://postgres@localhost:5432/postgres?sslmode=disable
+JWT_SECRET=your-secret-key-here
+```
+
+**Generate a secure JWT secret:**
+```bash
+# On macOS/Linux
+openssl rand -base64 32
+
+# Or use any random string generator
+# Example output: xK7mP9nQ2vR5wT8yU3zA4bC6dE1fG0hI5jL7mN9oP2q
+```
+
+**Important Notes:**
+- ⚠️ **Never commit `.env` file to Git** (already in `.gitignore`)
+- ✅ `.env.example` is safe to commit (contains example values only)
+- 🔒 Change `JWT_SECRET` in production to a strong random value
+- 📝 If `.env` file is not found, environment variables from system will be used
 
 ## Running
 
 ```bash
-cd devops-be
+# 1. Set up environment variables
+cp .env.example .env
+# Edit .env and set your JWT_SECRET
+
+# 2. Install dependencies
 go mod tidy
+
+# 3. Run the server
 go run .
 ```
 
 Server: http://localhost:8080
 
+## Authentication
+
+This API uses **JWT (JSON Web Token)** for authentication. After logging in or registering, you'll receive a token that must be included in subsequent requests.
+
+### How Authentication Works
+
+1. **Login/Register**: Send credentials to `/login` or `/register`
+2. **Receive Token**: Server returns a JWT token (valid for 24 hours)
+3. **Use Token**: Include token in `Authorization` header for protected endpoints
+4. **Token Format**: `Authorization: Bearer <your-token-here>`
+
+### Protected vs Public Endpoints
+
+- **🔓 Public** (No authentication required):
+  - `POST /login`
+  - `POST /register`
+  - `GET /posts` (returns only public posts without auth)
+  - `GET /images/*`
+  - `WS /ws`
+
+- **🔐 Protected** (Requires JWT token):
+  - `POST /posts` (create post)
+  - `POST /posts/edit`
+  - `POST /posts/edit-with-image`
+  - `POST /posts/upload`
+  - `POST /upload`
+  - `POST /vote`
+  - `POST /change-password`
+
 ## Endpoints (JSON Contract)
 
 All requests and responses are in JSON format. `Content-Type: application/json` header must be sent.
 
-### Authentication
+### Authentication Endpoints
 
-- `POST /login` — User authentication.
+- `POST /login` — User authentication. Returns JWT token.
   - Request body
     ```json
     {"username": "string", "password": "string"}
     ```
   - Response 200 (Success)
     ```json
-    {"success": true, "data": {
-      "id": 1,
-      "name": "John Doe",
-      "username": "john_doe",
-      "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=1",
-      "createdAt": "2023-12-01T09:00:00Z"
-    }}
+    {
+      "success": true,
+      "data": {
+        "user": {
+          "id": 1,
+          "name": "John Doe",
+          "username": "john_doe",
+          "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=1",
+          "createdAt": "2023-12-01T09:00:00Z"
+        },
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
     ```
+  - **Important**: Save the `token` value - you'll need it for authenticated requests
   - Response 401 (Authentication Failed)
     ```json
     {"success": false, "error": {"code": "authentication_failed", "message": "Invalid username or password"}}
     ```
 
-- `POST /register` — User registration.
+- `POST /register` — User registration. Returns JWT token.
   - Request body
     ```json
     {"name": "Full Name", "username": "string", "password": "string"}
     ```
+  - **Password Security**: Passwords are automatically hashed using bcrypt before storage
   - Response 201 (Success)
     ```json
-    {"success": true, "data": {
-      "id": 6,
-      "name": "Full Name",
-      "username": "newuser",
-      "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=6",
-      "createdAt": "2023-12-01T11:00:00Z"
-    }}
+    {
+      "success": true,
+      "data": {
+        "user": {
+          "id": 6,
+          "name": "Full Name",
+          "username": "newuser",
+          "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=6",
+          "createdAt": "2023-12-01T11:00:00Z"
+        },
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
     ```
+  - **Important**: Save the `token` value - you're automatically logged in after registration
   - Response 409 (Username Exists)
     ```json
     {"success": false, "error": {"code": "username_exists", "message": "Username is already taken"}}
     ```
 
-- `POST /change-password` — Change user password.
+- `POST /change-password` — Change user password. **🔐 Requires Authentication**
+  - **Headers Required**:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    Content-Type: application/json
+    ```
   - Request body
     ```json
     {"userId": 1, "currentPassword": "oldpass123", "newPassword": "newpass456"}
@@ -108,6 +206,10 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
   - Response 401 (Incorrect Password)
     ```json
     {"success": false, "error": {"code": "incorrect_password", "message": "Current password is incorrect"}}
+    ```
+  - Response 401 (Missing/Invalid Token)
+    ```json
+    {"success": false, "error": {"code": "invalid_token", "message": "Invalid or expired token"}}
     ```
   - Response 404 (User Not Found)
     ```json
@@ -165,7 +267,12 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     - `null`: User hasn't voted or userId not provided
   - No posts: `{"success": true, "data": []}`
 
-- `POST /posts` — Creates a new post.
+- `POST /posts` — Creates a new post. **🔐 Requires Authentication**
+  - **Headers Required**:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    Content-Type: application/json
+    ```
   - Request body
     ```json
     {"publisherId": 1, "publisherName": "Custom Display Name", "header": "Post Title", "contentText": "string", "contentPhotoId": null, "isPrivate": false}
@@ -636,6 +743,12 @@ curl -X POST \
 ## Features
 
 - **PostgreSQL Database**: Full database integration with proper relations
+- **JWT Authentication**: Production-ready token-based authentication
+  - Secure JWT tokens with configurable secret key
+  - 24-hour token expiration
+  - bcrypt password hashing (all passwords stored as hashes)
+  - Protected endpoints with Bearer token validation
+  - Automatic token generation on login/register
 - **User System**: Complete user authentication with login/register
 - **Password Management**: Secure password change functionality with validation
   - Current password verification
@@ -744,60 +857,81 @@ Tests run automatically on every commit to ensure code quality and catch regress
 
 ## Example Requests (curl)
 
+### Authentication Flow
+
 ```bash
-# Register new user (gets automatic DiceBear avatar)
+# 1. Register new user (receives JWT token automatically)
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"name":"New User", "username":"newuser", "password":"mypassword"}' \
   http://localhost:8080/register
+# Response: {"success":true,"data":{"user":{...},"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}}
 
-# Login user
+# 2. Login existing user (receives JWT token)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"username":"john_doe", "password":"$2a$10$example_hashed_password_1"}' \
+  -d '{"username":"newuser", "password":"mypassword"}' \
   http://localhost:8080/login
+# Response: {"success":true,"data":{"user":{...},"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}}
 
-# Change password
+# 3. Save the token from the response
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  # Use the actual token from login/register response
+
+# 4. Use the token for authenticated requests
+# Change password (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"userId":1, "currentPassword":"oldpass123", "newPassword":"newpass456"}' \
   http://localhost:8080/change-password
+```
 
-# Get user info
-curl http://localhost:8080/users/john_doe
+### Public Endpoints (No Authentication)
 
-# List all posts (without user context)
+```bash
+# List all public posts
 curl http://localhost:8080/posts
 
-# List posts with user's vote status
-curl "http://localhost:8080/posts?userId=1"
+# Access static images
+curl http://localhost:8080/images/uuid_filename.jpg
+```
 
-# Create public post with custom name
+### Protected Endpoints (Requires Authentication)
+
+**Important**: All protected endpoints require the `Authorization: Bearer <token>` header
+
+```bash
+# Create public post (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"publisherId":1, "publisherName":"My Custom Name", "header":"My First Post", "contentText":"Hello world from API!", "isPrivate":false}' \
   http://localhost:8080/posts
 
-# Create private post (only owner can see)
+# Create private post (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"publisherId":1, "header":"My Private Note", "contentText":"This is private!", "isPrivate":true}' \
   http://localhost:8080/posts
 
-# Edit a post (only owner can edit)
+# Edit a post (requires authentication, only owner can edit)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated post content", "publisherName":"New Display Name", "isPrivate":false}' \
   http://localhost:8080/posts/edit
 
-# Make a post private
+# Make a post private (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated content", "isPrivate":true}' \
   http://localhost:8080/posts/edit
 
-# Edit post with image update
+# Edit post with image update (requires authentication)
 curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
   -F "postId=1" \
   -F "userId=2" \
   -F "header=Updated Title" \
@@ -807,33 +941,15 @@ curl -X POST \
   -F "image=@newphoto.jpg" \
   http://localhost:8080/posts/edit-with-image
 
-# Edit post with image and make it private
+# Upload standalone image (requires authentication)
 curl -X POST \
-  -F "postId=1" \
-  -F "userId=2" \
-  -F "header=Updated Title" \
-  -F "contentText=Updated content with new image" \
-  -F "isPrivate=true" \
-  -F "image=@newphoto.jpg" \
-  http://localhost:8080/posts/edit-with-image
-
-# Edit post text only (without changing image)
-curl -X POST \
-  -F "postId=1" \
-  -F "userId=2" \
-  -F "header=Updated Title" \
-  -F "contentText=Updated text content only" \
-  -F "publisherName=Updated Name" \
-  -F "isPrivate=false" \
-  http://localhost:8080/posts/edit-with-image
-
-# Upload standalone image
-curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
   -F "image=@photo.jpg" \
   http://localhost:8080/upload
 
-# Create public post with image upload
+# Create post with image upload (requires authentication)
 curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
   -F "publisherId=1" \
   -F "publisherName=Image Publisher" \
   -F "header=My Photo" \
@@ -842,37 +958,50 @@ curl -X POST \
   -F "image=@photo.jpg" \
   http://localhost:8080/posts/upload
 
-# Create private post with image
-curl -X POST \
-  -F "publisherId=1" \
-  -F "header=Private Photo" \
-  -F "contentText=This is my private photo!" \
-  -F "isPrivate=true" \
-  -F "image=@photo.jpg" \
-  http://localhost:8080/posts/upload
-
-# Upvote a post
+# Upvote a post (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":4, "upvoted": true}' \
   http://localhost:8080/vote
 
-# Downvote a post
+# Downvote a post (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":4, "upvoted": false}' \
   http://localhost:8080/vote
 
-# Toggle vote off (if user already voted, same vote removes it)
+# Toggle vote off (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":4, "upvoted": true}' \
   http://localhost:8080/vote
+```
 
-# Example error responses
+### Common Error Responses
+
+```bash
+# Invalid credentials
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"username":"invalid_user", "password":"wrong_pass"}' \
   http://localhost:8080/login
 # Returns: {"success":false,"error":{"code":"authentication_failed","message":"Invalid username or password"}}
+
+# Missing authentication token
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"publisherId":1, "header":"Test", "contentText":"Test"}' \
+  http://localhost:8080/posts
+# Returns: {"success":false,"error":{"code":"missing_token","message":"Authorization header is required"}}
+
+# Invalid/expired token
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer invalid_token_here" \
+  -d '{"publisherId":1, "header":"Test", "contentText":"Test"}' \
+  http://localhost:8080/posts
+# Returns: {"success":false,"error":{"code":"invalid_token","message":"Invalid or expired token"}}
 ```

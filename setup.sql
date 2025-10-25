@@ -47,10 +47,12 @@ ADD CONSTRAINT fk_images_post
 FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
 
 -- Sample data
+-- NOTE: All sample users have the same password: "password123"
+-- Passwords are stored as bcrypt hashes (never store plain text passwords!)
 INSERT INTO users (name, username, password, profile_photo) VALUES
-('John Doe', 'john_doe', '$2a$10$example_hashed_password_1', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=1'),
-('Jane Smith', 'jane_smith', '$2a$10$example_hashed_password_2', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=2'),
-('Bob Wilson', 'bob_wilson', '$2a$10$example_hashed_password_3', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=3')
+('John Doe', 'john_doe', '$2a$10$YyMu9W4FgeVKLsKzRofXIesu4vSVF1Rk8yjfzrF.q4fZNxMsVZSoG', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=1'),
+('Jane Smith', 'jane_smith', '$2a$10$l1IHmn2gJobbgZtYQ6Qmi.DtsReGVD.udsk4Im3zc1/EIDP4rMI1O', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=2'),
+('Bob Wilson', 'bob_wilson', '$2a$10$azP54b5aw6iLZZhm4kHQ/uLuSIyvNNiegCYa5atFjOojEqhFfLI/W', 'https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=3')
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO posts (publisher_id, publisher_name, header, content_text, is_private, vote_count) VALUES
