@@ -8,15 +8,18 @@ export async function login(username, password) {
   try {
     const userData = await loginUser(username, password)
 
+    // Extract user from nested object if needed
+    const user = userData.user || userData
+
     // Save user data to state
-    currentUser.value = userData
+    currentUser.value = user
     isLoggedIn.value = true
 
     // Save to localStorage
-    localStorage.setItem('devops_user', JSON.stringify(userData))
+    localStorage.setItem('devops_user', JSON.stringify(user))
     localStorage.setItem('devops_logged_in', 'true')
-
-    return userData
+    console.log(user)
+    return user
   } catch (error) {
     console.error('Login failed:', error)
     throw error
@@ -54,16 +57,20 @@ export function isAuthenticated() {
 
 export function getCurrentUser() {
   return currentUser.value
-} 
+}
 
 export async function register(name, username, password) {
   try {
     const userData = await registerUser(name, username, password)
-    currentUser.value = userData
+
+    // Extract user from nested object if needed
+    const user = userData.user || userData
+
+    currentUser.value = user
     isLoggedIn.value = true
-    localStorage.setItem('devops_user', JSON.stringify(userData))
+    localStorage.setItem('devops_user', JSON.stringify(user))
     localStorage.setItem('devops_logged_in', 'true')
-    return userData
+    return user
   } catch (error) {
     console.error('Register failed:', error)
     throw error
