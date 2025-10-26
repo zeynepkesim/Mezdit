@@ -5,6 +5,8 @@ import (
 	"devops-be/internal/models"
 	"fmt"
 	"log"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func LoginUser(username, password string) (*models.User, error) {
@@ -33,11 +35,11 @@ func LoginUser(username, password string) (*models.User, error) {
 		return nil, fmt.Errorf("database error occurred")
 	}
 
-	log.Printf("Login attempt: User '%s' found, checking password", username)
-	log.Printf("Debug: Provided password='%s', Stored password='%s'", password, user.Password)
+	log.Printf("Login attempt: User '%s' found, verifying password with bcrypt", username)
 
-	// Simple password check (in real app, use bcrypt hash comparison)
-	if user.Password != password {
+	// Compare password with bcrypt hash
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
 		log.Printf("Login failed: Password mismatch for user '%s'", username)
 		return nil, fmt.Errorf("invalid username or password")
 	}
@@ -68,6 +70,13 @@ func CreateUser(name, username, password string) (*models.User, error) {
 		return nil, fmt.Errorf("username already exists")
 	}
 
+	// Hash the password with bcrypt
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Error hashing password: %v", err)
+		return nil, fmt.Errorf("failed to create user")
+	}
+
 	query := `
 		INSERT INTO users (name, username, password)
 		VALUES ($1, $2, $3)
@@ -76,7 +85,7 @@ func CreateUser(name, username, password string) (*models.User, error) {
 	var user models.User
 	var profilePhoto sql.NullString
 
-	err := DB.QueryRow(query, name, username, password).Scan(
+	err = DB.QueryRow(query, name, username, string(hashedPassword)).Scan(
 		&user.ID, &user.Name, &user.Username, &user.Password,
 		&profilePhoto, &user.CreatedAt,
 	)
@@ -189,15 +198,23 @@ func ChangePassword(userID int, currentPassword string, newPassword string) erro
 		return fmt.Errorf("user not found")
 	}
 
-	// Verify current password
-	if user.Password != currentPassword {
+	// Verify current password with bcrypt
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword))
+	if err != nil {
 		log.Printf("Password change failed: Current password mismatch for user %d", userID)
 		return fmt.Errorf("current password is incorrect")
 	}
 
-	// Update password
+	// Hash the new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Error hashing new password for user %d: %v", userID, err)
+		return fmt.Errorf("failed to update password")
+	}
+
+	// Update password with hashed version
 	query := `UPDATE users SET password = $1 WHERE id = $2`
-	_, err = DB.Exec(query, newPassword, userID)
+	_, err = DB.Exec(query, string(hashedPassword), userID)
 	if err != nil {
 		log.Printf("Failed to update password for user %d: %v", userID, err)
 		return fmt.Errorf("failed to update password")

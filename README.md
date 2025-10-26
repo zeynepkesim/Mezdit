@@ -1,11 +1,25 @@
 # DevOps BE - Simple Reddit-like API
 
+A Reddit-like backend API with automatic database migrations using GORM.
+
 ## Prerequisites
 
 - Go 1.21+
 - PostgreSQL 12+
 
 ## Database Setup
+
+### ✨ Automatic Migration with GORM
+
+This project uses **GORM ORM** for automatic database migrations. No need to manually run SQL scripts!
+
+**What is GORM?**
+- 🚀 Automatic schema migrations
+- 📦 Type-safe database operations
+- 🔄 Auto-creates tables, columns, indexes
+- 🛠️ Easy to add new fields - just update the model!
+
+**Setup:**
 
 1. Install PostgreSQL (if not already installed):
 ```bash
@@ -14,79 +28,296 @@ brew install postgresql
 brew services start postgresql
 ```
 
-2. Set up tables and sample data in your existing postgres database:
+2. Just run the application:
 ```bash
-psql -d postgres -f setup.sql
+go run .
+```
+
+**That's it!** GORM will automatically:
+- ✅ Create all tables: `users`, `posts`, `images`, `user_votes`
+- ✅ Add new columns when you update models
+- ✅ Create indexes and foreign keys
+- ✅ Keep schema in sync with your Go models
+
+**Output when running:**
+```
+✓ Connected to PostgreSQL database
+✓ GORM auto-migration completed
+  → Auto-migrated tables: users, posts, images, user_votes
 ```
 
 **Note**: We use the default `postgres` database that comes with PostgreSQL installation.
 
-## Environment Variables
+### Adding New Fields
 
-Set the database connection string (optional):
-```bash
-export DATABASE_URL="postgres://postgres@localhost:5432/postgres?sslmode=disable"
+To add a new field to a table:
+
+1. Add the field to the model in `internal/models/models.go`:
+```go
+type User struct {
+    // ... existing fields ...
+    Bio string `json:"bio" gorm:"column:bio;type:text"`  // New field
+}
 ```
 
-If not set, it defaults to: `postgres://postgres@localhost:5432/postgres?sslmode=disable`
+2. Run the app - GORM will automatically add the column:
+```bash
+go run .
+```
+
+No SQL migration files needed! 🎉
+
+### Seed Data (Optional)
+
+For testing, you can load sample data:
+
+```bash
+psql -d postgres -f setup.sql
+```
+
+**Sample Users**: All have the password `password123`
+- Username: `john_doe`
+- Username: `jane_smith`
+- Username: `bob_wilson`
+
+⚠️ **Security**: Passwords are stored as bcrypt hashes in the database, never as plain text.
+
+**Reset sample data:**
+```bash
+psql -d postgres -f scripts/reset_passwords.sql
+```
+
+**Generate bcrypt hash for new users:**
+```bash
+cd scripts
+go run generate_hash.go
+```
+
+**Manual table reset (if needed):**
+```bash
+# ⚠️ Warning: This deletes ALL data!
+psql -d postgres -c "DROP TABLE IF EXISTS user_votes, posts, images, users CASCADE;"
+# Tables will be recreated automatically on next: go run .
+```
+
+## Environment Variables
+
+This project uses a `.env` file for configuration.
+
+**Setup:**
+
+1. Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+2. Edit `.env` file and set your values:
+```bash
+# .env file
+DATABASE_URL=postgres://postgres@localhost:5432/postgres?sslmode=disable
+JWT_SECRET=your-secret-key-here
+```
+
+**Generate a secure JWT secret:**
+```bash
+# On macOS/Linux
+openssl rand -base64 32
+
+# Or use any random string generator
+# Example output: xK7mP9nQ2vR5wT8yU3zA4bC6dE1fG0hI5jL7mN9oP2q
+```
+
+**Important Notes:**
+- ⚠️ **Never commit `.env` file to Git** (already in `.gitignore`)
+- ✅ `.env.example` is safe to commit (contains example values only)
+- 🔒 Change `JWT_SECRET` in production to a strong random value
+- 📝 If `.env` file is not found, environment variables from system will be used
 
 ## Running
 
 ```bash
-cd devops-be
+# 1. Set up environment variables
+cp .env.example .env
+# Edit .env and set your JWT_SECRET
+
+# 2. Install dependencies
 go mod tidy
+
+# 3. Run the server
 go run .
 ```
 
 Server: http://localhost:8080
 
+## Project Structure
+
+```
+devops-be/
+├── main.go                          # Application entry point, route definitions
+├── setup.sql                        # Database schema and sample data
+├── .env                             # Environment variables (NOT in Git)
+├── .env.example                     # Example environment file (in Git)
+├── .gitignore                       # Git ignore rules
+├── go.mod                           # Go dependencies
+├── go.sum                           # Go dependency checksums
+├── post_test.go                     # Post-related tests
+├── internal/
+│   ├── auth/
+│   │   ├── jwt.go                   # JWT token generation and validation
+│   │   └── jwt_test.go              # JWT authentication tests
+│   ├── database/
+│   │   ├── database.go              # Database connection setup
+│   │   ├── post.go                  # Post-related database operations
+│   │   ├── user.go                  # User-related database operations (bcrypt)
+│   │   ├── user_test.go             # Password hashing and verification tests
+│   │   ├── vote.go                  # Vote-related database operations
+│   │   └── image.go                 # Image-related database operations
+│   ├── handlers/
+│   │   ├── auth.go                  # Authentication handlers (login, register)
+│   │   ├── post.go                  # Post handlers (CRUD operations)
+│   │   ├── vote.go                  # Vote handler
+│   │   ├── image.go                 # Image upload handlers
+│   │   └── websocket.go             # WebSocket connection handler
+│   ├── middleware/
+│   │   ├── middleware.go            # Common middleware (CORS, JSON, etc.)
+│   │   └── auth.go                  # Authentication middleware (JWT validation)
+│   ├── models/
+│   │   └── models.go                # Data structures (User, Post, etc.)
+│   └── websocket/
+│       ├── hub.go                   # WebSocket hub (connection manager)
+│       └── client.go                # WebSocket client handler
+└── scripts/
+    ├── generate_hash.go             # Utility to generate bcrypt hashes
+    └── reset_passwords.sql          # SQL script to reset user passwords
+```
+
+### Key Components
+
+**Database (GORM ORM):**
+- `internal/database/database.go`: GORM connection setup with auto-migration
+- `internal/models/models.go`: Database models with GORM tags
+- Both `DB` (legacy) and `GormDB` available for gradual migration
+- Auto-creates tables: `users`, `posts`, `images`, `user_votes`
+
+**Authentication & Security:**
+- `internal/auth/jwt.go`: JWT token creation and validation with configurable secret
+- `internal/middleware/auth.go`: Authentication middleware (RequireAuth, OptionalAuth)
+- `internal/database/user.go`: Bcrypt password hashing and verification
+
+**Real-Time Updates:**
+- `internal/websocket/hub.go`: Manages WebSocket connections and broadcasts
+- `internal/websocket/client.go`: Individual client connection handling
+- `internal/handlers/websocket.go`: WebSocket HTTP upgrade handler
+
+**Database Operations:**
+- `internal/database/*.go`: All database interactions with PostgreSQL
+- Password security with bcrypt (never store plain text)
+- Privacy filtering for posts
+
+**Testing:**
+- `*_test.go`: Unit tests for password, JWT, posts, and voting
+- Minimum 50% code coverage target
+
+**Scripts:**
+- `scripts/generate_hash.go`: Generate bcrypt hashes for new users
+- `scripts/reset_passwords.sql`: Reset sample user passwords
+
+## Authentication
+
+This API uses **JWT (JSON Web Token)** for authentication. After logging in or registering, you'll receive a token that must be included in subsequent requests.
+
+### How Authentication Works
+
+1. **Login/Register**: Send credentials to `/login` or `/register`
+2. **Receive Token**: Server returns a JWT token (valid for 24 hours)
+3. **Use Token**: Include token in `Authorization` header for protected endpoints
+4. **Token Format**: `Authorization: Bearer <your-token-here>`
+
+### Protected vs Public Endpoints
+
+- **🔓 Public** (No authentication required):
+  - `POST /login`
+  - `POST /register`
+  - `GET /posts` (returns only public posts without auth)
+  - `GET /images/*`
+  - `WS /ws`
+
+- **🔐 Protected** (Requires JWT token):
+  - `POST /posts` (create post)
+  - `POST /posts/edit`
+  - `POST /posts/edit-with-image`
+  - `POST /posts/upload`
+  - `POST /upload`
+  - `POST /vote`
+  - `POST /change-password`
+
 ## Endpoints (JSON Contract)
 
 All requests and responses are in JSON format. `Content-Type: application/json` header must be sent.
 
-### Authentication
+### Authentication Endpoints
 
-- `POST /login` — User authentication.
+- `POST /login` — User authentication. Returns JWT token.
   - Request body
     ```json
     {"username": "string", "password": "string"}
     ```
   - Response 200 (Success)
     ```json
-    {"success": true, "data": {
-      "id": 1,
-      "name": "John Doe",
-      "username": "john_doe",
-      "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=1",
-      "createdAt": "2023-12-01T09:00:00Z"
-    }}
+    {
+      "success": true,
+      "data": {
+        "user": {
+          "id": 1,
+          "name": "John Doe",
+          "username": "john_doe",
+          "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=1",
+          "createdAt": "2023-12-01T09:00:00Z"
+        },
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
     ```
+  - **Important**: Save the `token` value - you'll need it for authenticated requests
   - Response 401 (Authentication Failed)
     ```json
     {"success": false, "error": {"code": "authentication_failed", "message": "Invalid username or password"}}
     ```
 
-- `POST /register` — User registration.
+- `POST /register` — User registration. Returns JWT token.
   - Request body
     ```json
     {"name": "Full Name", "username": "string", "password": "string"}
     ```
+  - **Password Security**: Passwords are automatically hashed using bcrypt before storage
   - Response 201 (Success)
     ```json
-    {"success": true, "data": {
-      "id": 6,
-      "name": "Full Name",
-      "username": "newuser",
-      "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=6",
-      "createdAt": "2023-12-01T11:00:00Z"
-    }}
+    {
+      "success": true,
+      "data": {
+        "user": {
+          "id": 6,
+          "name": "Full Name",
+          "username": "newuser",
+          "profilePhoto": "https://api.dicebear.com/9.x/adventurer-neutral/svg?seed=6",
+          "createdAt": "2023-12-01T11:00:00Z"
+        },
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
     ```
+  - **Important**: Save the `token` value - you're automatically logged in after registration
   - Response 409 (Username Exists)
     ```json
     {"success": false, "error": {"code": "username_exists", "message": "Username is already taken"}}
     ```
 
-- `POST /change-password` — Change user password.
+- `POST /change-password` — Change user password. **🔐 Requires Authentication**
+  - **Headers Required**:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    Content-Type: application/json
+    ```
   - Request body
     ```json
     {"userId": 1, "currentPassword": "oldpass123", "newPassword": "newpass456"}
@@ -108,6 +339,10 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
   - Response 401 (Incorrect Password)
     ```json
     {"success": false, "error": {"code": "incorrect_password", "message": "Current password is incorrect"}}
+    ```
+  - Response 401 (Missing/Invalid Token)
+    ```json
+    {"success": false, "error": {"code": "invalid_token", "message": "Invalid or expired token"}}
     ```
   - Response 404 (User Not Found)
     ```json
@@ -165,7 +400,12 @@ All requests and responses are in JSON format. `Content-Type: application/json` 
     - `null`: User hasn't voted or userId not provided
   - No posts: `{"success": true, "data": []}`
 
-- `POST /posts` — Creates a new post.
+- `POST /posts` — Creates a new post. **🔐 Requires Authentication**
+  - **Headers Required**:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    Content-Type: application/json
+    ```
   - Request body
     ```json
     {"publisherId": 1, "publisherName": "Custom Display Name", "header": "Post Title", "contentText": "string", "contentPhotoId": null, "isPrivate": false}
@@ -636,6 +876,12 @@ curl -X POST \
 ## Features
 
 - **PostgreSQL Database**: Full database integration with proper relations
+- **JWT Authentication**: Production-ready token-based authentication
+  - Secure JWT tokens with configurable secret key
+  - 24-hour token expiration
+  - bcrypt password hashing (all passwords stored as hashes)
+  - Protected endpoints with Bearer token validation
+  - Automatic token generation on login/register
 - **User System**: Complete user authentication with login/register
 - **Password Management**: Secure password change functionality with validation
   - Current password verification
@@ -676,16 +922,81 @@ The project includes comprehensive unit tests with mock data to validate core fu
 # Run all tests
 go test -v ./...
 
-# Run specific test file
-go test -v -run TestAddPostWithMockData
-go test -v -run TestEditPostWithMockData
-go test -v -run TestVotePostLogic
+# Run specific test suites
+go test -v ./internal/database -run TestPassword      # Password tests
+go test -v ./internal/auth -run TestToken             # JWT tests
+go test -v -run TestAddPostWithMockData                # Post creation tests
+go test -v -run TestEditPostWithMockData               # Post edit tests
+go test -v -run TestVotePostLogic                      # Voting tests
 
 # Run tests with coverage
 go test -cover ./...
+
+# Get detailed coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
 ### Test Coverage
+
+#### Password & Authentication Tests (`internal/database/user_test.go`)
+
+**TestPasswordHashing** - Bcrypt Password Hashing:
+- ✅ Valid password hashing with various complexities
+- ✅ Hash generation for simple passwords
+- ✅ Hash generation for complex passwords with special characters
+- ✅ Hash generation for minimum length passwords
+- ✅ Hash generation for long passwords
+- ✅ Bcrypt format validation ($2a$ prefix)
+
+**TestPasswordVerification** - Bcrypt Password Verification:
+- ✅ Correct password verification
+- ✅ Incorrect password rejection
+- ✅ Case sensitivity validation
+- ✅ Password mismatch detection
+- ✅ Empty password handling
+
+**TestPasswordHashUniqueness** - Hash Uniqueness:
+- ✅ Same password generates different hashes (salt verification)
+- ✅ Both hashes verify the same password correctly
+
+**TestPasswordHashCost** - Bcrypt Cost Parameter:
+- ✅ Default cost (10) validation
+- ✅ Minimum cost (4) validation
+- ✅ High cost (12) validation
+- ✅ Invalid cost rejection
+
+**TestPasswordStrength** - Password Validation:
+- ✅ Minimum length requirements (6 characters)
+- ✅ Password length validation
+- ✅ Empty password rejection
+
+#### JWT Authentication Tests (`internal/auth/jwt_test.go`)
+
+**TestGenerateToken** - JWT Token Generation:
+- ✅ Valid token generation for normal users
+- ✅ Token generation with different user IDs
+- ✅ Token structure validation (3 parts)
+- ✅ Token payload validation
+- ✅ Claims verification (userID, username)
+
+**TestValidateToken** - JWT Token Validation:
+- ✅ Valid token verification
+- ✅ Invalid token rejection
+- ✅ Malformed token handling
+- ✅ Empty token rejection
+- ✅ Claims extraction from valid tokens
+
+**TestTokenExpiration** - Token Expiry:
+- ✅ Expiration time set to 24 hours
+- ✅ IssuedAt timestamp validation
+- ✅ NotBefore timestamp validation
+- ✅ Future expiration verification
+
+**TestTokenWithDifferentSecrets** - Secret Key Validation:
+- ✅ Token validation with correct secret
+- ✅ Token rejection with wrong secret
+- ✅ Secret key security verification
 
 #### Post Tests (`post_test.go`)
 
@@ -721,12 +1032,19 @@ go test -cover ./...
 
 ### Test Features
 
+- **Password Security**: Bcrypt hashing and verification tests (requirement compliance)
+- **JWT Authentication**: Token generation, validation, and expiration tests
 - **Mock Data**: Tests use mock users and posts to avoid database dependencies
 - **Validation Testing**: Comprehensive input validation checks
-- **Security Testing**: Authorization checks (e.g., post ownership validation)
+- **Security Testing**:
+  - Password hashing security
+  - JWT secret key verification
+  - Authorization checks (e.g., post ownership validation)
+  - Token expiration validation
 - **Image Support**: Tests include scenarios with image uploads (contentPhotoId)
-- **Edge Cases**: Zero/negative IDs, empty strings, non-existent entities
+- **Edge Cases**: Zero/negative IDs, empty strings, non-existent entities, malformed tokens
 - **Error Messages**: Verifies correct error codes and messages
+- **Coverage Target**: Minimum 50% backend code coverage (requirement)
 
 ### CI/CD Integration
 
@@ -744,60 +1062,81 @@ Tests run automatically on every commit to ensure code quality and catch regress
 
 ## Example Requests (curl)
 
+### Authentication Flow
+
 ```bash
-# Register new user (gets automatic DiceBear avatar)
+# 1. Register new user (receives JWT token automatically)
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"name":"New User", "username":"newuser", "password":"mypassword"}' \
   http://localhost:8080/register
+# Response: {"success":true,"data":{"user":{...},"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}}
 
-# Login user
+# 2. Login existing user (receives JWT token)
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"username":"john_doe", "password":"$2a$10$example_hashed_password_1"}' \
+  -d '{"username":"newuser", "password":"mypassword"}' \
   http://localhost:8080/login
+# Response: {"success":true,"data":{"user":{...},"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}}
 
-# Change password
+# 3. Save the token from the response
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."  # Use the actual token from login/register response
+
+# 4. Use the token for authenticated requests
+# Change password (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"userId":1, "currentPassword":"oldpass123", "newPassword":"newpass456"}' \
   http://localhost:8080/change-password
+```
 
-# Get user info
-curl http://localhost:8080/users/john_doe
+### Public Endpoints (No Authentication)
 
-# List all posts (without user context)
+```bash
+# List all public posts
 curl http://localhost:8080/posts
 
-# List posts with user's vote status
-curl "http://localhost:8080/posts?userId=1"
+# Access static images
+curl http://localhost:8080/images/uuid_filename.jpg
+```
 
-# Create public post with custom name
+### Protected Endpoints (Requires Authentication)
+
+**Important**: All protected endpoints require the `Authorization: Bearer <token>` header
+
+```bash
+# Create public post (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"publisherId":1, "publisherName":"My Custom Name", "header":"My First Post", "contentText":"Hello world from API!", "isPrivate":false}' \
   http://localhost:8080/posts
 
-# Create private post (only owner can see)
+# Create private post (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"publisherId":1, "header":"My Private Note", "contentText":"This is private!", "isPrivate":true}' \
   http://localhost:8080/posts
 
-# Edit a post (only owner can edit)
+# Edit a post (requires authentication, only owner can edit)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated post content", "publisherName":"New Display Name", "isPrivate":false}' \
   http://localhost:8080/posts/edit
 
-# Make a post private
+# Make a post private (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":2, "header":"Updated Title", "contentText":"Updated content", "isPrivate":true}' \
   http://localhost:8080/posts/edit
 
-# Edit post with image update
+# Edit post with image update (requires authentication)
 curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
   -F "postId=1" \
   -F "userId=2" \
   -F "header=Updated Title" \
@@ -807,33 +1146,15 @@ curl -X POST \
   -F "image=@newphoto.jpg" \
   http://localhost:8080/posts/edit-with-image
 
-# Edit post with image and make it private
+# Upload standalone image (requires authentication)
 curl -X POST \
-  -F "postId=1" \
-  -F "userId=2" \
-  -F "header=Updated Title" \
-  -F "contentText=Updated content with new image" \
-  -F "isPrivate=true" \
-  -F "image=@newphoto.jpg" \
-  http://localhost:8080/posts/edit-with-image
-
-# Edit post text only (without changing image)
-curl -X POST \
-  -F "postId=1" \
-  -F "userId=2" \
-  -F "header=Updated Title" \
-  -F "contentText=Updated text content only" \
-  -F "publisherName=Updated Name" \
-  -F "isPrivate=false" \
-  http://localhost:8080/posts/edit-with-image
-
-# Upload standalone image
-curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
   -F "image=@photo.jpg" \
   http://localhost:8080/upload
 
-# Create public post with image upload
+# Create post with image upload (requires authentication)
 curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
   -F "publisherId=1" \
   -F "publisherName=Image Publisher" \
   -F "header=My Photo" \
@@ -842,37 +1163,202 @@ curl -X POST \
   -F "image=@photo.jpg" \
   http://localhost:8080/posts/upload
 
-# Create private post with image
-curl -X POST \
-  -F "publisherId=1" \
-  -F "header=Private Photo" \
-  -F "contentText=This is my private photo!" \
-  -F "isPrivate=true" \
-  -F "image=@photo.jpg" \
-  http://localhost:8080/posts/upload
-
-# Upvote a post
+# Upvote a post (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":4, "upvoted": true}' \
   http://localhost:8080/vote
 
-# Downvote a post
+# Downvote a post (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":4, "upvoted": false}' \
   http://localhost:8080/vote
 
-# Toggle vote off (if user already voted, same vote removes it)
+# Toggle vote off (requires authentication)
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"postId":1, "userId":4, "upvoted": true}' \
   http://localhost:8080/vote
+```
 
-# Example error responses
+### Common Error Responses
+
+```bash
+# Invalid credentials
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"username":"invalid_user", "password":"wrong_pass"}' \
   http://localhost:8080/login
 # Returns: {"success":false,"error":{"code":"authentication_failed","message":"Invalid username or password"}}
+
+# Missing authentication token
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"publisherId":1, "header":"Test", "contentText":"Test"}' \
+  http://localhost:8080/posts
+# Returns: {"success":false,"error":{"code":"missing_token","message":"Authorization header is required"}}
+
+# Invalid/expired token
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer invalid_token_here" \
+  -d '{"publisherId":1, "header":"Test", "contentText":"Test"}' \
+  http://localhost:8080/posts
+# Returns: {"success":false,"error":{"code":"invalid_token","message":"Invalid or expired token"}}
 ```
+
+## Database Migration with GORM
+
+### Overview
+
+This project uses **GORM** (Go Object-Relational Mapping) for automatic database schema management. This eliminates the need for manual SQL migration scripts.
+
+### How It Works
+
+When you run the application:
+
+1. **Connection**: GORM connects to PostgreSQL using the `DATABASE_URL`
+2. **Auto-Migration**: GORM analyzes your model structs
+3. **Schema Sync**: GORM automatically:
+   - Creates missing tables
+   - Adds new columns
+   - Updates column types (if safe)
+   - Creates indexes defined in GORM tags
+   - **Does NOT delete columns** (safe by design)
+
+### Model Structure
+
+Models are defined in `internal/models/models.go` with GORM tags:
+
+```go
+type User struct {
+    ID           int       `json:"id" gorm:"primaryKey;autoIncrement;column:id"`
+    Name         string    `json:"name" gorm:"column:name;type:varchar(255);not null"`
+    Username     string    `json:"username" gorm:"column:username;type:varchar(100);uniqueIndex;not null"`
+    Password     string    `json:"-" gorm:"column:password;type:text;not null"`
+    ProfilePhoto *string   `json:"profilePhoto" gorm:"column:profile_photo;type:text"`
+    CreatedAt    time.Time `json:"createdAt" gorm:"column:created_at;autoCreateTime"`
+}
+```
+
+**GORM Tags Explained:**
+- `primaryKey`: Marks field as primary key
+- `autoIncrement`: Auto-incrementing integer
+- `column:name`: Database column name
+- `type:varchar(255)`: SQL column type
+- `not null`: Column cannot be NULL
+- `uniqueIndex`: Creates unique index
+- `autoCreateTime`: Automatically set on creation
+- `gorm:"-"`: Field is not a database column (computed/joined data)
+
+### Adding New Fields
+
+**Example: Add a `bio` field to users**
+
+1. Update the model in `internal/models/models.go`:
+```go
+type User struct {
+    // ... existing fields ...
+    Bio string `json:"bio" gorm:"column:bio;type:text"`
+}
+```
+
+2. Run the application:
+```bash
+go run .
+```
+
+3. GORM will automatically:
+   - Detect the new field
+   - Execute: `ALTER TABLE users ADD COLUMN bio TEXT`
+   - Log: "Migrating schema for User"
+
+**No SQL files needed!** ✨
+
+### Dual Database Support
+
+The project currently supports both legacy SQL and GORM:
+
+```go
+var DB *sql.DB      // Legacy: Raw SQL queries (existing code)
+var GormDB *gorm.DB // New: GORM ORM (new features)
+```
+
+**Why both?**
+- Gradual migration from raw SQL to GORM
+- Existing code uses `database.DB`
+- New features can use `database.GormDB`
+- Both connect to the same database
+
+**Example GORM query:**
+```go
+// Create user
+user := models.User{
+    Name:     "John Doe",
+    Username: "johndoe",
+    Password: hashedPassword,
+}
+result := database.GormDB.Create(&user)
+
+// Find user
+var user models.User
+database.GormDB.Where("username = ?", "johndoe").First(&user)
+
+// Update user
+database.GormDB.Model(&user).Update("bio", "Hello World")
+```
+
+### Migration Best Practices
+
+✅ **Do:**
+- Add new fields to models
+- Run `go run .` to apply changes
+- Use GORM tags for constraints and indexes
+- Test migrations in development first
+
+❌ **Don't:**
+- Delete fields from models directly (GORM won't drop columns)
+- Change field types without testing
+- Remove GORM tags without checking migration impact
+
+### Troubleshooting
+
+**Issue: Migration not running**
+```bash
+# Check logs for:
+✓ Connected to PostgreSQL database
+✓ GORM auto-migration completed
+  → Auto-migrated tables: users, posts, images, user_votes
+```
+
+**Issue: Column not created**
+- Verify GORM tags are correct
+- Check field is exported (starts with capital letter)
+- Ensure GORM tag includes `column:name`
+
+**Issue: Need to drop a column**
+```sql
+# GORM doesn't drop columns automatically (safety feature)
+# Drop manually if needed:
+psql -d postgres -c "ALTER TABLE users DROP COLUMN old_field;"
+```
+
+**Issue: Want to reset everything**
+```bash
+# Drop all tables
+psql -d postgres -c "DROP TABLE IF EXISTS user_votes, posts, images, users CASCADE;"
+
+# Run app - GORM will recreate everything
+go run .
+```
+
+### GORM Resources
+
+- Documentation: https://gorm.io/docs/
+- Migration Guide: https://gorm.io/docs/migration.html
+- GORM Tags: https://gorm.io/docs/models.html#Fields-Tags
+
