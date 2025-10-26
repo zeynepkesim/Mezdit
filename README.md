@@ -1,11 +1,25 @@
 # DevOps BE - Simple Reddit-like API
 
+A Reddit-like backend API with automatic database migrations using GORM.
+
 ## Prerequisites
 
 - Go 1.21+
 - PostgreSQL 12+
 
 ## Database Setup
+
+### ✨ Automatic Migration with GORM
+
+This project uses **GORM ORM** for automatic database migrations. No need to manually run SQL scripts!
+
+**What is GORM?**
+- 🚀 Automatic schema migrations
+- 📦 Type-safe database operations
+- 🔄 Auto-creates tables, columns, indexes
+- 🛠️ Easy to add new fields - just update the model!
+
+**Setup:**
 
 1. Install PostgreSQL (if not already installed):
 ```bash
@@ -14,40 +28,76 @@ brew install postgresql
 brew services start postgresql
 ```
 
-2. Set up tables and sample data in your existing postgres database:
+2. Just run the application:
 ```bash
-psql -d postgres -f setup.sql
+go run .
+```
+
+**That's it!** GORM will automatically:
+- ✅ Create all tables: `users`, `posts`, `images`, `user_votes`
+- ✅ Add new columns when you update models
+- ✅ Create indexes and foreign keys
+- ✅ Keep schema in sync with your Go models
+
+**Output when running:**
+```
+✓ Connected to PostgreSQL database
+✓ GORM auto-migration completed
+  → Auto-migrated tables: users, posts, images, user_votes
 ```
 
 **Note**: We use the default `postgres` database that comes with PostgreSQL installation.
 
-**Sample Users**: The setup script creates 3 test users. All have the password: `password123`
-- Username: `john_doe` (Password: `password123`)
-- Username: `jane_smith` (Password: `password123`)
-- Username: `bob_wilson` (Password: `password123`)
+### Adding New Fields
 
-⚠️ **Security**: Passwords are stored as bcrypt hashes in the database, never as plain text.
+To add a new field to a table:
 
-**If you need to reset the database completely:**
+1. Add the field to the model in `internal/models/models.go`:
+```go
+type User struct {
+    // ... existing fields ...
+    Bio string `json:"bio" gorm:"column:bio;type:text"`  // New field
+}
+```
+
+2. Run the app - GORM will automatically add the column:
 ```bash
-# ⚠️ Warning: This will delete ALL data!
-psql -d postgres -c "DROP TABLE IF EXISTS user_votes, posts, images, users CASCADE;"
+go run .
+```
+
+No SQL migration files needed! 🎉
+
+### Seed Data (Optional)
+
+For testing, you can load sample data:
+
+```bash
 psql -d postgres -f setup.sql
 ```
 
-**If you only need to reset sample user passwords (keeps other data):**
+**Sample Users**: All have the password `password123`
+- Username: `john_doe`
+- Username: `jane_smith`
+- Username: `bob_wilson`
+
+⚠️ **Security**: Passwords are stored as bcrypt hashes in the database, never as plain text.
+
+**Reset sample data:**
 ```bash
 psql -d postgres -f scripts/reset_passwords.sql
 ```
 
 **Generate bcrypt hash for new users:**
 ```bash
-# Use the hash generator utility
 cd scripts
 go run generate_hash.go
+```
 
-# Output will show bcrypt hashes you can use in SQL
-# Example: '$2a$10$YyMu9W4FgeVKLsKzRofXIesu4vSVF1Rk8yjfzrF.q4fZNxMsVZSoG'
+**Manual table reset (if needed):**
+```bash
+# ⚠️ Warning: This deletes ALL data!
+psql -d postgres -c "DROP TABLE IF EXISTS user_votes, posts, images, users CASCADE;"
+# Tables will be recreated automatically on next: go run .
 ```
 
 ## Environment Variables
@@ -142,6 +192,12 @@ devops-be/
 ```
 
 ### Key Components
+
+**Database (GORM ORM):**
+- `internal/database/database.go`: GORM connection setup with auto-migration
+- `internal/models/models.go`: Database models with GORM tags
+- Both `DB` (legacy) and `GormDB` available for gradual migration
+- Auto-creates tables: `users`, `posts`, `images`, `user_votes`
 
 **Authentication & Security:**
 - `internal/auth/jwt.go`: JWT token creation and validation with configurable secret
@@ -1154,3 +1210,155 @@ curl -X POST \
   http://localhost:8080/posts
 # Returns: {"success":false,"error":{"code":"invalid_token","message":"Invalid or expired token"}}
 ```
+
+## Database Migration with GORM
+
+### Overview
+
+This project uses **GORM** (Go Object-Relational Mapping) for automatic database schema management. This eliminates the need for manual SQL migration scripts.
+
+### How It Works
+
+When you run the application:
+
+1. **Connection**: GORM connects to PostgreSQL using the `DATABASE_URL`
+2. **Auto-Migration**: GORM analyzes your model structs
+3. **Schema Sync**: GORM automatically:
+   - Creates missing tables
+   - Adds new columns
+   - Updates column types (if safe)
+   - Creates indexes defined in GORM tags
+   - **Does NOT delete columns** (safe by design)
+
+### Model Structure
+
+Models are defined in `internal/models/models.go` with GORM tags:
+
+```go
+type User struct {
+    ID           int       `json:"id" gorm:"primaryKey;autoIncrement;column:id"`
+    Name         string    `json:"name" gorm:"column:name;type:varchar(255);not null"`
+    Username     string    `json:"username" gorm:"column:username;type:varchar(100);uniqueIndex;not null"`
+    Password     string    `json:"-" gorm:"column:password;type:text;not null"`
+    ProfilePhoto *string   `json:"profilePhoto" gorm:"column:profile_photo;type:text"`
+    CreatedAt    time.Time `json:"createdAt" gorm:"column:created_at;autoCreateTime"`
+}
+```
+
+**GORM Tags Explained:**
+- `primaryKey`: Marks field as primary key
+- `autoIncrement`: Auto-incrementing integer
+- `column:name`: Database column name
+- `type:varchar(255)`: SQL column type
+- `not null`: Column cannot be NULL
+- `uniqueIndex`: Creates unique index
+- `autoCreateTime`: Automatically set on creation
+- `gorm:"-"`: Field is not a database column (computed/joined data)
+
+### Adding New Fields
+
+**Example: Add a `bio` field to users**
+
+1. Update the model in `internal/models/models.go`:
+```go
+type User struct {
+    // ... existing fields ...
+    Bio string `json:"bio" gorm:"column:bio;type:text"`
+}
+```
+
+2. Run the application:
+```bash
+go run .
+```
+
+3. GORM will automatically:
+   - Detect the new field
+   - Execute: `ALTER TABLE users ADD COLUMN bio TEXT`
+   - Log: "Migrating schema for User"
+
+**No SQL files needed!** ✨
+
+### Dual Database Support
+
+The project currently supports both legacy SQL and GORM:
+
+```go
+var DB *sql.DB      // Legacy: Raw SQL queries (existing code)
+var GormDB *gorm.DB // New: GORM ORM (new features)
+```
+
+**Why both?**
+- Gradual migration from raw SQL to GORM
+- Existing code uses `database.DB`
+- New features can use `database.GormDB`
+- Both connect to the same database
+
+**Example GORM query:**
+```go
+// Create user
+user := models.User{
+    Name:     "John Doe",
+    Username: "johndoe",
+    Password: hashedPassword,
+}
+result := database.GormDB.Create(&user)
+
+// Find user
+var user models.User
+database.GormDB.Where("username = ?", "johndoe").First(&user)
+
+// Update user
+database.GormDB.Model(&user).Update("bio", "Hello World")
+```
+
+### Migration Best Practices
+
+✅ **Do:**
+- Add new fields to models
+- Run `go run .` to apply changes
+- Use GORM tags for constraints and indexes
+- Test migrations in development first
+
+❌ **Don't:**
+- Delete fields from models directly (GORM won't drop columns)
+- Change field types without testing
+- Remove GORM tags without checking migration impact
+
+### Troubleshooting
+
+**Issue: Migration not running**
+```bash
+# Check logs for:
+✓ Connected to PostgreSQL database
+✓ GORM auto-migration completed
+  → Auto-migrated tables: users, posts, images, user_votes
+```
+
+**Issue: Column not created**
+- Verify GORM tags are correct
+- Check field is exported (starts with capital letter)
+- Ensure GORM tag includes `column:name`
+
+**Issue: Need to drop a column**
+```sql
+# GORM doesn't drop columns automatically (safety feature)
+# Drop manually if needed:
+psql -d postgres -c "ALTER TABLE users DROP COLUMN old_field;"
+```
+
+**Issue: Want to reset everything**
+```bash
+# Drop all tables
+psql -d postgres -c "DROP TABLE IF EXISTS user_votes, posts, images, users CASCADE;"
+
+# Run app - GORM will recreate everything
+go run .
+```
+
+### GORM Resources
+
+- Documentation: https://gorm.io/docs/
+- Migration Guide: https://gorm.io/docs/migration.html
+- GORM Tags: https://gorm.io/docs/models.html#Fields-Tags
+
