@@ -17,12 +17,23 @@ import (
 func TestMain(m *testing.M) {
 	// Set test JWT secret
 	os.Setenv("JWT_SECRET", "test-secret-key-for-testing")
+
+	// Initialize database connection for tests
+	database.Init()
+
 	code := m.Run()
+
+	// Cleanup
+	database.Close()
 	os.Exit(code)
 }
 
 // TestLoginHandler tests the login endpoint
 func TestLoginHandler(t *testing.T) {
+	if database.DB == nil {
+		t.Skip("Database not available, skipping integration test")
+	}
+
 	tests := []struct {
 		name           string
 		method         string
@@ -100,6 +111,10 @@ func TestLoginHandler(t *testing.T) {
 
 // TestRegisterHandler tests the register endpoint
 func TestRegisterHandler(t *testing.T) {
+	if database.DB == nil {
+		t.Skip("Database not available, skipping integration test")
+	}
+
 	tests := []struct {
 		name           string
 		method         string
@@ -131,7 +146,7 @@ func TestRegisterHandler(t *testing.T) {
 		{
 			name:           "Short password (less than 6 characters)",
 			method:         http.MethodPost,
-			body:           `{"name":"Test User","username":"testuser","password":"short"}`,
+			body:           `{"name":"Test User","username":"testuser_short_pass_unique_xyz_123","password":"short"}`,
 			contentType:    "application/json",
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -184,6 +199,10 @@ func TestRegisterHandler(t *testing.T) {
 
 // TestChangePasswordHandler tests the change password endpoint
 func TestChangePasswordHandler(t *testing.T) {
+	if database.DB == nil {
+		t.Skip("Database not available, skipping integration test")
+	}
+
 	tests := []struct {
 		name           string
 		method         string

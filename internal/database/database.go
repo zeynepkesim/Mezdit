@@ -27,32 +27,43 @@ func Init() {
 	}
 
 	// Initialize legacy database connection (for backwards compatibility)
-	initLegacyDB(databaseURL)
+	if err := initLegacyDB(databaseURL); err != nil {
+		log.Printf("Warning: Failed to initialize legacy database: %v", err)
+		log.Println("Database-dependent tests will be skipped")
+		return
+	}
 
 	// Initialize GORM connection with auto-migration
-	initGormDB(databaseURL)
+	if err := initGormDB(databaseURL); err != nil {
+		log.Printf("Warning: Failed to initialize GORM database: %v", err)
+		log.Println("Database-dependent tests will be skipped")
+		return
+	}
 
 	fmt.Println("✓ Connected to PostgreSQL database")
 	fmt.Println("✓ GORM auto-migration completed")
 }
 
 // initLegacyDB initializes the legacy sql.DB connection
-func initLegacyDB(databaseURL string) {
+func initLegacyDB(databaseURL string) error {
 	config, err := pgx.ParseConfig(databaseURL)
 	if err != nil {
-		log.Fatal("Failed to parse database config:", err)
+		return fmt.Errorf("failed to parse database config: %w", err)
 	}
 
 	DB = stdlib.OpenDB(*config)
 
 	// Test connection
 	if err := DB.Ping(); err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		DB = nil // Set to nil if connection failed
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
+
+	return nil
 }
 
 // initGormDB initializes GORM connection and runs auto-migration
-func initGormDB(databaseURL string) {
+func initGormDB(databaseURL string) error {
 	var err error
 
 	// GORM configuration
@@ -63,7 +74,7 @@ func initGormDB(databaseURL string) {
 	// Connect with GORM
 	GormDB, err = gorm.Open(postgres.Open(databaseURL), config)
 	if err != nil {
-		log.Fatal("Failed to connect to database with GORM:", err)
+		return fmt.Errorf("failed to connect to database with GORM: %w", err)
 	}
 
 	// Run auto-migration
@@ -75,10 +86,11 @@ func initGormDB(databaseURL string) {
 		&models.UserVote{},
 	)
 	if err != nil {
-		log.Fatal("Failed to auto-migrate database schema:", err)
+		return fmt.Errorf("failed to auto-migrate database schema: %w", err)
 	}
 
 	fmt.Println("  → Auto-migrated tables: users, posts, images, user_votes")
+	return nil
 }
 
 func createTables() {
