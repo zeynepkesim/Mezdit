@@ -1,16 +1,13 @@
 image: golang:latest
-
 stages:
   - test
   - build
   - deploy
-
 format:
   stage: test
   script:
     - go fmt $(go list ./... | grep -v /vendor/)
     - go vet $(go list ./... | grep -v /vendor/)
-
 test:
   stage: test
   services:
@@ -25,7 +22,6 @@ test:
     - go test -v -coverprofile=coverage.out ./...
     - go tool cover -func=coverage.out
   coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
-
 compile:
   stage: build
   script:
@@ -34,7 +30,6 @@ compile:
   artifacts:
     paths:
       - mybinaries
-
 deploy:
   stage: deploy
   image: alpine:latest
@@ -54,18 +49,39 @@ deploy:
     - scp mybinaries/devops-be $VM_USER@$VM_HOST:/home/$VM_USER/devops-be-new
     # SSH into VM and deploy
     - |
-      ssh $VM_USER@$VM_HOST << 'EOF'
+      ssh $VM_USER@$VM_HOST << EOF
+        set -e  # Exit on any error
         # Stop the service
+        echo "Stopping service..."
         sudo systemctl stop devops-be || true
-
         # Replace old binary with new one
-        sudo mv /home/$VM_USER/devops-be-new /usr/local/bin/devops-be
+        echo "Moving new binary..."
+        sudo mv /home/centos/devops-be-new /usr/local/bin/devops-be
         sudo chmod +x /usr/local/bin/devops-be
-
+        # Fix SELinux context
+        echo "Fixing SELinux context..."
+        sudo chcon -t bin_t /usr/local/bin/devops-be
+        # Verify binary exists and is executable
+        if [ ! -x /usr/local/bin/devops-be ]; then
+          echo "❌ Binary not found or not executable!"
+          exit 1
+        fi
         # Start the service
+        echo "Starting service..."
         sudo systemctl start devops-be
+        # Wait a moment for service to start
+        sleep 2
+        # Check if service actually started
+        if ! sudo systemctl is-active --quiet devops-be; then
+          echo "❌ Service failed to start!"
+          echo "Service status:"
+          sudo systemctl status devops-be || true
+          echo "Recent logs:"
+          sudo journalctl -u devops-be -n 50 --no-pager
+          exit 1
+        fi
+        # Show service status
         sudo systemctl status devops-be
-
         echo "✅ Deployment completed successfully!"
       EOF
   environment:
