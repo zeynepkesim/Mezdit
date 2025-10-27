@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 
-	"devops-be/internal/middleware"
 	ws "devops-be/internal/websocket"
 
 	"github.com/gorilla/websocket"
@@ -22,8 +21,6 @@ var upgrader = websocket.Upgrader{
 
 // WebSocketHandler handles WebSocket connections
 func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
-	// Enable CORS
-	middleware.EnableCORS(w)
 
 	// Upgrade HTTP connection to WebSocket
 	conn, err := upgrader.Upgrade(w, r, nil)
