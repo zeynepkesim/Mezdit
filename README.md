@@ -50,6 +50,62 @@ go run .
 
 **Note**: We use the default `postgres` database that comes with PostgreSQL installation.
 
+## 🚀 Deployment
+
+This project includes automated CI/CD deployment to a VM using GitLab pipelines.
+
+### GitLab CI/CD Pipeline
+
+The pipeline consists of three stages:
+
+1. **Test Stage**
+   - Code formatting (`go fmt`, `go vet`)
+   - Unit tests with PostgreSQL service
+   - Coverage calculation (target: >50%)
+
+2. **Build Stage**
+   - Compiles Go binary
+   - Stores artifact for deployment
+
+3. **Deploy Stage** (main branch only)
+   - Automatically deploys to VM via SSH
+   - Restarts systemd service
+   - Zero-downtime deployment
+
+### Quick Deployment Setup
+
+**Prerequisites:**
+- VM with SSH access
+- PostgreSQL installed on VM
+- GitLab repository access
+
+**Steps:**
+
+1. **Create SSH key pair:**
+   ```bash
+   ssh-keygen -t rsa -b 4096 -C "gitlab-ci@devops-be" -f ~/.ssh/gitlab-ci-devops-be
+   ```
+
+2. **Add GitLab CI/CD variables** (Settings → CI/CD → Variables):
+   - `SSH_PRIVATE_KEY` - Your private key content
+   - `VM_HOST` - VM hostname/IP address
+   - `VM_USER` - VM username (e.g., `ubuntu`)
+
+3. **Configure VM** (see [DEPLOYMENT.md](DEPLOYMENT.md) for details):
+   - Add SSH public key to VM
+   - Create systemd service
+   - Grant sudo permissions
+   - Configure PostgreSQL
+
+4. **Push to main branch:**
+   ```bash
+   git push origin main
+   ```
+
+Your application will automatically deploy to the VM! 🎉
+
+**📚 For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)**
+
 ### Adding New Fields
 
 To add a new field to a table:
@@ -160,6 +216,9 @@ devops-be/
 ├── .env                             # Environment variables (NOT in Git)
 ├── .env.example                     # Example environment file (in Git)
 ├── .gitignore                       # Git ignore rules
+├── .gitlab-ci.yml                   # GitLab CI/CD pipeline configuration
+├── devops-be.service                # Systemd service file for VM deployment
+├── DEPLOYMENT.md                    # Detailed deployment guide
 ├── go.mod                           # Go dependencies
 ├── go.sum                           # Go dependency checksums
 ├── post_test.go                     # Post-related tests
@@ -169,22 +228,30 @@ devops-be/
 │   │   └── jwt_test.go              # JWT authentication tests
 │   ├── database/
 │   │   ├── database.go              # Database connection setup
+│   │   ├── database_test.go         # Database initialization tests
 │   │   ├── post.go                  # Post-related database operations
 │   │   ├── user.go                  # User-related database operations (bcrypt)
 │   │   ├── user_test.go             # Password hashing and verification tests
 │   │   ├── vote.go                  # Vote-related database operations
-│   │   └── image.go                 # Image-related database operations
+│   │   ├── vote_test.go             # Vote validation tests
+│   │   ├── image.go                 # Image-related database operations
+│   │   └── image_test.go            # Image validation tests
 │   ├── handlers/
 │   │   ├── auth.go                  # Authentication handlers (login, register)
+│   │   ├── auth_test.go             # Authentication handler tests
 │   │   ├── post.go                  # Post handlers (CRUD operations)
+│   │   ├── post_test.go             # Post handler tests
 │   │   ├── vote.go                  # Vote handler
 │   │   ├── image.go                 # Image upload handlers
 │   │   └── websocket.go             # WebSocket connection handler
 │   ├── middleware/
 │   │   ├── middleware.go            # Common middleware (CORS, JSON, etc.)
-│   │   └── auth.go                  # Authentication middleware (JWT validation)
+│   │   ├── middleware_test.go       # Middleware tests
+│   │   ├── auth.go                  # Authentication middleware (JWT validation)
+│   │   └── auth_test.go             # Auth middleware tests
 │   ├── models/
-│   │   └── models.go                # Data structures (User, Post, etc.)
+│   │   ├── models.go                # Data structures (User, Post, etc.)
+│   │   └── models_test.go           # Model structure tests
 │   └── websocket/
 │       ├── hub.go                   # WebSocket hub (connection manager)
 │       └── client.go                # WebSocket client handler
@@ -217,8 +284,15 @@ devops-be/
 - Privacy filtering for posts
 
 **Testing:**
-- `*_test.go`: Unit tests for password, JWT, posts, and voting
-- Minimum 50% code coverage target
+- `*_test.go`: Unit tests for password, JWT, handlers, middleware, models
+- Comprehensive test coverage (auth: 85.7%, middleware: 100%, models: 100%)
+- Minimum 50% code coverage target (enforced in CI/CD)
+
+**CI/CD & Deployment:**
+- `.gitlab-ci.yml`: Automated pipeline (test → build → deploy)
+- `devops-be.service`: Systemd service configuration for production
+- `DEPLOYMENT.md`: Complete deployment guide with VM setup instructions
+- Automated deployment to VM on main branch push
 
 **Scripts:**
 - `scripts/generate_hash.go`: Generate bcrypt hashes for new users
@@ -1050,17 +1124,65 @@ go tool cover -html=coverage.out
 
 ### CI/CD Integration
 
-The project uses GitLab CI/CD with the following pipeline:
+The project uses GitLab CI/CD with a complete automated pipeline:
+
+**Pipeline Stages:**
+
+1. **Test Stage** (`format` + `test` jobs)
+   - Code formatting validation (`go fmt`, `go vet`)
+   - Unit tests with PostgreSQL service
+   - Coverage calculation and reporting
+   - Coverage badge generation
+
+2. **Build Stage** (`compile` job)
+   - Compiles Go binary
+   - Creates deployment artifact
+
+3. **Deploy Stage** (main branch only)
+   - SSH deployment to VM
+   - Systemd service restart
+   - Zero-downtime deployment
 
 ```yaml
 # .gitlab-ci.yml
+stages:
+  - test
+  - build
+  - deploy
+
 test:
   stage: test
+  services:
+    - postgres:latest
   script:
-    - go test -v ./...
+    - go test -v -coverprofile=coverage.out ./...
+    - go tool cover -func=coverage.out
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+
+compile:
+  stage: build
+  script:
+    - go build -o mybinaries ./...
+  artifacts:
+    paths:
+      - mybinaries
+
+deploy:
+  stage: deploy
+  only:
+    - main
+  script:
+    - scp mybinaries/devops-be $VM_USER@$VM_HOST:/home/$VM_USER/
+    - ssh $VM_USER@$VM_HOST "sudo systemctl restart devops-be"
 ```
 
-Tests run automatically on every commit to ensure code quality and catch regressions early.
+**Automated on every push:**
+- ✅ Tests run automatically
+- ✅ Coverage calculated
+- ✅ Binary built
+- ✅ Deployed to VM (main branch only)
+
+**For deployment setup, see [DEPLOYMENT.md](DEPLOYMENT.md)**
 
 ## Example Requests (curl)
 

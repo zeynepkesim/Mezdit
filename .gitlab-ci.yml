@@ -37,5 +37,41 @@ compile:
 
 deploy:
   stage: deploy
-  script: echo "Define your deployment script!"
-  environment: production
+  image: alpine:latest
+  before_script:
+    # Install SSH client and dependencies
+    - apk update && apk add openssh-client bash
+    # Setup SSH
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    # Add SSH private key (from GitLab CI/CD variable)
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    # Add VM to known hosts (disable host key checking for first connection)
+    - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
+  script:
+    # Copy the compiled binary to VM
+    - scp mybinaries/devops-be $VM_USER@$VM_HOST:/home/$VM_USER/devops-be-new
+    # SSH into VM and deploy
+    - |
+      ssh $VM_USER@$VM_HOST << 'EOF'
+        # Stop the service
+        sudo systemctl stop devops-be || true
+
+        # Replace old binary with new one
+        sudo mv /home/$VM_USER/devops-be-new /usr/local/bin/devops-be
+        sudo chmod +x /usr/local/bin/devops-be
+
+        # Start the service
+        sudo systemctl start devops-be
+        sudo systemctl status devops-be
+
+        echo "✅ Deployment completed successfully!"
+      EOF
+  environment:
+    name: production
+    url: http://$VM_HOST:8080
+  only:
+    - main
+  dependencies:
+    - compile
