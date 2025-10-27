@@ -1,6 +1,7 @@
 import { ref, onUnmounted } from 'vue'
 
-const WS_URL = 'ws://localhost:8080/ws'
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+const WS_URL = `${wsProtocol}//${window.location.host}/ws`
 
 export function useWebSocket() {
   const ws = ref(null)
