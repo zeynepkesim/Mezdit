@@ -1,5 +1,7 @@
 # DevOps BE - Simple Reddit-like API
 
+[![coverage report](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-be/badges/main/coverage.svg)](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-be/-/commits/main)
+
 A Reddit-like backend API with automatic database migrations using GORM.
 
 ## Prerequisites
