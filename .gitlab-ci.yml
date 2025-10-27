@@ -1,3 +1,28 @@
+image: node:22-alpine
+
+stages:
+  - build
+  - deploy
+
+cache:
+  paths:
+    - node_modules/
+
+build:
+  stage: build
+  script:
+    - echo "Installing dependencies..."
+    - npm ci
+    - echo "Building application..."
+    - npm run build
+    - echo "Build completed successfully!"
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 hour
+  only:
+    - main
+
 deploy:
   stage: deploy
   image: alpine:latest
