@@ -5,31 +5,50 @@ const api = axios.create({
     headers: { "Content-Type": "application/json" },
 })
 
-// Add JWT token to all requests
+// Request interceptor to add JWT token to headers
 api.interceptors.request.use(
     (config) => {
-        const storedUser = localStorage.getItem('devops_user')
-        if (storedUser) {
-            try {
-                const userData = JSON.parse(storedUser)
-                if (userData.token) {
-                    config.headers.Authorization = `Bearer ${userData.token}`
-                }
-            } catch (error) {
-                console.error("Error parsing stored user data:", error)
-            }
+        // Get token from localStorage
+        const token = localStorage.getItem('devops_token')
+
+        // Add Authorization header if token exists
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`
         }
+
         return config
     },
-    (error) => Promise.reject(error)
+    (error) => {
+        return Promise.reject(error)
+    }
 )
 
-// Error handling without toast notifications
-// Toast notifications are handled at component level
+// Response interceptor for error handling
 api.interceptors.response.use(
     (response) => response,
     (error) => {
         console.error("API Error:", error.response?.data || error.message);
+
+        // Handle 401 Unauthorized - token expired or invalid
+        if (error.response?.status === 401) {
+            const errorCode = error.response?.data?.error?.code
+
+            // Only redirect to login if token is invalid/expired
+            // Don't redirect for incorrect_password (change password scenario)
+            if (errorCode === 'invalid_token' || errorCode === 'missing_token' || errorCode === 'authentication_failed') {
+                // Clear auth data and redirect to login
+                localStorage.removeItem('devops_user')
+                localStorage.removeItem('devops_token')
+                localStorage.removeItem('devops_logged_in')
+
+                // Redirect to login page if not already there
+                if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+                    window.location.href = '/login'
+                }
+            }
+            // For incorrect_password, just reject the error without redirecting
+        }
+
         return Promise.reject(error)
     }
 )
