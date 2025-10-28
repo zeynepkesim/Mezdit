@@ -185,3 +185,78 @@ func TestVoteHandler_UpvoteAndDownvote(t *testing.T) {
 		})
 	}
 }
+
+// TestVoteHandler_EmptyJSON tests vote with empty JSON
+func TestVoteHandler_EmptyJSON(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/vote", bytes.NewBufferString("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	VoteHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestVoteHandler_LargeIDs tests with very large ID values
+func TestVoteHandler_LargeIDs(t *testing.T) {
+	tests := []struct {
+		name   string
+		postID int
+		userID int
+	}{
+		{"Large post ID", 999999999, 1},
+		{"Large user ID", 1, 999999999},
+		{"Both large", 999999999, 999999999},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := map[string]interface{}{
+				"post_id": tt.postID,
+				"user_id": tt.userID,
+				"upvoted": true,
+			}
+			bodyBytes, _ := json.Marshal(body)
+
+			req := httptest.NewRequest(http.MethodPost, "/vote", bytes.NewReader(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			VoteHandler(w, req)
+
+			// Should pass validation (large positive numbers are valid)
+			if w.Code == http.StatusBadRequest {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				if errorData, ok := response["error"].(map[string]interface{}); ok {
+					if errorData["code"] == "validation_error" {
+						t.Errorf("%s: Large positive IDs should pass validation", tt.name)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestVoteHandler_MissingContentType tests without Content-Type header
+func TestVoteHandler_MissingContentType(t *testing.T) {
+	body := map[string]interface{}{
+		"post_id": 1,
+		"user_id": 1,
+		"upvoted": true,
+	}
+	bodyBytes, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/vote", bytes.NewReader(bodyBytes))
+	// Not setting Content-Type header
+	w := httptest.NewRecorder()
+
+	VoteHandler(w, req)
+
+	// Should still work or fail gracefully
+	if w.Code == http.StatusOK {
+		t.Log("Handler accepts requests without Content-Type")
+	}
+}

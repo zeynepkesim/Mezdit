@@ -397,3 +397,93 @@ func TestHandlers_CORSPreflight(t *testing.T) {
 		})
 	}
 }
+
+// TestLoginHandler_EmptyJSON tests login with empty JSON object
+func TestLoginHandler_EmptyJSON(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBufferString("{}"))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	LoginHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestRegisterHandler_EmptyJSON tests register with empty JSON object
+func TestRegisterHandler_EmptyJSON(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBufferString("{}"))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	RegisterHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestChangePasswordHandler_EmptyJSON tests password change with empty JSON
+func TestChangePasswordHandler_EmptyJSON(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/change-password", bytes.NewBufferString("{}"))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	ChangePasswordHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestLoginHandler_InvalidJSONFormat tests various invalid JSON formats
+func TestLoginHandler_InvalidJSONFormat(t *testing.T) {
+	invalidJSONs := []string{
+		"{username: testuser}",          // Missing quotes
+		`{"username": "test"`,           // Incomplete
+		`{"username": testuser}`,        // Value without quotes
+		"not json at all",
+		`{"username": "test", "password": }`, // Missing value
+	}
+
+	for _, invalidJSON := range invalidJSONs {
+		t.Run(invalidJSON, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBufferString(invalidJSON))
+			req.Header.Set("Content-Type", "application/json")
+
+			w := httptest.NewRecorder()
+			LoginHandler(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("Expected status 400 for invalid JSON, got %d", w.Code)
+			}
+		})
+	}
+}
+
+// TestRegisterHandler_InvalidJSONFormat tests invalid JSON for register
+func TestRegisterHandler_InvalidJSONFormat(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBufferString("{invalid"))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	RegisterHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}
+
+// TestChangePasswordHandler_InvalidJSONFormat tests invalid JSON for password change
+func TestChangePasswordHandler_InvalidJSONFormat(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/change-password", bytes.NewBufferString("{invalid"))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	ChangePasswordHandler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+}

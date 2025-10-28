@@ -199,3 +199,106 @@ func TestEditPostWithImageHandler_InvalidMethod(t *testing.T) {
 		})
 	}
 }
+
+// TestUploadImageHandler_EmptyRequest tests upload without multipart form
+func TestUploadImageHandler_EmptyRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/upload", bytes.NewBuffer([]byte{}))
+	req.Header.Set("Content-Type", "application/json") // Wrong content type
+	w := httptest.NewRecorder()
+
+	UploadImageHandler(w, req)
+
+	// Should fail - expects multipart/form-data
+	if w.Code == http.StatusOK {
+		t.Error("Should not succeed without multipart form")
+	}
+}
+
+// TestUploadPostHandler_InvalidPublisherIDFormat tests various invalid ID formats
+func TestUploadPostHandler_InvalidPublisherIDFormat(t *testing.T) {
+	tests := []struct {
+		name        string
+		publisherID string
+	}{
+		{"Empty string", ""},
+		{"Negative number", "-5"},
+		{"Zero", "0"},
+		{"Non-numeric", "abc"},
+		{"Float", "1.5"},
+		{"Special chars", "!@#"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := &bytes.Buffer{}
+			writer := multipart.NewWriter(body)
+
+			writer.WriteField("publisherId", tt.publisherID)
+			writer.WriteField("publisherName", "Test User")
+			writer.WriteField("header", "Test")
+			writer.WriteField("contentText", "Content")
+
+			writer.Close()
+
+			req := httptest.NewRequest(http.MethodPost, "/posts/upload", body)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			w := httptest.NewRecorder()
+
+			UploadPostHandler(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("%s: Expected status 400, got %d", tt.name, w.Code)
+			}
+		})
+	}
+}
+
+// TestUploadPostHandler_WhitespaceFields tests whitespace-only fields
+func TestUploadPostHandler_WhitespaceFields(t *testing.T) {
+	tests := []struct {
+		name   string
+		header string
+		text   string
+	}{
+		{"Whitespace header", "   ", "Content"},
+		{"Whitespace content", "Header", "   "},
+		{"Both whitespace", "   ", "   "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := &bytes.Buffer{}
+			writer := multipart.NewWriter(body)
+
+			writer.WriteField("publisherId", "1")
+			writer.WriteField("publisherName", "Test")
+			writer.WriteField("header", tt.header)
+			writer.WriteField("contentText", tt.text)
+
+			writer.Close()
+
+			req := httptest.NewRequest(http.MethodPost, "/posts/upload", body)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			w := httptest.NewRecorder()
+
+			UploadPostHandler(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("%s: Expected status 400, got %d", tt.name, w.Code)
+			}
+		})
+	}
+}
+
+// TestEditPostWithImageHandler_MissingForm tests without multipart form
+func TestEditPostWithImageHandler_MissingForm(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/posts/edit/image", bytes.NewBuffer([]byte{}))
+	w := httptest.NewRecorder()
+
+	EditPostWithImageHandler(w, req)
+
+	// Should fail without proper multipart form
+	if w.Code == http.StatusOK {
+		t.Error("Should not succeed without multipart form")
+	}
+}

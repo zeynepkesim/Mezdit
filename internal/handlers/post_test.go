@@ -97,6 +97,42 @@ func TestPostsHandler_InvalidMethod(t *testing.T) {
 	}
 }
 
+// TestPostsHandler_GET_ZeroUserID tests GET with userId=0
+func TestPostsHandler_GET_ZeroUserID(t *testing.T) {
+	t.Skip("Skipping database-dependent test")
+
+	req := httptest.NewRequest(http.MethodGet, "/posts?userId=0", nil)
+	w := httptest.NewRecorder()
+
+	PostsHandler(w, req)
+
+	// Should not be BadRequest - userId=0 is valid (public posts)
+	if w.Code == http.StatusBadRequest {
+		t.Error("userId=0 should be valid for public posts")
+	}
+}
+
+// TestPostsHandler_GET_ValidPositiveUserID tests GET with valid userId
+func TestPostsHandler_GET_ValidPositiveUserID(t *testing.T) {
+	t.Skip("Skipping database-dependent test")
+
+	req := httptest.NewRequest(http.MethodGet, "/posts?userId=5", nil)
+	w := httptest.NewRecorder()
+
+	PostsHandler(w, req)
+
+	// Should not be BadRequest
+	if w.Code == http.StatusBadRequest {
+		var response map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &response)
+		if errorData, ok := response["error"].(map[string]interface{}); ok {
+			if errorData["code"] == "validation_error" {
+				t.Error("Valid userId should not cause validation error")
+			}
+		}
+	}
+}
+
 // TestPostsHandler_CORSPreflight tests CORS preflight for posts
 func TestPostsHandler_CORSPreflight(t *testing.T) {
 	req := httptest.NewRequest(http.MethodOptions, "/posts", nil)
@@ -275,4 +311,47 @@ func TestEditPostHandler_ValidInput(t *testing.T) {
 // TestEditPostHandler_PrivacyToggle tests privacy field handling
 func TestEditPostHandler_PrivacyToggle(t *testing.T) {
 	t.Skip("Skipping database-dependent test")
+}
+
+// TestEditPostHandler_MissingFields tests missing fields
+func TestEditPostHandler_MissingFields(t *testing.T) {
+	tests := []struct {
+		name        string
+		requestBody map[string]interface{}
+		description string
+	}{
+		{
+			name: "Missing postId",
+			requestBody: map[string]interface{}{
+				"userId":      1,
+				"header":      "Updated",
+				"contentText": "Updated content",
+			},
+			description: "Should handle missing postId",
+		},
+		{
+			name: "Missing userId",
+			requestBody: map[string]interface{}{
+				"postId":      1,
+				"header":      "Updated",
+				"contentText": "Updated content",
+			},
+			description: "Should handle missing userId",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bodyBytes, _ := json.Marshal(tt.requestBody)
+			req := httptest.NewRequest(http.MethodPost, "/posts/edit", bytes.NewBuffer(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+
+			w := httptest.NewRecorder()
+			EditPostHandler(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("%s: Expected status 400, got %d", tt.description, w.Code)
+			}
+		})
+	}
 }
