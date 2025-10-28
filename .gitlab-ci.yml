@@ -22,6 +22,10 @@ test:
     - go test -v -coverprofile=coverage.out ./...
     - go tool cover -func=coverage.out
   coverage: '/total:.*\(statements\).*?(\d+\.?\d*)%/'
+  artifacts:
+    paths:
+      - coverage.out
+    expire_in: 1 week
 compile:
   stage: build
   script:
