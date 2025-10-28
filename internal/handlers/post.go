@@ -9,6 +9,7 @@ import (
 	"devops-be/internal/database"
 	"devops-be/internal/middleware"
 	"devops-be/internal/models"
+	"devops-be/internal/security"
 	ws "devops-be/internal/websocket"
 )
 
@@ -69,10 +70,26 @@ func PostsHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("ContentPhotoID: %v", body.ContentPhotoID)
 			log.Printf("IsPrivate: %v", body.IsPrivate)
 			log.Printf("==========================")
-			body.Header = strings.TrimSpace(body.Header)
-			body.ContentText = strings.TrimSpace(body.ContentText)
-			body.PublisherName = strings.TrimSpace(body.PublisherName)
-			body.Name = strings.TrimSpace(body.Name)
+
+			// Sanitize inputs to prevent XSS attacks
+			body.Header = security.SanitizeText(body.Header)
+			body.ContentText = security.SanitizeText(body.ContentText)
+			body.PublisherName = security.SanitizeInput(body.PublisherName)
+			body.Name = security.SanitizeInput(body.Name)
+
+			// Validate input lengths to prevent DoS
+			if !security.ValidateLength(body.Header, security.MaxPostHeaderLength) {
+				middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Header is too long (max 500 characters)")
+				return
+			}
+			if !security.ValidateLength(body.ContentText, security.MaxPostContentLength) {
+				middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Content is too long (max 5000 characters)")
+				return
+			}
+			if !security.ValidateLength(body.PublisherName, security.MaxNameLength) {
+				middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Publisher name is too long (max 255 characters)")
+				return
+			}
 
 			// If publisherName is empty but name is provided, use name as display name
 			effectivePublisherName := body.PublisherName
@@ -140,10 +157,20 @@ func EditPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Trim whitespace
-	body.Header = strings.TrimSpace(body.Header)
-	body.ContentText = strings.TrimSpace(body.ContentText)
-	body.PublisherName = strings.TrimSpace(body.PublisherName)
+	// Sanitize inputs to prevent XSS attacks
+	body.Header = security.SanitizeText(body.Header)
+	body.ContentText = security.SanitizeText(body.ContentText)
+	body.PublisherName = security.SanitizeInput(body.PublisherName)
+
+	// Validate input lengths
+	if !security.ValidateLength(body.Header, security.MaxPostHeaderLength) {
+		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Header is too long (max 500 characters)")
+		return
+	}
+	if !security.ValidateLength(body.ContentText, security.MaxPostContentLength) {
+		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Content is too long (max 5000 characters)")
+		return
+	}
 
 	// Validate input
 	if body.PostID <= 0 {

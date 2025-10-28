@@ -1,0 +1,21 @@
+# Gitleaks ignore file
+# Add paths or patterns that should be excluded from secrets scanning
+
+# Test files with dummy data
+*_test.go
+**/*_test.go
+**/test/**
+**/tests/**
+
+# Documentation files may contain example secrets
+README.md
+DEPLOYMENT.md
+*.md
+
+# Example environment files (not actual secrets)
+.env.example
+
+# Generated files
+coverage.out
+*.sum
+
