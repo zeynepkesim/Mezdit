@@ -66,19 +66,22 @@ func TestSanitizeText(t *testing.T) {
 		notContains []string
 	}{
 		{
-			name:        "Remove script tags",
+			name:        "Escape script tags",
 			input:       "Hello <script>alert('XSS')</script> World",
-			notContains: []string{"script", "alert"},
+			contains:    []string{"&lt;script&gt;", "&lt;/script&gt;", "Hello", "World"},
+			notContains: []string{"<script>", "</script>"},
 		},
 		{
-			name:        "Remove javascript protocol",
+			name:        "Escape javascript protocol",
 			input:       `<a href="javascript:alert('XSS')">Click</a>`,
-			notContains: []string{"javascript:"},
+			contains:    []string{"&lt;a", "&gt;", "Click"},
+			notContains: []string{"<a href=", "</a>"},
 		},
 		{
-			name:        "Remove onclick handler",
+			name:        "Escape onclick handler",
 			input:       `<div onclick="alert('XSS')">Click me</div>`,
-			notContains: []string{"onclick"},
+			contains:    []string{"&lt;div", "&gt;", "Click me"},
+			notContains: []string{"<div ", "</div>"},
 		},
 		{
 			name:     "Normal text unchanged",
