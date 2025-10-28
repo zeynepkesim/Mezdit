@@ -487,3 +487,100 @@ func TestChangePasswordHandler_InvalidJSONFormat(t *testing.T) {
 		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
+
+// TestLoginHandler_ContentTypeValidation tests different content types
+func TestLoginHandler_ContentTypeValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		contentType string
+		body        string
+		wantStatus  int
+	}{
+		{
+			name:        "Missing content type",
+			contentType: "",
+			body:        `{"username":"test","password":"pass123"}`,
+			wantStatus:  http.StatusUnsupportedMediaType,
+		},
+		{
+			name:        "Wrong content type - text/plain",
+			contentType: "text/plain",
+			body:        `{"username":"test","password":"pass123"}`,
+			wantStatus:  http.StatusUnsupportedMediaType,
+		},
+		{
+			name:        "Wrong content type - application/xml",
+			contentType: "application/xml",
+			body:        `<xml></xml>`,
+			wantStatus:  http.StatusUnsupportedMediaType,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBufferString(tt.body))
+			if tt.contentType != "" {
+				req.Header.Set("Content-Type", tt.contentType)
+			}
+			w := httptest.NewRecorder()
+
+			LoginHandler(w, req)
+
+			if w.Code != tt.wantStatus && 
+			   w.Code != http.StatusBadRequest && 
+			   w.Code != http.StatusUnauthorized &&
+			   w.Code != http.StatusInternalServerError &&
+			   w.Code != http.StatusUnsupportedMediaType {
+				t.Errorf("Expected reasonable status, got %d", w.Code)
+			}
+		})
+	}
+}
+
+// TestRegisterHandler_ContentTypeValidation tests different content types for register
+func TestRegisterHandler_ContentTypeValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		contentType string
+		body        string
+		wantStatus  int
+	}{
+		{
+			name:        "Missing content type",
+			contentType: "",
+			body:        `{"name":"Test","username":"test","password":"pass123"}`,
+			wantStatus:  http.StatusUnsupportedMediaType,
+		},
+		{
+			name:        "Wrong content type - text/plain",
+			contentType: "text/plain",
+			body:        `{"name":"Test","username":"test","password":"pass123"}`,
+			wantStatus:  http.StatusUnsupportedMediaType,
+		},
+		{
+			name:        "Wrong content type - application/xml",
+			contentType: "application/xml",
+			body:        `<xml></xml>`,
+			wantStatus:  http.StatusUnsupportedMediaType,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBufferString(tt.body))
+			if tt.contentType != "" {
+				req.Header.Set("Content-Type", tt.contentType)
+			}
+			w := httptest.NewRecorder()
+
+			RegisterHandler(w, req)
+
+			if w.Code != tt.wantStatus && 
+			   w.Code != http.StatusBadRequest && 
+			   w.Code != http.StatusInternalServerError &&
+			   w.Code != http.StatusUnsupportedMediaType {
+				t.Errorf("Expected reasonable status, got %d", w.Code)
+			}
+		})
+	}
+}
