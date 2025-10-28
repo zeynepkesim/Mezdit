@@ -1,8 +1,24 @@
 image: node:22-alpine
 
 stages:
+  - security
   - build
   - deploy
+
+# Security: Secrets Detection
+# Scans code for accidentally committed secrets, API keys, passwords, tokens
+secrets-detection:
+  stage: security
+  image: zricethezav/gitleaks:latest
+  script:
+    - echo "🔍 Scanning for secrets in frontend code..."
+    - gitleaks detect --source . --verbose --no-git --redact
+  allow_failure: false
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH =~ /^(develop|staging)$/'
+  tags: []
 
 cache:
   paths:
@@ -30,9 +46,12 @@ deploy:
     - apk update && apk add openssh-client bash rsync
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
+    # Add SSH private key (from GitLab CI/CD variable)
+    # Note: SSH_PRIVATE_KEY is a protected GitLab CI/CD variable - never logged
     - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
+    - echo "✅ SSH configured securely (key not logged)"
   script:
     - |
       ssh $VM_USER@$VM_HOST << EOF
