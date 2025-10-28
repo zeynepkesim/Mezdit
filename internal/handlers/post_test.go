@@ -476,3 +476,96 @@ func TestEditPostHandler_PrivacyField(t *testing.T) {
 		})
 	}
 }
+
+// TestPostsHandler_POST_ValidationErrors tests POST validation errors
+func TestPostsHandler_POST_ValidationErrors(t *testing.T) {
+	// Since POST requires authentication, we test that unauthorized requests fail
+	tests := []struct {
+		name         string
+		body         map[string]interface{}
+		expectedCode int
+	}{
+		{
+			name: "Empty header - unauthorized",
+			body: map[string]interface{}{
+				"publisherId":   1,
+				"publisherName": "Test User",
+				"header":        "",
+				"contentText":   "Test content",
+			},
+			expectedCode: http.StatusUnauthorized,
+		},
+		{
+			name: "Empty content - unauthorized",
+			body: map[string]interface{}{
+				"publisherId":   1,
+				"publisherName": "Test User",
+				"header":        "Test Header",
+				"contentText":   "",
+			},
+			expectedCode: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bodyBytes, _ := json.Marshal(tt.body)
+			req := httptest.NewRequest(http.MethodPost, "/posts", bytes.NewBuffer(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			PostsHandler(w, req)
+
+			if w.Code != tt.expectedCode {
+				t.Errorf("Expected status %d, got %d", tt.expectedCode, w.Code)
+			}
+		})
+	}
+}
+
+// TestPostsHandler_POST_InvalidFormat tests POST with invalid format
+func TestPostsHandler_POST_InvalidFormat(t *testing.T) {
+	// Since POST requires authentication, unauthorized requests will return 401
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"Invalid JSON - unauthorized", `{"publisherId": 1, "header": }`},
+		{"Missing publisherId - unauthorized", `{"publisherName": "Test", "header": "Test", "contentText": "Test"}`},
+		{"Zero publisherId - unauthorized", `{"publisherId": 0, "publisherName": "Test", "header": "Test", "contentText": "Test"}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/posts", bytes.NewBufferString(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			PostsHandler(w, req)
+
+			// Should return 401 because no authentication
+			if w.Code != http.StatusUnauthorized && w.Code != http.StatusBadRequest {
+				t.Errorf("Expected status 401 or 400, got %d", w.Code)
+			}
+		})
+	}
+}
+
+// TestPostsHandler_PUT_MethodNotAllowed tests PUT method not allowed
+func TestPostsHandler_PUT_MethodNotAllowed(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPut, "/posts", nil)
+	w := httptest.NewRecorder()
+
+	PostsHandler(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status 405, got %d", w.Code)
+	}
+
+	var response map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &response)
+
+	if response["success"] != false {
+		t.Error("Expected success=false")
+	}
+}

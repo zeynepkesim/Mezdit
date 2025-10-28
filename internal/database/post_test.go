@@ -219,3 +219,23 @@ func TestGetPostsForUser_Validation(t *testing.T) {
 		})
 	}
 }
+
+// TestGetPostsForUser_ZeroUserID tests behavior with zero user ID
+func TestGetPostsForUser_ZeroUserID(t *testing.T) {
+	if DB == nil {
+		t.Skip("Skipping database-dependent test")
+	}
+	
+	// Zero user ID should return public posts
+	posts, err := GetPostsForUser(0)
+	
+	// Should succeed (return public posts)
+	if err != nil {
+		t.Errorf("Expected no error for zero userID, got: %v", err)
+	}
+	
+	// Should return non-nil slice
+	if posts == nil {
+		t.Error("Expected non-nil slice")
+	}
+}
