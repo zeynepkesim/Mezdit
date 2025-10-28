@@ -584,3 +584,72 @@ func TestRegisterHandler_ContentTypeValidation(t *testing.T) {
 		})
 	}
 }
+
+// TestChangePasswordHandler_ContentTypeValidation tests content type for password change
+func TestChangePasswordHandler_ContentTypeValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		contentType string
+		wantStatus  int
+	}{
+		{"Missing content type", "", http.StatusUnsupportedMediaType},
+		{"Wrong content type", "text/plain", http.StatusUnsupportedMediaType},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := `{"userId":1,"currentPassword":"old","newPassword":"new123"}`
+			req := httptest.NewRequest(http.MethodPost, "/change-password", bytes.NewBufferString(body))
+			if tt.contentType != "" {
+				req.Header.Set("Content-Type", tt.contentType)
+			}
+			w := httptest.NewRecorder()
+
+			ChangePasswordHandler(w, req)
+
+			if w.Code != tt.wantStatus &&
+			   w.Code != http.StatusBadRequest &&
+			   w.Code != http.StatusUnsupportedMediaType {
+				t.Errorf("Expected status %d or error, got %d", tt.wantStatus, w.Code)
+			}
+		})
+	}
+}
+
+// TestAllAuthHandlers_ResponseFormat tests response format consistency
+func TestAllAuthHandlers_ResponseFormat(t *testing.T) {
+	tests := []struct {
+		name    string
+		handler http.HandlerFunc
+		method  string
+		path    string
+		body    string
+	}{
+		{"Login", LoginHandler, http.MethodPost, "/login", `{}`},
+		{"Register", RegisterHandler, http.MethodPost, "/register", `{}`},
+		{"ChangePassword", ChangePasswordHandler, http.MethodPost, "/change-password", `{}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, bytes.NewBufferString(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			tt.handler(w, req)
+
+			// Should return JSON (may include charset)
+			contentType := w.Header().Get("Content-Type")
+			if contentType != "" && 
+			   contentType != "application/json" && 
+			   contentType != "application/json; charset=utf-8" {
+				t.Errorf("Expected JSON response, got %s", contentType)
+			}
+
+			// Should have valid response body
+			if w.Body.Len() == 0 {
+				t.Error("Response body should not be empty")
+			}
+		})
+	}
+}

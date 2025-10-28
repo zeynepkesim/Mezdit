@@ -13,6 +13,23 @@ func TestPostsHandler_GET(t *testing.T) {
 	t.Skip("Skipping database-dependent test")
 }
 
+// TestPostsHandler_OPTIONS tests OPTIONS request (CORS preflight)
+func TestPostsHandler_OPTIONS(t *testing.T) {
+	req := httptest.NewRequest(http.MethodOptions, "/posts", nil)
+	w := httptest.NewRecorder()
+
+	PostsHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 for OPTIONS, got %d", w.Code)
+	}
+
+	// Check CORS headers are set
+	if w.Header().Get("Access-Control-Allow-Origin") == "" {
+		t.Error("CORS headers should be set for OPTIONS")
+	}
+}
+
 // TestPostsHandler_GET_WithInvalidUserID tests GET with invalid userId param
 func TestPostsHandler_GET_WithInvalidUserID(t *testing.T) {
 	tests := []struct {
@@ -287,6 +304,11 @@ func TestEditPostHandler_CORSPreflight(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status 200 for OPTIONS, got %d", w.Code)
+	}
+
+	// Verify CORS headers are set
+	if w.Header().Get("Access-Control-Allow-Origin") == "" {
+		t.Error("CORS headers should be set for OPTIONS")
 	}
 }
 
