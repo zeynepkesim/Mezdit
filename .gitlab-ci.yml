@@ -20,8 +20,10 @@ test:
     DATABASE_URL: "postgres://postgres@postgres:5432/postgres?sslmode=disable"
   script:
     - go test -v -coverprofile=coverage.out ./...
+    - echo "=== Coverage Summary ==="
     - go tool cover -func=coverage.out | tail -1
-  coverage: '/total:.*?(\d+\.\d+)%/'
+    - echo "=== End Coverage ==="
+  coverage: '/\(statements\)\s+(\d+\.\d+)%/'
   artifacts:
     paths:
       - coverage.out
