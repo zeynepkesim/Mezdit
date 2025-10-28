@@ -1,0 +1,22 @@
+# Gitleaks ignore file for frontend
+# Add paths or patterns that should be excluded from secrets scanning
+
+# Test files
+**/*.test.js
+**/*.spec.js
+**/tests/**
+**/__tests__/**
+
+# Documentation
+README.md
+*.md
+
+# Build artifacts
+dist/**
+node_modules/**
+build/**
+
+# Package lock files (may contain registry URLs)
+package-lock.json
+yarn.lock
+

@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { addPost } from "../store/posts";
 import { getCurrentUser } from "../store/auth.js";
+import { validatePostContent, validatePostHeader, validateName } from "../utils/validation.js";
 
 const router = useRouter();
 const currentUser = getCurrentUser();
@@ -78,6 +79,29 @@ async function handleSubmit() {
   if (!isAnonymous.value && !author.value.trim()) {
     error.value = "Display name is required when not posting anonymously";
     return;
+  }
+
+  // Validate header for XSS and length
+  const headerValidation = validatePostHeader(header.value);
+  if (!headerValidation.valid) {
+    error.value = headerValidation.message;
+    return;
+  }
+
+  // Validate content for XSS and length
+  const contentValidation = validatePostContent(content.value);
+  if (!contentValidation.valid) {
+    error.value = contentValidation.message;
+    return;
+  }
+
+  // Validate display name if not anonymous
+  if (!isAnonymous.value) {
+    const nameValidation = validateName(author.value);
+    if (!nameValidation.valid) {
+      error.value = nameValidation.message;
+      return;
+    }
   }
 
   loading.value = true;
