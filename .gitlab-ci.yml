@@ -21,7 +21,7 @@ test:
   script:
     - go test -v -coverprofile=coverage.out ./...
     - go tool cover -func=coverage.out | tail -1
-  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  coverage: '/total:.*?(\d+\.\d+)%/'
   artifacts:
     paths:
       - coverage.out
