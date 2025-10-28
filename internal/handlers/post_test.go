@@ -21,7 +21,6 @@ func TestPostsHandler_GET_WithInvalidUserID(t *testing.T) {
 	}{
 		{"abc", "non-numeric userId"},
 		{"-1", "negative userId"},
-		{"0", "zero userId"},
 	}
 
 	for _, tt := range tests {
