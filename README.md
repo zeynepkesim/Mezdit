@@ -2,6 +2,8 @@
 
 [![coverage report](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-be/badges/main/coverage.svg)](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-be/-/commits/main)
 
+**🚀 Production:** [https://devops-mezdit-vm13.cloud.ut.ee/posts](https://devops-mezdit-vm13.cloud.ut.ee/posts)
+
 A Reddit-like backend API with automatic database migrations using GORM.
 
 ## Prerequisites

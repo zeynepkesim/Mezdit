@@ -355,3 +355,124 @@ func TestEditPostHandler_MissingFields(t *testing.T) {
 		})
 	}
 }
+
+// TestPostsHandler_GET_MultipleUserIDs tests GET with various userId values
+func TestPostsHandler_GET_MultipleUserIDs(t *testing.T) {
+	t.Skip("Skipping database-dependent test")
+
+	tests := []struct {
+		name   string
+		userID string
+	}{
+		{"Small ID", "1"},
+		{"Medium ID", "100"},
+		{"Large ID", "999999"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/posts?userId="+tt.userID, nil)
+			w := httptest.NewRecorder()
+
+			PostsHandler(w, req)
+
+			// Should not fail validation
+			if w.Code == http.StatusBadRequest {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				if errorData, ok := response["error"].(map[string]interface{}); ok {
+					if errorData["code"] == "validation_error" {
+						t.Errorf("%s: Valid userId should not fail validation", tt.name)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestEditPostHandler_LargeIDs tests with very large ID values
+func TestEditPostHandler_LargeIDs(t *testing.T) {
+	t.Skip("Skipping database-dependent test")
+
+	tests := []struct {
+		name   string
+		postID int
+		userID int
+	}{
+		{"Large post ID", 2147483647, 1}, // Max int32
+		{"Large user ID", 1, 2147483647},
+		{"Both large", 2147483647, 2147483647},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := map[string]interface{}{
+				"postId":      tt.postID,
+				"userId":      tt.userID,
+				"header":      "Updated Header",
+				"contentText": "Updated content",
+			}
+			bodyBytes, _ := json.Marshal(body)
+
+			req := httptest.NewRequest(http.MethodPost, "/posts/edit", bytes.NewBuffer(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			EditPostHandler(w, req)
+
+			// Should pass validation (large positive numbers are valid)
+			if w.Code == http.StatusBadRequest {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				if errorData, ok := response["error"].(map[string]interface{}); ok {
+					if errorData["code"] == "validation_error" {
+						t.Errorf("%s: Large positive IDs should pass validation", tt.name)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestEditPostHandler_PrivacyField tests privacy boolean field
+func TestEditPostHandler_PrivacyField(t *testing.T) {
+	t.Skip("Skipping database-dependent test")
+
+	tests := []struct {
+		name      string
+		isPrivate bool
+	}{
+		{"Public post", false},
+		{"Private post", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := map[string]interface{}{
+				"postId":      1,
+				"userId":      1,
+				"header":      "Test Header",
+				"contentText": "Test content",
+				"isPrivate":   tt.isPrivate,
+			}
+			bodyBytes, _ := json.Marshal(body)
+
+			req := httptest.NewRequest(http.MethodPost, "/posts/edit", bytes.NewBuffer(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			EditPostHandler(w, req)
+
+			// Should pass validation
+			if w.Code == http.StatusBadRequest {
+				var response map[string]interface{}
+				json.Unmarshal(w.Body.Bytes(), &response)
+				if errorData, ok := response["error"].(map[string]interface{}); ok {
+					if errorData["code"] == "validation_error" {
+						t.Errorf("%s: Privacy field should be valid", tt.name)
+					}
+				}
+			}
+		})
+	}
+}
