@@ -591,3 +591,55 @@ func TestPostsHandler_PUT_MethodNotAllowed(t *testing.T) {
 		t.Error("Expected success=false")
 	}
 }
+
+// TestPostsHandler_GET_MultipleQueries tests GET with various query patterns
+func TestPostsHandler_GET_MultipleQueries(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		wantFail bool
+		needsDB  bool
+	}{
+		{"No query", "", false, true},
+		{"Valid positive ID", "userId=123", false, true},
+		{"Large valid ID", "userId=999999", false, true},
+		{"Negative ID", "userId=-5", true, false},
+		{"Non-numeric ID", "userId=abc", true, false},
+		{"Float ID", "userId=12.34", true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.needsDB {
+				t.Skip("Skipping database-dependent test")
+				return
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "/posts?"+tt.query, nil)
+			w := httptest.NewRecorder()
+
+			PostsHandler(w, req)
+
+			if tt.wantFail {
+				if w.Code != http.StatusBadRequest {
+					t.Errorf("Expected BadRequest for %s, got %d", tt.name, w.Code)
+				}
+			}
+		})
+	}
+}
+
+// TestPostsHandler_POST_MissingContentType tests POST without content type
+func TestPostsHandler_POST_MissingContentType(t *testing.T) {
+	body := `{"publisherId":1,"header":"Test","contentText":"Content"}`
+	req := httptest.NewRequest(http.MethodPost, "/posts", bytes.NewBufferString(body))
+	// Not setting Content-Type
+	w := httptest.NewRecorder()
+
+	PostsHandler(w, req)
+
+	// Should fail due to missing content type or unauthorized
+	if w.Code == http.StatusOK {
+		t.Error("Should not succeed without content type")
+	}
+}
