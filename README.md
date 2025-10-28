@@ -55,22 +55,27 @@ go run .
 
 ## 🚀 Deployment
 
-This project includes automated CI/CD deployment to a VM using GitLab pipelines.
+This project includes automated CI/CD deployment to a VM using GitLab pipelines with security scanning.
 
 ### GitLab CI/CD Pipeline
 
-The pipeline consists of three stages:
+The pipeline consists of four stages:
 
-1. **Test Stage**
+1. **Security Stage**
+   - Secrets detection using Gitleaks
+   - Blocks deployment if secrets found
+   - Prevents accidental API key/password exposure
+
+2. **Test Stage**
    - Code formatting (`go fmt`, `go vet`)
    - Unit tests with PostgreSQL service
    - Coverage calculation (target: >50%)
 
-2. **Build Stage**
+3. **Build Stage**
    - Compiles Go binary
    - Stores artifact for deployment
 
-3. **Deploy Stage** (main branch only)
+4. **Deploy Stage** (main branch only)
    - Automatically deploys to VM via SSH
    - Restarts systemd service
    - Zero-downtime deployment
@@ -108,6 +113,7 @@ The pipeline consists of three stages:
 Your application will automatically deploy to the VM! 🎉
 
 **📚 For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)**
+**🔒 For Week 7 security changes, see [WEEK7_CHANGES.md](WEEK7_CHANGES.md)**
 
 ### Adding New Fields
 
@@ -219,9 +225,11 @@ devops-be/
 ├── .env                             # Environment variables (NOT in Git)
 ├── .env.example                     # Example environment file (in Git)
 ├── .gitignore                       # Git ignore rules
+├── .gitleaksignore                  # Secrets detection exclusions (Week 7)
 ├── .gitlab-ci.yml                   # GitLab CI/CD pipeline configuration
 ├── devops-be.service                # Systemd service file for VM deployment
 ├── DEPLOYMENT.md                    # Detailed deployment guide
+├── WEEK7_CHANGES.md                 # Week 7 security improvements
 ├── go.mod                           # Go dependencies
 ├── go.sum                           # Go dependency checksums
 ├── post_test.go                     # Post-related tests
@@ -229,6 +237,9 @@ devops-be/
 │   ├── auth/
 │   │   ├── jwt.go                   # JWT token generation and validation
 │   │   └── jwt_test.go              # JWT authentication tests
+│   ├── security/                    # Security utilities
+│   │   ├── sanitization.go          # XSS prevention, input validation
+│   │   └── sanitization_test.go     # Security tests
 │   ├── database/
 │   │   ├── database.go              # Database connection setup
 │   │   ├── database_test.go         # Database initialization tests
@@ -954,6 +965,12 @@ curl -X POST \
 
 ## Features
 
+- **🔒 Security**: Comprehensive security measures
+  - **XSS Prevention**: Input sanitization on all user inputs (backend & frontend)
+  - **Secrets Detection**: Automated Gitleaks scanning in CI/CD pipeline
+  - **Input Validation**: Length limits and pattern validation to prevent attacks
+  - **HTML Escaping**: All user-generated content properly escaped
+  - **DoS Prevention**: Input size limits on all endpoints
 - **PostgreSQL Database**: Full database integration with proper relations
 - **JWT Authentication**: Production-ready token-based authentication
   - Secure JWT tokens with configurable secret key
