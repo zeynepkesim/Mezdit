@@ -1,21 +1,25 @@
-# Gitleaks ignore file
-# Add paths or patterns that should be excluded from secrets scanning
+# Gitleaks ignore file (fingerprint-based)
+# Format: <file>:<rule>:<line>
+# Use exact fingerprints from gitleaks output
 
-# Test files with dummy data
-*_test.go
-**/*_test.go
-**/test/**
-**/tests/**
+# Test files - WebSocket test with dummy keys
+internal/handlers/websocket_test.go:generic-api-key:81
+internal/handlers/websocket_test.go:generic-api-key:134
 
-# Documentation files may contain example secrets
-README.md
-DEPLOYMENT.md
-*.md
+# Test files - JWT test with example tokens
+internal/auth/jwt_test.go:generic-api-key:128
 
-# Example environment files (not actual secrets)
-.env.example
+# Documentation - Example tokens in README
+README.md:generic-api-key:367
+README.md:generic-api-key:395
+README.md:generic-api-key:1217
+README.md:generic-api-key:1224
+README.md:generic-api-key:1227
+README.md:curl-auth-header:1350
 
-# Generated files
-coverage.out
-*.sum
+# Documentation - Example tokens in WEEK7_CHANGES
+WEEK7_CHANGES.md:generic-api-key:*
+DEPLOYMENT.md:generic-api-key:*
 
+# Allow example environment file
+.env.example:*
