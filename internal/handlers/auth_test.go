@@ -137,6 +137,36 @@ func TestRegisterHandler_ValidationErrors(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 			description:    "Should reject password less than 6 characters",
 		},
+		{
+			name: "Whitespace only name",
+			requestBody: map[string]string{
+				"name":     "   ",
+				"username": "testuser",
+				"password": "password123",
+			},
+			expectedStatus: http.StatusBadRequest,
+			description:    "Should reject whitespace-only name",
+		},
+		{
+			name: "Whitespace only username",
+			requestBody: map[string]string{
+				"name":     "Test User",
+				"username": "   ",
+				"password": "password123",
+			},
+			expectedStatus: http.StatusBadRequest,
+			description:    "Should reject whitespace-only username",
+		},
+		{
+			name: "Whitespace only password",
+			requestBody: map[string]string{
+				"name":     "Test User",
+				"username": "testuser",
+				"password": "   ",
+			},
+			expectedStatus: http.StatusBadRequest,
+			description:    "Should reject whitespace-only password",
+		},
 	}
 
 	for _, tt := range tests {
@@ -232,6 +262,26 @@ func TestChangePasswordHandler_ValidationErrors(t *testing.T) {
 			},
 			expectedStatus: http.StatusBadRequest,
 			description:    "Should reject password less than 6 characters",
+		},
+		{
+			name: "Whitespace current password",
+			requestBody: map[string]interface{}{
+				"userId":          1,
+				"currentPassword": "   ",
+				"newPassword":     "newpass123",
+			},
+			expectedStatus: http.StatusBadRequest,
+			description:    "Should reject whitespace-only current password",
+		},
+		{
+			name: "Whitespace new password",
+			requestBody: map[string]interface{}{
+				"userId":          1,
+				"currentPassword": "oldpass",
+				"newPassword":     "   ",
+			},
+			expectedStatus: http.StatusBadRequest,
+			description:    "Should reject whitespace-only new password",
 		},
 	}
 
