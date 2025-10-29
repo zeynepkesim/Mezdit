@@ -47,8 +47,8 @@ deploy:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     # Add SSH private key (from GitLab CI/CD variable)
-    # Note: SSH_PRIVATE_KEY is a protected GitLab CI/CD variable - never logged
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    # Note: SSH_PRIVATE_KEY is base64-encoded and masked - decoded here for use
+    - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
     - echo "✅ SSH configured securely (key not logged)"
