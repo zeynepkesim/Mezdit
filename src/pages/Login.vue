@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "vue-toast-notification";
 import { login } from "../store/auth.js";
+import { validateUsername, MAX_PASSWORD_LENGTH } from "../utils/validation.js";
 
 const router = useRouter();
 const toast = useToast();
@@ -16,6 +17,24 @@ const showPassword = ref(false);
 async function handleLogin() {
   if (!username.value || !password.value) {
     toast.error("Please enter username and password", {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
+  // Validate username format
+  if (!validateUsername(username.value)) {
+    toast.error("Invalid username format (max 20 chars, alphanumeric, _, -)", {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
+  // Validate password length
+  if (password.value.length < 6 || password.value.length > MAX_PASSWORD_LENGTH) {
+    toast.error(`Password must be 6-${MAX_PASSWORD_LENGTH} characters`, {
       position: "bottom-right",
       duration: 4000,
     });

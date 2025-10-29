@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "vue-toast-notification";
 import { register } from "../store/auth.js";
+import { validateName, validateUsername, MAX_PASSWORD_LENGTH } from "../utils/validation.js";
 
 const router = useRouter();
 const toast = useToast();
@@ -22,6 +23,43 @@ async function handleRegister() {
     });
     return;
   }
+
+  // Validate name
+  const nameValidation = validateName(name.value);
+  if (!nameValidation.valid) {
+    toast.error(nameValidation.message, {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
+  // Validate username format
+  if (!validateUsername(username.value)) {
+    toast.error("Invalid username format (max 20 chars, alphanumeric, _, -)", {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
+  // Validate password length
+  if (password.value.length < 6) {
+    toast.error("Password must be at least 6 characters", {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
+  if (password.value.length > MAX_PASSWORD_LENGTH) {
+    toast.error(`Password must not exceed ${MAX_PASSWORD_LENGTH} characters`, {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
   loading.value = true;
   error.value = "";
   try {

@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { useToast } from "vue-toast-notification";
 import { getCurrentUser } from "../store/auth.js";
 import { changePassword } from "../api/auth.js";
+import { MAX_PASSWORD_LENGTH } from "../utils/validation.js";
 
 const router = useRouter();
 const currentUser = getCurrentUser();
@@ -20,6 +21,7 @@ const showConfirmPassword = ref(false);
 const passwordRules = [
   (v) => !!v || "Password is required",
   (v) => v.length >= 6 || "Password must be at least 6 characters",
+  (v) => v.length <= MAX_PASSWORD_LENGTH || `Password must not exceed ${MAX_PASSWORD_LENGTH} characters`,
 ];
 
 const confirmPasswordRules = [
@@ -47,6 +49,14 @@ async function handleSubmit() {
 
   if (newPassword.value.length < 6) {
     toast.error("New password must be at least 6 characters", {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
+  if (newPassword.value.length > MAX_PASSWORD_LENGTH) {
+    toast.error(`New password must not exceed ${MAX_PASSWORD_LENGTH} characters`, {
       position: "bottom-right",
       duration: 4000,
     });
@@ -145,7 +155,7 @@ function handleCancel() {
                 :rules="passwordRules"
                 class="mb-4"
                 placeholder="Enter your new password"
-                hint="Password must be at least 6 characters"
+                :hint="`Password must be 6-${MAX_PASSWORD_LENGTH} characters`"
                 persistent-hint
               />
 
@@ -220,7 +230,8 @@ function handleCancel() {
                 !newPassword ||
                 !confirmPassword ||
                 newPassword !== confirmPassword ||
-                newPassword.length < 6
+                newPassword.length < 6 ||
+                newPassword.length > MAX_PASSWORD_LENGTH
               "
               @click="handleSubmit"
               prepend-icon="mdi-check"
@@ -239,7 +250,7 @@ function handleCancel() {
               Security Tips
             </div>
             <ul class="text-caption">
-              <li>Use at least 6 characters</li>
+              <li>Use 6-{{ MAX_PASSWORD_LENGTH }} characters</li>
               <li>Include uppercase and lowercase letters</li>
               <li>Add numbers and special characters</li>
               <li>Avoid common words or personal information</li>
