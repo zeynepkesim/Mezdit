@@ -11,13 +11,13 @@ secrets-detection:
   stage: security
   image: zricethezav/gitleaks:latest
   script:
-    - echo "🔍 Scanning for secrets in frontend code..."
+    - echo "Scanning for secrets in frontend code..."
     - gitleaks detect --source . --verbose --no-git --redact
   allow_failure: false
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: '$CI_COMMIT_BRANCH =~ /^(develop|staging)$/'
+    - if: "$CI_COMMIT_BRANCH =~ /^(develop|staging)$/"
   tags: []
 
 cache:
