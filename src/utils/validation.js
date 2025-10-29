@@ -39,6 +39,9 @@ export function validateLength(text, maxLength) {
  * @returns {boolean} True if valid, false otherwise
  */
 export function validateUsername(username) {
+  if (!username || username.length > MAX_USERNAME_LENGTH) {
+    return false;
+  }
   const usernameRegex = /^[a-zA-Z0-9_-]+$/;
   return usernameRegex.test(username);
 }
@@ -66,13 +69,20 @@ export function isSafeInput(input) {
   return !dangerousPatterns.some(pattern => pattern.test(input));
 }
 
+// Constants for validation
+export const MAX_USERNAME_LENGTH = 20;
+export const MAX_NAME_LENGTH = 50;
+export const MAX_POST_HEADER_LENGTH = 500;
+export const MAX_POST_CONTENT_LENGTH = 5000;
+export const MAX_PASSWORD_LENGTH = 32;
+
 /**
  * Validate and sanitize post content
  * @param {string} content - Post content
  * @param {number} maxLength - Maximum allowed length
  * @returns {object} {valid: boolean, message: string}
  */
-export function validatePostContent(content, maxLength = 5000) {
+export function validatePostContent(content, maxLength = MAX_POST_CONTENT_LENGTH) {
   if (!content || content.trim().length === 0) {
     return { valid: false, message: 'Content cannot be empty' };
   }
@@ -94,7 +104,7 @@ export function validatePostContent(content, maxLength = 5000) {
  * @param {number} maxLength - Maximum allowed length
  * @returns {object} {valid: boolean, message: string}
  */
-export function validatePostHeader(header, maxLength = 500) {
+export function validatePostHeader(header, maxLength = MAX_POST_HEADER_LENGTH) {
   if (!header || header.trim().length === 0) {
     return { valid: false, message: 'Title cannot be empty' };
   }
@@ -116,7 +126,7 @@ export function validatePostHeader(header, maxLength = 500) {
  * @param {number} maxLength - Maximum allowed length
  * @returns {object} {valid: boolean, message: string}
  */
-export function validateName(name, maxLength = 255) {
+export function validateName(name, maxLength = MAX_NAME_LENGTH) {
   if (!name || name.trim().length === 0) {
     return { valid: false, message: 'Name cannot be empty' };
   }
@@ -144,11 +154,3 @@ export function stripHtmlTags(input) {
 
   return input.replace(/<[^>]*>/g, '');
 }
-
-// Constants for validation
-export const MAX_USERNAME_LENGTH = 20;
-export const MAX_NAME_LENGTH = 50;
-export const MAX_POST_HEADER_LENGTH = 500;
-export const MAX_POST_CONTENT_LENGTH = 5000;
-export const MAX_PASSWORD_LENGTH = 32;
-
