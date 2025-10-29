@@ -51,7 +51,7 @@ deploy:
     - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
-    - echo "✅ SSH configured securely (key not logged)"
+    - echo "SSH configured securely (key not logged)"
   script:
     - |
       ssh $VM_USER@$VM_HOST << EOF
@@ -84,11 +84,11 @@ deploy:
         echo "Restarting Apache..."
         sudo systemctl restart httpd
         if ! sudo systemctl is-active --quiet httpd; then
-          echo "❌ Apache failed to start!"
+          echo "Apache failed to start!"
           sudo systemctl status httpd
           exit 1
         fi
-        echo "✅ Frontend deployment completed successfully!"
+        echo "Frontend deployment completed successfully!"
       OUTER_EOF
   environment:
     name: production
