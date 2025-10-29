@@ -30,17 +30,28 @@ func AddPost(publisherID int, publisherName string, header string, contentText s
 		return nil, fmt.Errorf("publisher not found")
 	}
 
+	// Insert post and get image path via JOIN
 	query := `
-		INSERT INTO posts (publisher_id, publisher_name, header, content_text, content_photo_id, is_private)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, publisher_id, publisher_name, header, content_text, content_photo_id, is_private, vote_count, created_at`
+		WITH inserted_post AS (
+			INSERT INTO posts (publisher_id, publisher_name, header, content_text, content_photo_id, is_private)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id, publisher_id, publisher_name, header, content_text, content_photo_id, is_private, vote_count, created_at
+		)
+		SELECT
+			ip.id, ip.publisher_id, ip.publisher_name, ip.header, ip.content_text,
+			ip.content_photo_id, ip.is_private, ip.vote_count, ip.created_at,
+			i.path as content_photo_path
+		FROM inserted_post ip
+		LEFT JOIN images i ON ip.content_photo_id = i.id`
 
 	var post models.Post
 	var contentPhotoIDNull sql.NullInt32
+	var contentPhotoPath sql.NullString
 
 	err = DB.QueryRow(query, publisherID, publisherName, header, contentText, contentPhotoID, isPrivate).Scan(
 		&post.ID, &post.PublisherID, &post.PublisherName, &post.Header, &post.ContentText,
 		&contentPhotoIDNull, &post.IsPrivate, &post.VoteCount, &post.CreatedAt,
+		&contentPhotoPath,
 	)
 
 	if err != nil {
@@ -50,6 +61,10 @@ func AddPost(publisherID int, publisherName string, header string, contentText s
 	if contentPhotoIDNull.Valid {
 		contentPhotoIDInt := int(contentPhotoIDNull.Int32)
 		post.ContentPhotoID = &contentPhotoIDInt
+	}
+
+	if contentPhotoPath.Valid {
+		post.ContentPhotoPath = &contentPhotoPath.String
 	}
 
 	// Get publisher photo from user

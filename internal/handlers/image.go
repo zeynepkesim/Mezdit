@@ -149,6 +149,13 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Debug log to check if image path is included
+	log.Printf("=== POST CREATED ===")
+	log.Printf("Post ID: %d", post.ID)
+	log.Printf("ContentPhotoID: %v", post.ContentPhotoID)
+	log.Printf("ContentPhotoPath: %v", post.ContentPhotoPath)
+	log.Printf("===================")
+
 	// Update image post_id if image was uploaded
 	if imageID != nil {
 		err = database.UpdateImagePostID(*imageID, post.ID)
@@ -159,6 +166,7 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Broadcast new post to all connected clients
 	if ws.GlobalHub != nil {
+		log.Printf("Broadcasting post to WebSocket clients...")
 		ws.GlobalHub.BroadcastMessage(ws.MessageTypePostCreated, post)
 	}
 
