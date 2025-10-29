@@ -9,6 +9,7 @@ import (
 
 	"devops-be/internal/database"
 	"devops-be/internal/middleware"
+	"devops-be/internal/security"
 	ws "devops-be/internal/websocket"
 )
 
@@ -77,9 +78,9 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Get form data
 	publisherIDStr := r.FormValue("publisherId")
-	publisherName := strings.TrimSpace(r.FormValue("publisherName"))
-	header := strings.TrimSpace(r.FormValue("header"))
-	contentText := strings.TrimSpace(r.FormValue("contentText"))
+	publisherName := security.SanitizeInput(r.FormValue("publisherName"))
+	header := security.SanitizeText(r.FormValue("header"))
+	contentText := security.SanitizeText(r.FormValue("contentText"))
 
 	// Validate input
 	if publisherIDStr == "" {
@@ -92,6 +93,15 @@ func UploadPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if contentText == "" {
 		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Content text cannot be empty")
+		return
+	}
+	// Validate input lengths
+	if !security.ValidateLength(header, security.MaxPostHeaderLength) {
+		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Header is too long (max 500 characters)")
+		return
+	}
+	if !security.ValidateLength(contentText, security.MaxPostContentLength) {
+		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Content is too long (max 5000 characters)")
 		return
 	}
 
@@ -175,12 +185,12 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract form values
+	// Extract form values and sanitize
 	postIDStr := r.FormValue("postId")
 	userIDStr := r.FormValue("userId")
-	header := strings.TrimSpace(r.FormValue("header"))
-	contentText := strings.TrimSpace(r.FormValue("contentText"))
-	publisherName := strings.TrimSpace(r.FormValue("publisherName"))
+	header := security.SanitizeText(r.FormValue("header"))
+	contentText := security.SanitizeText(r.FormValue("contentText"))
+	publisherName := security.SanitizeInput(r.FormValue("publisherName"))
 
 	// Validate required fields
 	if postIDStr == "" {
@@ -197,6 +207,15 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if contentText == "" {
 		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Content text cannot be empty")
+		return
+	}
+	// Validate input lengths
+	if !security.ValidateLength(header, security.MaxPostHeaderLength) {
+		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Header is too long (max 500 characters)")
+		return
+	}
+	if !security.ValidateLength(contentText, security.MaxPostContentLength) {
+		middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Content is too long (max 5000 characters)")
 		return
 	}
 

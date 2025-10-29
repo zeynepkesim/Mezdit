@@ -9,7 +9,134 @@ A Reddit-like backend API with JWT authentication, WebSocket support, and GORM a
 
 ## Quick Start
 
-**Prerequisites:** Go 1.21+, PostgreSQL 12+
+- Go 1.21+
+- PostgreSQL 12+
+
+## Database Setup
+
+### ✨ Automatic Migration with GORM
+
+This project uses **GORM ORM** for automatic database migrations. No need to manually run SQL scripts!
+
+**What is GORM?**
+- 🚀 Automatic schema migrations
+- 📦 Type-safe database operations
+- 🔄 Auto-creates tables, columns, indexes
+- 🛠️ Easy to add new fields - just update the model!
+
+**Setup:**
+
+1. Install PostgreSQL (if not already installed):
+```bash
+# Install PostgreSQL (macOS)
+brew install postgresql
+brew services start postgresql
+```
+
+2. Just run the application:
+```bash
+go run .
+```
+
+**That's it!** GORM will automatically:
+- ✅ Create all tables: `users`, `posts`, `images`, `user_votes`
+- ✅ Add new columns when you update models
+- ✅ Create indexes and foreign keys
+- ✅ Keep schema in sync with your Go models
+
+**Output when running:**
+```
+✓ Connected to PostgreSQL database
+✓ GORM auto-migration completed
+  → Auto-migrated tables: users, posts, images, user_votes
+```
+
+**Note**: We use the default `postgres` database that comes with PostgreSQL installation.
+
+## 🚀 Deployment
+
+This project includes automated CI/CD deployment to a VM using GitLab pipelines with security scanning.
+
+### GitLab CI/CD Pipeline
+
+The pipeline consists of four stages:
+
+1. **Security Stage**
+   - Secrets detection using Gitleaks
+   - Blocks deployment if secrets found
+   - Prevents accidental API key/password exposure
+
+2. **Test Stage**
+   - Code formatting (`go fmt`, `go vet`)
+   - Unit tests with PostgreSQL service
+   - Coverage calculation (target: >50%)
+
+3. **Build Stage**
+   - Compiles Go binary
+   - Stores artifact for deployment
+
+4. **Deploy Stage** (main branch only)
+   - Automatically deploys to VM via SSH
+   - Restarts systemd service
+   - Zero-downtime deployment
+
+### Quick Deployment Setup
+
+**Prerequisites:**
+- VM with SSH access
+- PostgreSQL installed on VM
+- GitLab repository access
+
+**Steps:**
+
+1. **Create SSH key pair:**
+   ```bash
+   ssh-keygen -t rsa -b 4096 -C "gitlab-ci@devops-be" -f ~/.ssh/gitlab-ci-devops-be
+   ```
+
+2. **Add GitLab CI/CD variables** (Settings → CI/CD → Variables):
+   - `SSH_PRIVATE_KEY` - Your private key content
+   - `VM_HOST` - VM hostname/IP address
+   - `VM_USER` - VM username (e.g., `ubuntu`)
+
+3. **Configure VM** (see [DEPLOYMENT.md](DEPLOYMENT.md) for details):
+   - Add SSH public key to VM
+   - Create systemd service
+   - Grant sudo permissions
+   - Configure PostgreSQL
+
+4. **Push to main branch:**
+   ```bash
+   git push origin main
+   ```
+
+Your application will automatically deploy to the VM! 🎉
+
+**📚 For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)**
+**🔒 For Week 7 security changes, see [WEEK7_CHANGES.md](WEEK7_CHANGES.md)**
+
+### Adding New Fields
+
+To add a new field to a table:
+
+1. Add the field to the model in `internal/models/models.go`:
+```go
+type User struct {
+    // ... existing fields ...
+    Bio string `json:"bio" gorm:"column:bio;type:text"`  // New field
+}
+```
+
+2. Run the app - GORM will automatically add the column:
+```bash
+go run .
+```
+
+No SQL migration files needed! 🎉
+
+### Seed Data (Optional)
+
+For testing, you can load sample data:
 
 ```bash
 # 1. Setup environment
@@ -200,14 +327,48 @@ ws.onmessage = (event) => {
 
 ## Features
 
-- **Authentication**: JWT tokens (24h expiry), bcrypt password hashing, protected endpoints
-- **Posts**: Create, edit (owner only), privacy controls (public/private), image uploads (JPG/JPEG/PNG)
-- **Voting**: Toggle-based upvote/downvote system with state tracking
-- **Real-Time**: WebSocket broadcasts for post/vote updates (<100ms latency)
-- **Database**: PostgreSQL with GORM auto-migrations, ACID transactions
-- **Images**: UUID-prefixed filenames, file type validation, static serving via `/images/*`
-- **Auto-Generated**: DiceBear profile photos for all users
-- **CORS**: Enabled for frontend integration
+- **🔒 Security**: Comprehensive security measures
+  - **XSS Prevention**: Input sanitization on all user inputs (backend & frontend)
+  - **Secrets Detection**: Automated Gitleaks scanning in CI/CD pipeline
+  - **Input Validation**: Length limits and pattern validation to prevent attacks
+  - **HTML Escaping**: All user-generated content properly escaped
+  - **DoS Prevention**: Input size limits on all endpoints
+- **PostgreSQL Database**: Full database integration with proper relations
+- **JWT Authentication**: Production-ready token-based authentication
+  - Secure JWT tokens with configurable secret key
+  - 24-hour token expiration
+  - bcrypt password hashing (all passwords stored as hashes)
+  - Protected endpoints with Bearer token validation
+  - Automatic token generation on login/register
+- **User System**: Complete user authentication with login/register
+- **Password Management**: Secure password change functionality with validation
+  - Current password verification
+  - Minimum 6 character requirement for new passwords
+  - Prevents using same password
+- **Auto Profile Photos**: Automatic DiceBear avatar generation for all users
+- **Image Support**: Ready for post images (images table linked to posts)
+- **Custom Publisher Names**: Users can post with different display names
+- **Post Headers**: All posts have both a title/header and content text
+- **Privacy Controls**: Posts can be public or private
+  - **Public posts** (`isPrivate: false`): Visible to all users
+  - **Private posts** (`isPrivate: true`): Only visible to the post owner
+  - Privacy filtering automatically applied in GET /posts based on userId
+- **Enhanced Voting System**: Toggle-based voting with user context
+- **Vote States**: Each user can like (upvote), dislike (downvote), or have no vote on posts
+- **Toggle Logic**: Same vote removes it, different vote changes it
+- **User Vote Context**: Posts include `isLiked` field showing user's current vote status
+- **Post Editing**: Users can edit their own posts with ownership validation
+- **Image Upload**: Support for image uploads with unique UUID naming, file type validation (JPG/JPEG/PNG only), and static file serving
+- **Real-Time WebSocket Updates**: Live broadcasts for post creation, updates, and votes
+  - Bidirectional WebSocket communication (not polling)
+  - Multi-client support with automatic connection management
+  - Heartbeat mechanism for connection health monitoring
+  - Message types: POST_CREATED, POST_UPDATED, POST_VOTED, POST_PRIVACY_CHANGED
+  - All connected clients receive instant updates (typically <100ms latency)
+- **Sorting**: Posts are sorted by creation date (newest first)
+- **JOIN Queries**: Efficient data retrieval with publisher names and profile photos
+- **Transaction Support**: ACID compliance for vote operations
+- **CORS Support**: Full Cross-Origin Resource Sharing for frontend integration
 
 ## Testing
 
