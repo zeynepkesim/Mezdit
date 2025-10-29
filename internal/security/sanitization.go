@@ -59,9 +59,9 @@ func ValidateLength(input string, maxLength int) bool {
 
 // Constants for validation
 const (
-	MaxUsernameLength    = 100
-	MaxNameLength        = 255
+	MaxUsernameLength    = 20
+	MaxNameLength        = 50
 	MaxPostHeaderLength  = 500
 	MaxPostContentLength = 5000
-	MaxPasswordLength    = 128
+	MaxPasswordLength    = 32
 )
