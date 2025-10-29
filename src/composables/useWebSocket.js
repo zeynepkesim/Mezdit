@@ -1,7 +1,11 @@
 import { ref, onUnmounted } from 'vue'
 
-const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-const WS_URL = `${wsProtocol}//${window.location.host}/ws`
+// Development: Connect to backend at localhost:8080
+// Production: Connect to same host as frontend
+const isDev = window.location.hostname === 'localhost'
+const WS_URL = isDev
+  ? 'ws://localhost:8080/ws'
+  : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
 
 export function useWebSocket() {
   const ws = ref(null)
