@@ -17,7 +17,7 @@ secrets-detection:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: '$CI_COMMIT_BRANCH =~ /^(develop|staging)$/'
+    - if: "$CI_COMMIT_BRANCH =~ /^(develop|staging)$/"
   tags: []
 
 format:
@@ -34,7 +34,7 @@ test:
     POSTGRES_USER: postgres
     POSTGRES_PASSWORD: ""
     POSTGRES_HOST_AUTH_METHOD: trust
-    DATABASE_URL: "postgres://postgres@postgres:5432/postgres?sslmode=disable"
+    DATABASE_URL: "$DATABASE_URL"
   script:
     - go test -v -coverprofile=coverage.out ./...
     - echo "=== Coverage Summary ==="
