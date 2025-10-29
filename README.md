@@ -94,18 +94,27 @@ The pipeline consists of four stages:
    ssh-keygen -t rsa -b 4096 -C "gitlab-ci@devops-be" -f ~/.ssh/gitlab-ci-devops-be
    ```
 
-2. **Add GitLab CI/CD variables** (Settings → CI/CD → Variables):
-   - `SSH_PRIVATE_KEY` - Your private key content
+2. **Encode SSH private key with base64:**
+   ```bash
+   # Encode to prevent exposure in logs
+   cat ~/.ssh/gitlab-ci-devops-be | base64 | tr -d '\n'
+   # Copy the output (long base64 string)
+   ```
+
+3. **Add GitLab CI/CD variables** (Settings → CI/CD → Variables):
+   - `SSH_PRIVATE_KEY` - Base64-encoded private key (masked)
    - `VM_HOST` - VM hostname/IP address
    - `VM_USER` - VM username (e.g., `ubuntu`)
 
-3. **Configure VM** (see [DEPLOYMENT.md](DEPLOYMENT.md) for details):
+   **Important:** Mark `SSH_PRIVATE_KEY` as "Masked" in GitLab to prevent exposure in logs
+
+4. **Configure VM** (see [DEPLOYMENT.md](DEPLOYMENT.md) for details):
    - Add SSH public key to VM
    - Create systemd service
    - Grant sudo permissions
    - Configure PostgreSQL
 
-4. **Push to main branch:**
+5. **Push to main branch:**
    ```bash
    git push origin main
    ```
@@ -837,7 +846,8 @@ deploy:
   before_script:
     - apk update && apk add openssh-client bash
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    # Decode base64-encoded SSH key (prevents exposure in logs)
+    - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
   script:
@@ -907,9 +917,11 @@ WantedBy=multi-user.target
 6. **Rollback**: If service fails to start, logs are shown in pipeline
 
 **Environment Variables (GitLab CI/CD Settings):**
-- `SSH_PRIVATE_KEY` - Private key for VM access
+- `SSH_PRIVATE_KEY` - Base64-encoded private key for VM access (masked)
 - `VM_HOST` - VM hostname/IP
 - `VM_USER` - VM username (e.g., centos)
+
+**Security Note:** SSH_PRIVATE_KEY is base64-encoded to prevent exposure in logs. The pipeline decodes it with `base64 -d` before use.
 
 **Production URL:** https://devops-mezdit-vm13.cloud.ut.ee/posts
 
