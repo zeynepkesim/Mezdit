@@ -146,9 +146,9 @@ export function stripHtmlTags(input) {
 }
 
 // Constants for validation
-export const MAX_USERNAME_LENGTH = 100;
-export const MAX_NAME_LENGTH = 255;
+export const MAX_USERNAME_LENGTH = 20;
+export const MAX_NAME_LENGTH = 50;
 export const MAX_POST_HEADER_LENGTH = 500;
 export const MAX_POST_CONTENT_LENGTH = 5000;
-export const MAX_PASSWORD_LENGTH = 128;
+export const MAX_PASSWORD_LENGTH = 32;
 
