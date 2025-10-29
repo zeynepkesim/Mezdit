@@ -68,7 +68,7 @@ deploy:
     - chmod 600 ~/.ssh/id_rsa
     # Add VM to known hosts (disable host key checking for first connection)
     - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
-    - echo "✅ SSH configured securely (key not logged)"
+    - echo "SSH configured securely (key not logged)"
   script:
     # Copy the compiled binary to VM
     - scp mybinaries/devops-be $VM_USER@$VM_HOST:/home/$VM_USER/devops-be-new
@@ -88,7 +88,7 @@ deploy:
         sudo chcon -t bin_t /usr/local/bin/devops-be
         # Verify binary exists and is executable
         if [ ! -x /usr/local/bin/devops-be ]; then
-          echo "❌ Binary not found or not executable!"
+          echo "Binary not found or not executable!"
           exit 1
         fi
         # Start the service
@@ -98,7 +98,7 @@ deploy:
         sleep 2
         # Check if service actually started
         if ! sudo systemctl is-active --quiet devops-be; then
-          echo "❌ Service failed to start!"
+          echo "Service failed to start!"
           echo "Service status:"
           sudo systemctl status devops-be || true
           echo "Recent logs:"
@@ -107,7 +107,7 @@ deploy:
         fi
         # Show service status
         sudo systemctl status devops-be
-        echo "✅ Deployment completed successfully!"
+        echo "Deployment completed successfully!"
       EOF
   environment:
     name: production
