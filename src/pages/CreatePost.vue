@@ -332,13 +332,6 @@ function goBack() {
                 <v-card-text v-if="imagePreview" class="pt-0">
                   <v-img :src="imagePreview" max-height="250" class="rounded" />
                 </v-card-text>
-
-                <v-card-actions>
-                  <v-btn variant="text" color="primary">
-                    <v-icon start>mdi-thumb-up</v-icon>
-                    0
-                  </v-btn>
-                </v-card-actions>
               </v-card>
             </v-card-text>
           </v-card>
