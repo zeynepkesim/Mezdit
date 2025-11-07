@@ -108,8 +108,15 @@ async function handleSubmit() {
   error.value = "";
 
   try {
+    // Require authentication to create posts
+    if (!currentUser) {
+      // Redirect to login if somehow reached here without auth
+      router.push('/login');
+      return;
+    }
+
     // Use authenticated user's ID
-    const publisherId = currentUser?.id || 1;
+    const publisherId = currentUser.id;
     // Send empty string if anonymous, otherwise send author name
     const publisherName = isAnonymous.value ? "" : author.value.trim();
     await addPost(
@@ -175,12 +182,20 @@ function goBack() {
 
                     <!-- Private Toggle -->
                     <div class="d-flex align-center">
-                      <v-switch
-                        v-model="isPrivate"
-                        color="warning"
-                        hide-details
-                        class="me-3"
-                      />
+                      <v-tooltip>
+                        <template #activator="{ props }">
+                          <v-switch
+                            v-model="isPrivate"
+                            color="warning"
+                            hide-details
+                            class="me-3"
+                            v-bind="props"
+                            :disabled="!currentUser"
+                          />
+                        </template>
+                        <span v-if="!currentUser">Login to make a post private</span>
+                        <span v-else>Only you can see private posts</span>
+                      </v-tooltip>
                       <div>
                         <div class="text-body-1 font-weight-medium">
                           <v-icon start>mdi-lock</v-icon>
@@ -188,6 +203,7 @@ function goBack() {
                         </div>
                         <div class="text-caption text-medium-emphasis">
                           Only you will be able to see this post
+                          <span v-if="isAnonymous"> — note: posting anonymously still keeps ownership with your account</span>
                         </div>
                       </div>
                     </div>

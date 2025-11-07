@@ -27,6 +27,11 @@ const currentPost = computed(() => {
   return posts.value.find((p) => p.id === parseInt(postId.value));
 });
 
+// Check ownership: only owner may toggle privacy
+const isOwner = computed(() => {
+  return currentUser && currentPost.value && currentPost.value.publisherId === currentUser.id;
+});
+
 // Get full image URL for post images
 const getPostImageUrl = (post) => {
   if (post?.contentPhotoPath) {
@@ -184,12 +189,20 @@ function handleCancel() {
 
                   <!-- Private Toggle -->
                   <div class="d-flex align-center">
-                    <v-switch
-                      v-model="isPrivate"
-                      color="warning"
-                      hide-details
-                      class="me-3"
-                    />
+                    <v-tooltip>
+                      <template #activator="{ props }">
+                        <v-switch
+                          v-model="isPrivate"
+                          color="warning"
+                          hide-details
+                          class="me-3"
+                          v-bind="props"
+                          :disabled="!isOwner"
+                        />
+                      </template>
+                      <span v-if="!isOwner">Only the post owner can change privacy</span>
+                      <span v-else>Only you will be able to see this post</span>
+                    </v-tooltip>
                     <div>
                       <div class="text-body-1 font-weight-medium">
                         <v-icon start>mdi-lock</v-icon>
@@ -197,6 +210,7 @@ function handleCancel() {
                       </div>
                       <div class="text-caption text-medium-emphasis">
                         Only you will be able to see this post
+                        <span v-if="isAnonymous"> — posting anonymously still keeps ownership with your account</span>
                       </div>
                     </div>
                   </div>
