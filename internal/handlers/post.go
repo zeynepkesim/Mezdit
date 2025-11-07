@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"strconv"
@@ -27,6 +28,9 @@ func PostsHandler(w http.ResponseWriter, r *http.Request) {
 		userIDStr := r.URL.Query().Get("userId")
 		var userID int = 0
 
+		// Get optional authenticated user from context (OptionalAuth middleware may set this)
+		authUser, authOK := middleware.GetUserFromContext(r)
+
 		if userIDStr != "" {
 			var err error
 			userID, err = strconv.Atoi(userIDStr)
@@ -34,6 +38,17 @@ func PostsHandler(w http.ResponseWriter, r *http.Request) {
 				middleware.WriteError(w, http.StatusBadRequest, "validation_error", "Invalid userId parameter")
 				return
 			}
+
+			// If a userId is provided in query params, require that the request is authenticated
+			// and that the authenticated user's ID matches the requested userId. This prevents
+			// clients from fetching private posts of other users by spoofing the userId query param.
+			if !authOK || authUser.UserID != userID {
+				middleware.WriteError(w, http.StatusForbidden, "forbidden", "Cannot request posts for another user")
+				return
+			}
+		} else if authOK {
+			// If no explicit userId provided but request is authenticated, show posts for the authenticated user
+			userID = authUser.UserID
 		}
 
 		posts, err := database.GetPostsForUser(userID)
@@ -190,6 +205,19 @@ func EditPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Read current privacy state to determine if privacy changed
+	var oldIsPrivate bool
+	err := database.DB.QueryRow("SELECT is_private FROM posts WHERE id = $1", body.PostID).Scan(&oldIsPrivate)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			middleware.WriteError(w, http.StatusNotFound, "post_not_found", "Post not found")
+			return
+		}
+		log.Printf("Error checking existing post privacy: %v", err)
+		middleware.WriteError(w, http.StatusInternalServerError, "server_error", "Failed to edit post")
+		return
+	}
+
 	post, err := database.EditPost(body.PostID, body.UserID, body.Header, body.ContentText, body.PublisherName, body.IsPrivate)
 	if err != nil {
 		if err.Error() == "post not found" {
@@ -209,9 +237,13 @@ func EditPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Broadcast post update to all connected clients
+	// Broadcast appropriate message: if privacy changed, send POST_PRIVACY_CHANGED
 	if ws.GlobalHub != nil {
-		ws.GlobalHub.BroadcastMessage(ws.MessageTypePostUpdated, post)
+		if oldIsPrivate != post.IsPrivate {
+			ws.GlobalHub.BroadcastMessage(ws.MessageTypePostPrivacy, post)
+		} else {
+			ws.GlobalHub.BroadcastMessage(ws.MessageTypePostUpdated, post)
+		}
 	}
 
 	middleware.WriteOK(w, post)

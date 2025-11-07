@@ -1,0 +1,260 @@
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[6.503ms] [34;1m[rows:1][0m SELECT count(*) FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'users' AND table_type = 'BASE TABLE'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.393ms] [34;1m[rows:1][0m SELECT CURRENT_DATABASE()
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[11.887ms] [34;1m[rows:-][0m SELECT c.column_name, c.is_nullable = 'YES', c.udt_name, c.character_maximum_length, c.numeric_precision, c.numeric_precision_radix, c.numeric_scale, c.datetime_precision, 8 * typlen, c.column_default, pd.description, c.identity_increment FROM information_schema.columns AS c JOIN pg_type AS pgt ON c.udt_name = pgt.typname LEFT JOIN pg_catalog.pg_description as pd ON pd.objsubid = c.ordinal_position AND pd.objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = c.table_name AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = c.table_schema)) where table_catalog = 'postgres' AND table_schema = CURRENT_SCHEMA() AND table_name = 'users'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.426ms] [34;1m[rows:-][0m SELECT * FROM "users" LIMIT 5
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[4.909ms] [34;1m[rows:-][0m SELECT constraint_name FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = 'postgres' AND c.table_schema = CURRENT_SCHEMA() AND c.table_name = 'users' AND constraint_type = 'UNIQUE'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[3.578ms] [34;1m[rows:-][0m SELECT c.column_name, constraint_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = 'postgres' AND c.table_schema = CURRENT_SCHEMA() AND c.table_name = 'users'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.362ms] [34;1m[rows:-][0m SELECT a.attname as column_name, format_type(a.atttypid, a.atttypmod) AS data_type
+		FROM pg_attribute a JOIN pg_class b ON a.attrelid = b.oid AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA())
+		WHERE a.attnum > 0 -- hide internal columns
+		AND NOT a.attisdropped -- hide deleted columns
+		AND b.relname = 'users'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[1.400ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'users' AND column_name = 'id') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'users' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[1.180ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'users' AND column_name = 'name') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'users' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.984ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'users' AND column_name = 'username') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'users' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[1.083ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'users' AND column_name = 'password') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'users' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[1.115ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'users' AND column_name = 'profile_photo') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'users' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.870ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'users' AND column_name = 'created_at') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'users' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.898ms] [34;1m[rows:1][0m SELECT count(*) FROM pg_indexes WHERE tablename = 'users' AND indexname = 'idx_users_username' AND schemaname = CURRENT_SCHEMA()
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.298ms] [34;1m[rows:1][0m SELECT count(*) FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'images' AND table_type = 'BASE TABLE'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.071ms] [34;1m[rows:1][0m SELECT CURRENT_DATABASE()
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[2.444ms] [34;1m[rows:-][0m SELECT c.column_name, c.is_nullable = 'YES', c.udt_name, c.character_maximum_length, c.numeric_precision, c.numeric_precision_radix, c.numeric_scale, c.datetime_precision, 8 * typlen, c.column_default, pd.description, c.identity_increment FROM information_schema.columns AS c JOIN pg_type AS pgt ON c.udt_name = pgt.typname LEFT JOIN pg_catalog.pg_description as pd ON pd.objsubid = c.ordinal_position AND pd.objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = c.table_name AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = c.table_schema)) where table_catalog = 'postgres' AND table_schema = CURRENT_SCHEMA() AND table_name = 'images'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.211ms] [34;1m[rows:-][0m SELECT * FROM "images" LIMIT 5
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[2.730ms] [34;1m[rows:-][0m SELECT constraint_name FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = 'postgres' AND c.table_schema = CURRENT_SCHEMA() AND c.table_name = 'images' AND constraint_type = 'UNIQUE'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[2.755ms] [34;1m[rows:-][0m SELECT c.column_name, constraint_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = 'postgres' AND c.table_schema = CURRENT_SCHEMA() AND c.table_name = 'images'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.191ms] [34;1m[rows:-][0m SELECT a.attname as column_name, format_type(a.atttypid, a.atttypmod) AS data_type
+		FROM pg_attribute a JOIN pg_class b ON a.attrelid = b.oid AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA())
+		WHERE a.attnum > 0 -- hide internal columns
+		AND NOT a.attisdropped -- hide deleted columns
+		AND b.relname = 'images'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.124ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'images' AND column_name = 'id') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'images' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.107ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'images' AND column_name = 'post_id') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'images' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.103ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'images' AND column_name = 'path') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'images' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.100ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'images' AND column_name = 'created_at') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'images' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.284ms] [34;1m[rows:1][0m SELECT count(*) FROM pg_indexes WHERE tablename = 'images' AND indexname = 'idx_images_post_id' AND schemaname = CURRENT_SCHEMA()
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.240ms] [34;1m[rows:1][0m SELECT count(*) FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND table_type = 'BASE TABLE'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.069ms] [34;1m[rows:1][0m SELECT CURRENT_DATABASE()
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[2.608ms] [34;1m[rows:-][0m SELECT c.column_name, c.is_nullable = 'YES', c.udt_name, c.character_maximum_length, c.numeric_precision, c.numeric_precision_radix, c.numeric_scale, c.datetime_precision, 8 * typlen, c.column_default, pd.description, c.identity_increment FROM information_schema.columns AS c JOIN pg_type AS pgt ON c.udt_name = pgt.typname LEFT JOIN pg_catalog.pg_description as pd ON pd.objsubid = c.ordinal_position AND pd.objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = c.table_name AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = c.table_schema)) where table_catalog = 'postgres' AND table_schema = CURRENT_SCHEMA() AND table_name = 'posts'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.241ms] [34;1m[rows:-][0m SELECT * FROM "posts" LIMIT 5
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[2.558ms] [34;1m[rows:-][0m SELECT constraint_name FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = 'postgres' AND c.table_schema = CURRENT_SCHEMA() AND c.table_name = 'posts' AND constraint_type = 'UNIQUE'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[2.439ms] [34;1m[rows:-][0m SELECT c.column_name, constraint_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = 'postgres' AND c.table_schema = CURRENT_SCHEMA() AND c.table_name = 'posts'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.177ms] [34;1m[rows:-][0m SELECT a.attname as column_name, format_type(a.atttypid, a.atttypmod) AS data_type
+		FROM pg_attribute a JOIN pg_class b ON a.attrelid = b.oid AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA())
+		WHERE a.attnum > 0 -- hide internal columns
+		AND NOT a.attisdropped -- hide deleted columns
+		AND b.relname = 'posts'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.142ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND column_name = 'id') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'posts' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.157ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND column_name = 'publisher_id') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'posts' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.099ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND column_name = 'publisher_name') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'posts' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.097ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND column_name = 'header') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'posts' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.092ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND column_name = 'content_text') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'posts' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.093ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND column_name = 'content_photo_id') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'posts' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.093ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND column_name = 'is_private') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'posts' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.091ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND column_name = 'vote_count') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'posts' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.093ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'posts' AND column_name = 'created_at') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'posts' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.284ms] [34;1m[rows:1][0m SELECT count(*) FROM pg_indexes WHERE tablename = 'posts' AND indexname = 'idx_posts_publisher_id' AND schemaname = CURRENT_SCHEMA()
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.269ms] [34;1m[rows:1][0m SELECT count(*) FROM pg_indexes WHERE tablename = 'posts' AND indexname = 'idx_posts_content_photo_id' AND schemaname = CURRENT_SCHEMA()
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.277ms] [34;1m[rows:1][0m SELECT count(*) FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'user_votes' AND table_type = 'BASE TABLE'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.054ms] [34;1m[rows:1][0m SELECT CURRENT_DATABASE()
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[2.060ms] [34;1m[rows:-][0m SELECT c.column_name, c.is_nullable = 'YES', c.udt_name, c.character_maximum_length, c.numeric_precision, c.numeric_precision_radix, c.numeric_scale, c.datetime_precision, 8 * typlen, c.column_default, pd.description, c.identity_increment FROM information_schema.columns AS c JOIN pg_type AS pgt ON c.udt_name = pgt.typname LEFT JOIN pg_catalog.pg_description as pd ON pd.objsubid = c.ordinal_position AND pd.objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = c.table_name AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = c.table_schema)) where table_catalog = 'postgres' AND table_schema = CURRENT_SCHEMA() AND table_name = 'user_votes'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.196ms] [34;1m[rows:-][0m SELECT * FROM "user_votes" LIMIT 5
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[3.349ms] [34;1m[rows:-][0m SELECT constraint_name FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = 'postgres' AND c.table_schema = CURRENT_SCHEMA() AND c.table_name = 'user_votes' AND constraint_type = 'UNIQUE'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[2.329ms] [34;1m[rows:-][0m SELECT c.column_name, constraint_name, constraint_type FROM information_schema.table_constraints tc JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_catalog, table_name, constraint_name) JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema AND tc.table_name = c.table_name AND ccu.column_name = c.column_name WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND c.table_catalog = 'postgres' AND c.table_schema = CURRENT_SCHEMA() AND c.table_name = 'user_votes'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.163ms] [34;1m[rows:-][0m SELECT a.attname as column_name, format_type(a.atttypid, a.atttypmod) AS data_type
+		FROM pg_attribute a JOIN pg_class b ON a.attrelid = b.oid AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA())
+		WHERE a.attnum > 0 -- hide internal columns
+		AND NOT a.attisdropped -- hide deleted columns
+		AND b.relname = 'user_votes'
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.123ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'user_votes' AND column_name = 'post_id') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'user_votes' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.106ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'user_votes' AND column_name = 'user_id') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'user_votes' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:82
+[0m[33m[0.119ms] [34;1m[rows:0][0m SELECT description FROM pg_catalog.pg_description WHERE objsubid = (SELECT ordinal_position FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'user_votes' AND column_name = 'upvoted') AND objoid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'user_votes' AND relnamespace = (SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = CURRENT_SCHEMA()))
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:110
+[0m[33m[1.054ms] [34;1m[rows:0][0m 
+		ALTER TABLE posts
+		DROP CONSTRAINT IF EXISTS fk_posts_publisher;
+
+		ALTER TABLE posts
+		ADD CONSTRAINT fk_posts_publisher
+		FOREIGN KEY (publisher_id) REFERENCES users(id);
+	
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:122
+[0m[33m[0.409ms] [34;1m[rows:0][0m 
+		ALTER TABLE posts
+		DROP CONSTRAINT IF EXISTS fk_posts_content_photo;
+
+		ALTER TABLE posts
+		ADD CONSTRAINT fk_posts_content_photo
+		FOREIGN KEY (content_photo_id) REFERENCES images(id);
+	
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:134
+[0m[33m[0.386ms] [34;1m[rows:0][0m 
+		ALTER TABLE images
+		DROP CONSTRAINT IF EXISTS fk_images_post;
+
+		ALTER TABLE images
+		ADD CONSTRAINT fk_images_post
+		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+	
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:146
+[0m[33m[0.375ms] [34;1m[rows:0][0m 
+		ALTER TABLE user_votes
+		DROP CONSTRAINT IF EXISTS fk_user_votes_post;
+
+		ALTER TABLE user_votes
+		ADD CONSTRAINT fk_user_votes_post
+		FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE;
+	
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:157
+[0m[33m[0.697ms] [34;1m[rows:0][0m 
+		ALTER TABLE user_votes
+		DROP CONSTRAINT IF EXISTS fk_user_votes_user;
+
+		ALTER TABLE user_votes
+		ADD CONSTRAINT fk_user_votes_user
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+	
+  → Auto-migrated tables: users, posts, images, user_votes
+  → Added foreign key constraints
+
+2025/11/07 03:46:42 [32m/Users/zeynepkesim/Desktop/devopsProject/devops-be/internal/database/database.go:175
+[0m[33m[0.286ms] [34;1m[rows:1][0m SELECT count(*) FROM "users"
+  → Database already contains data, skipping seed
+✓ Connected to PostgreSQL database
+✓ GORM auto-migration completed
+2025/11/07 03:46:42 WebSocket Hub initialized and running
+Server running on http://localhost:8080
+WebSocket Hub initialized - Real-time updates enabled
+JWT Authentication enabled - Token expiry: 24 hours
+CORS enabled for all origins
+
+Available endpoints:
+  🔓 Public endpoints:
+    WS   /ws (WebSocket - Real-time updates)
+    POST /login (Returns JWT token)
+    POST /register (Returns JWT token)
+    GET  /posts (Public posts only)
+    GET  /images/* (Static file serving)
+
+  🔐 Protected endpoints (Require Authorization: Bearer <token>):
+    POST /change-password
+    POST /posts (Create post)
+    POST /posts/edit
+    POST /posts/edit-with-image
+    POST /posts/upload
+    POST /upload (Image upload)
+    POST /vote
+2025/11/07 03:46:42 listen tcp :8080: bind: address already in use
+exit status 1

@@ -66,7 +66,7 @@ func TestGetPostsForUser_WithUser_Mock(t *testing.T) {
 		AddRow(1, 5, "User One", "My Post", "Content 1", nil, false, 10, time.Now(), "photo.jpg", nil, true).
 		AddRow(2, 5, "User One", "Private Post", "Content 2", nil, true, 0, time.Now(), "photo.jpg", nil, false)
 
-	mock.ExpectQuery(`SELECT (.+) FROM posts (.+) WHERE p.is_private = FALSE OR p.publisher_id = \$1`).
+	mock.ExpectQuery(`SELECT (.+) FROM posts p(.+)JOIN users u ON p.publisher_id = u.id(.+)LEFT JOIN images i ON p.content_photo_id = i.id(.+)LEFT JOIN user_votes uv ON p.id = uv.post_id AND uv.user_id = \$1(.+)WHERE \(p.is_private = FALSE OR p.publisher_id = \$1\)(.+)ORDER BY p.created_at DESC`).
 		WithArgs(5).
 		WillReturnRows(rows)
 

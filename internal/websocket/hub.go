@@ -10,10 +10,10 @@ import (
 type MessageType string
 
 const (
-	MessageTypePostCreated  MessageType = "POST_CREATED"
-	MessageTypePostUpdated  MessageType = "POST_UPDATED"
-	MessageTypePostVoted    MessageType = "POST_VOTED"
-	MessageTypePostPrivacy  MessageType = "POST_PRIVACY_CHANGED"
+	MessageTypePostCreated MessageType = "POST_CREATED"
+	MessageTypePostUpdated MessageType = "POST_UPDATED"
+	MessageTypePostVoted   MessageType = "POST_VOTED"
+	MessageTypePostPrivacy MessageType = "POST_PRIVACY_CHANGED"
 )
 
 // Message represents a WebSocket message
@@ -72,7 +72,13 @@ func (h *Hub) Run() {
 			}
 			h.mu.Unlock()
 
-		case message := <-h.Broadcast:
+		case message, ok := <-h.Broadcast:
+			if !ok {
+				// Channel closed - stop the hub run loop
+				log.Println("Broadcast channel closed, stopping hub")
+				return
+			}
+
 			h.mu.RLock()
 			messageJSON, err := json.Marshal(message)
 			if err != nil {
