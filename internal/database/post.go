@@ -94,7 +94,7 @@ func GetPostsForUser(userID int) ([]models.Post, error) {
 			JOIN users u ON p.publisher_id = u.id
 			LEFT JOIN images i ON p.content_photo_id = i.id
 			LEFT JOIN user_votes uv ON p.id = uv.post_id AND uv.user_id = $1
-			WHERE p.is_private = FALSE OR p.publisher_id = $1
+			WHERE (p.is_private = FALSE OR p.publisher_id = $1)
 			ORDER BY p.created_at DESC`
 		args = []interface{}{userID}
 	} else {
