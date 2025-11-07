@@ -31,21 +31,43 @@ function handlePostCreated(newPost) {
   // Check if post already exists (avoid duplicates)
   const existingIndex = posts.value.findIndex(p => p.id === newPost.id)
   if (existingIndex === -1) {
-    // Add new post to the beginning of the list
-    posts.value.unshift(newPost)
-    console.log('New post added via WebSocket:', newPost.id)
+    // Only add the post if it's public or the current user is the owner
+    const currentUser = JSON.parse(localStorage.getItem('devops_user'))
+    const isOwner = currentUser && currentUser.id === newPost.publisherId
+
+    if (!newPost.isPrivate || isOwner) {
+      // Add new post to the beginning of the list
+      posts.value.unshift(newPost)
+      console.log('New post added via WebSocket:', newPost.id)
+    } else {
+      console.log('Ignored private post from WebSocket (not owner):', newPost.id)
+    }
   }
 }
 
 function handlePostUpdated(updatedPost) {
   const postIndex = posts.value.findIndex(p => p.id === updatedPost.id)
+  const currentUser = JSON.parse(localStorage.getItem('devops_user'))
+  const isOwner = currentUser && currentUser.id === updatedPost.publisherId
+
   if (postIndex !== -1) {
-    // Update existing post
-    posts.value[postIndex] = updatedPost
-    console.log('Post updated via WebSocket:', updatedPost.id)
+    if (updatedPost.isPrivate && !isOwner) {
+      // Post became private and the current user is not the owner - remove it
+      posts.value.splice(postIndex, 1)
+      console.log('Private post removed via WebSocket update:', updatedPost.id)
+    } else {
+      // Update existing post
+      posts.value[postIndex] = updatedPost
+      console.log('Post updated via WebSocket:', updatedPost.id)
+    }
   } else {
-    // Post doesn't exist locally, might be a new post that became visible
-    posts.value.unshift(updatedPost)
+    // Post doesn't exist locally - only add if public or owner
+    if (!updatedPost.isPrivate || isOwner) {
+      posts.value.unshift(updatedPost)
+      console.log('Post added via WebSocket update:', updatedPost.id)
+    } else {
+      console.log('Ignored private post update (not owner):', updatedPost.id)
+    }
   }
 }
 
@@ -60,20 +82,23 @@ function handlePostVoted(updatedPost) {
 
 function handlePostPrivacyChanged(updatedPost) {
   const postIndex = posts.value.findIndex(p => p.id === updatedPost.id)
+  const currentUser = JSON.parse(localStorage.getItem('devops_user'))
+  const isOwner = currentUser && currentUser.id === updatedPost.publisherId
+
   if (postIndex !== -1) {
-    if (updatedPost.isPrivate && updatedPost.publisherId !== updatedPost.currentUserId) {
+    if (updatedPost.isPrivate && !isOwner) {
       // Post became private and user is not owner - remove it
       posts.value.splice(postIndex, 1)
       console.log('Private post removed via WebSocket:', updatedPost.id)
-    } else {
-      // Update the post
+    } else if (!updatedPost.isPrivate || isOwner) {
+      // Update the post if it's public or user is owner
       posts.value[postIndex] = updatedPost
       console.log('Post privacy changed via WebSocket:', updatedPost.id)
     }
-  } else if (!updatedPost.isPrivate) {
-    // Post became public - add it if not exists
+  } else if (!updatedPost.isPrivate || isOwner) {
+    // Add post if it's public or user is owner
     posts.value.unshift(updatedPost)
-    console.log('Public post added via WebSocket:', updatedPost.id)
+    console.log('Post added via WebSocket:', updatedPost.id)
   }
 }
 
