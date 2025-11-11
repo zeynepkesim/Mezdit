@@ -925,3 +925,25 @@ WantedBy=multi-user.target
 
 **Production URL:** https://devops-mezdit-vm13.cloud.ut.ee/posts
 
+---
+
+## AI Usage Declaration
+
+This project was developed by human developers with AI tools used as coding assistants to improve productivity:
+
+### How AI Was Used
+- **Code Completion**: For boilerplate code and repetitive patterns
+- **Problem Solving**: For debugging complex issues and exploring solutions
+- **Documentation**: Assistance with writing clear README sections and code comments
+
+### What Humans Did
+- 🧑‍💻 Designed the entire system architecture and database schema
+- 🧑‍💻 Implemented core business logic, authentication, and WebSocket features
+- 🧑‍💻 Made all technical decisions regarding frameworks, libraries, and patterns
+- 🧑‍💻 Wrote and debugged the majority of the codebase
+- 🧑‍💻 Set up CI/CD pipeline, deployment infrastructure, and monitoring
+- 🧑‍💻 Performed code reviews, testing, and quality assurance
+- 🧑‍💻 Troubleshot production issues and optimized performance
+
+**In Summary**: AI tools served as helpful assistants for routine tasks and suggestions, but all critical thinking, design decisions, and implementation work were done by the development team.
+
