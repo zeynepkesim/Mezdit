@@ -272,4 +272,26 @@ MIT License - see LICENSE file for details.
 
 ---
 
+## AI Usage Declaration
+
+This project was developed by human developers with AI tools used as coding assistants to improve productivity:
+
+### How AI Was Used
+- **Code Completion**: For Vue component boilerplate and repetitive code patterns
+- **Problem Solving**: For debugging UI issues and exploring implementation approaches
+- **Documentation**: Assistance with README sections and code documentation
+
+### What Humans Did
+- 🧑‍💻 Designed the entire UI/UX, user flows, and component architecture
+- 🧑‍💻 Implemented all Vue components, state management, and routing logic
+- 🧑‍💻 Made all design decisions regarding layout, styling, and user interactions
+- 🧑‍💻 Integrated WebSocket for real-time features and handled edge cases
+- 🧑‍💻 Developed responsive design and ensured cross-browser compatibility
+- 🧑‍💻 Wrote and maintained the codebase, performed testing and bug fixes
+- 🧑‍💻 Set up build pipeline and deployment configuration
+
+**In Summary**: AI tools served as helpful assistants for suggestions and routine tasks, but all creative work, technical decisions, and implementation were done by the development team.
+
+---
+
 **Built with ❤️ using Vue.js 3 and modern web technologies**
