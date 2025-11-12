@@ -1,8 +1,7 @@
-image: golang:latest
+image: node:22-alpine
 
 stages:
   - security
-  - test
   - build
   - build-image
   - deploy
@@ -15,7 +14,7 @@ secrets-detection:
   stage: security
   image: zricethezav/gitleaks:latest
   script:
-    - echo "🔍 Scanning for secrets in codebase..."
+    - echo "Scanning for secrets in frontend code..."
     - gitleaks detect --source . --verbose --no-git --redact
   allow_failure: false
   rules:
@@ -24,41 +23,24 @@ secrets-detection:
     - if: "$CI_COMMIT_BRANCH =~ /^(develop|staging)$/"
   tags: []
 
-format:
-  stage: test
-  script:
-    - go fmt $(go list ./... | grep -v /vendor/)
-    - go vet $(go list ./... | grep -v /vendor/)
+cache:
+  paths:
+    - node_modules/
 
-test:
-  stage: test
-  services:
-    - postgres:latest
-  variables:
-    POSTGRES_DB: postgres
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: ""
-    POSTGRES_HOST_AUTH_METHOD: trust
-    DATABASE_URL: "$DATABASE_URL"
-  script:
-    - go test -v -coverprofile=coverage.out ./...
-    - echo "=== Coverage Summary ==="
-    - go tool cover -func=coverage.out | tail -1
-    - echo "=== End Coverage ==="
-  coverage: '/\(statements\)\s+(\d+\.\d+)%/'
-  artifacts:
-    paths:
-      - coverage.out
-    expire_in: 1 week
-
-compile:
+build:
   stage: build
   script:
-    - mkdir -p mybinaries
-    - go build -o mybinaries ./...
+    - echo "Installing dependencies..."
+    - npm ci
+    - echo "Building application..."
+    - npm run build
+    - echo "Build completed successfully!"
   artifacts:
     paths:
-      - mybinaries
+      - dist/
+    expire_in: 1 hour
+  only:
+    - main
 
 build-docker-image:
   stage: build-image
@@ -66,12 +48,12 @@ build-docker-image:
   before_script:
     - buildah login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - echo "Building backend container image..."
+    - echo "Building frontend container image..."
     - buildah bud -t $IMAGE_NAME:$IMAGE_TAG -t $IMAGE_NAME:latest .
     - echo "Pushing to GitLab Container Registry..."
     - buildah push $IMAGE_NAME:$IMAGE_TAG
     - buildah push $IMAGE_NAME:latest
-    - echo "✅ Backend image pushed - $IMAGE_NAME:latest"
+    - echo "✅ Frontend image pushed - $IMAGE_NAME:latest"
   only:
     - main
 
@@ -79,7 +61,7 @@ deploy:
   stage: deploy
   image: alpine:latest
   before_script:
-    - apk update && apk add openssh-client bash
+    - apk update && apk add openssh-client bash rsync
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
@@ -87,14 +69,47 @@ deploy:
     - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
     - echo "SSH configured securely (key not logged)"
   script:
-    - scp mybinaries/devops-be $VM_USER@$VM_HOST:/home/$VM_USER/devops-be-new
     - |
       ssh $VM_USER@$VM_HOST << EOF
+        sudo mkdir -p /var/www/html/devops-fe
+        sudo chown -R centos:centos /var/www/html/devops-fe
+      EOF
+    - echo "Copying built files to VM..."
+    - rsync -avz --delete dist/ $VM_USER@$VM_HOST:/var/www/html/devops-fe/
+    - |
+      ssh $VM_USER@$VM_HOST << 'OUTER_EOF'
         set -e
-        echo "Stopping service..."
-        sudo systemctl stop devops-be || true
-        echo "Moving new binary..."
-        sudo mv /home/centos/devops-be-new /usr/local/bin/devops-be
-        sudo chmod +x /usr/local/bin/devops-be
-        echo "Fixing SELinux context..."
-        s
+        cat > /tmp/htaccess-temp << 'INNER_EOF'
+      <IfModule mod_rewrite.c>
+        RewriteEngine On
+        RewriteBase /
+        RewriteRule ^index\.html$ - [L]
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule . /index.html [L]
+      </IfModule>
+      INNER_EOF
+        sudo mv /tmp/htaccess-temp /var/www/html/devops-fe/.htaccess
+        sudo chown -R apache:apache /var/www/html/devops-fe
+        sudo chmod -R 755 /var/www/html/devops-fe
+        if command -v getenforce &> /dev/null && [ "$(getenforce)" != "Disabled" ]; then
+          echo "Fixing SELinux context..."
+          sudo chcon -R -t httpd_sys_content_t /var/www/html/devops-fe
+          sudo setsebool -P httpd_can_network_connect 1
+        fi
+        echo "Restarting Apache..."
+        sudo systemctl restart httpd
+        if ! sudo systemctl is-active --quiet httpd; then
+          echo "Apache failed to start!"
+          sudo systemctl status httpd
+          exit 1
+        fi
+        echo "Frontend deployment completed successfully!"
+      OUTER_EOF
+  environment:
+    name: production
+    url: https://$VM_HOST
+  only:
+    - main
+  dependencies:
+    - build
