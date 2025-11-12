@@ -30,6 +30,7 @@ go.work.sum
 # Kubernetes secrets (never commit these!)
 k8s/secret.yaml
 k8s/postgres-secret.yaml
+KUBECONFIG_BASE64.txt
 
 # Editor/IDE
 # .idea/

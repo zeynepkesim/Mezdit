@@ -90,7 +90,6 @@ deploy-to-k8s:
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging..."
     - kubectl apply -f k8s/configmap.yaml
-    - kubectl apply -f k8s/rbac.yaml
     - kubectl apply -f k8s/postgres-statefulset.yaml
     - kubectl apply -f k8s/deployment.yaml
     - kubectl apply -f k8s/service.yaml
