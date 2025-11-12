@@ -1,12 +1,17 @@
 image: golang:latest
+
 stages:
   - security
   - test
   - build
+  - build-image  # YENİ STAGE
   - deploy
 
+variables:
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
 # Security: Secrets Detection
-# Scans code for accidentally committed secrets, API keys, passwords, etc.
 secrets-detection:
   stage: security
   image: zricethezav/gitleaks:latest
@@ -25,6 +30,7 @@ format:
   script:
     - go fmt $(go list ./... | grep -v /vendor/)
     - go vet $(go list ./... | grep -v /vendor/)
+
 test:
   stage: test
   services:
@@ -45,6 +51,7 @@ test:
     paths:
       - coverage.out
     expire_in: 1 week
+
 compile:
   stage: build
   script:
@@ -53,50 +60,54 @@ compile:
   artifacts:
     paths:
       - mybinaries
+
+# YENİ: Container Image Build Stage
+build-docker-image:
+  stage: build-image
+  image: quay.io/buildah/stable:latest
+  before_script:
+    - buildah login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - echo "Building backend container image..."
+    - buildah bud -t $IMAGE_NAME:$IMAGE_TAG -t $IMAGE_NAME:latest .
+    - echo "Pushing to GitLab Container Registry..."
+    - buildah push $IMAGE_NAME:$IMAGE_TAG
+    - buildah push $IMAGE_NAME:latest
+    - echo "✅ Backend image pushed: $IMAGE_NAME:latest"
+  only:
+    - main
+
+# VM deployment (şimdilik kalabilir, Week 10'da kaldırılacak)
 deploy:
   stage: deploy
   image: alpine:latest
   before_script:
-    # Install SSH client and dependencies
     - apk update && apk add openssh-client bash
-    # Setup SSH
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
-    # Decode base64-encoded SSH private key (prevents exposure in logs)
-    # Note: SSH_PRIVATE_KEY is base64-encoded and masked in GitLab CI/CD
     - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
-    # Add VM to known hosts (disable host key checking for first connection)
     - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
     - echo "SSH configured securely (key not logged)"
   script:
-    # Copy the compiled binary to VM
     - scp mybinaries/devops-be $VM_USER@$VM_HOST:/home/$VM_USER/devops-be-new
-    # SSH into VM and deploy
     - |
       ssh $VM_USER@$VM_HOST << EOF
-        set -e  # Exit on any error
-        # Stop the service
+        set -e
         echo "Stopping service..."
         sudo systemctl stop devops-be || true
-        # Replace old binary with new one
         echo "Moving new binary..."
         sudo mv /home/centos/devops-be-new /usr/local/bin/devops-be
         sudo chmod +x /usr/local/bin/devops-be
-        # Fix SELinux context
         echo "Fixing SELinux context..."
         sudo chcon -t bin_t /usr/local/bin/devops-be
-        # Verify binary exists and is executable
         if [ ! -x /usr/local/bin/devops-be ]; then
           echo "Binary not found or not executable!"
           exit 1
         fi
-        # Start the service
         echo "Starting service..."
         sudo systemctl start devops-be
-        # Wait a moment for service to start
         sleep 2
-        # Check if service actually started
         if ! sudo systemctl is-active --quiet devops-be; then
           echo "Service failed to start!"
           echo "Service status:"
@@ -105,7 +116,6 @@ deploy:
           sudo journalctl -u devops-be -n 50 --no-pager
           exit 1
         fi
-        # Show service status
         sudo systemctl status devops-be
         echo "Deployment completed successfully!"
       EOF
