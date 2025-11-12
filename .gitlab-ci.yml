@@ -75,51 +75,27 @@ build-docker-image:
   only:
     - main
 
-deploy:
+deploy-to-k8s:
   stage: deploy
-  image: alpine:latest
+  image: bitnami/kubectl:latest
   before_script:
-    - apk update && apk add openssh-client bash
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
-    - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
-    - echo "SSH configured securely (key not logged)"
+    - mkdir -p ~/.kube
+    - echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
+    - chmod 600 ~/.kube/config
   script:
-    - scp mybinaries/devops-be $VM_USER@$VM_HOST:/home/$VM_USER/devops-be-new
-    - |
-      ssh $VM_USER@$VM_HOST << EOF
-        set -e
-        echo "Stopping service..."
-        sudo systemctl stop devops-be || true
-        echo "Moving new binary..."
-        sudo mv /home/centos/devops-be-new /usr/local/bin/devops-be
-        sudo chmod +x /usr/local/bin/devops-be
-        echo "Fixing SELinux context..."
-        sudo chcon -t bin_t /usr/local/bin/devops-be
-        if [ ! -x /usr/local/bin/devops-be ]; then
-          echo "Binary not found or not executable!"
-          exit 1
-        fi
-        echo "Starting service..."
-        sudo systemctl start devops-be
-        sleep 2
-        if ! sudo systemctl is-active --quiet devops-be; then
-          echo "Service failed to start!"
-          echo "Service status:"
-          sudo systemctl status devops-be || true
-          echo "Recent logs:"
-          sudo journalctl -u devops-be -n 50 --no-pager
-          exit 1
-        fi
-        sudo systemctl status devops-be
-        echo "Deployment completed successfully!"
-      EOF
+    - echo "Deploying to Kubernetes namespace emzops-staging..."
+    - kubectl apply -f k8s/configmap.yaml
+    - kubectl apply -f k8s/rbac.yaml
+    - kubectl apply -f k8s/postgres-statefulset.yaml
+    - kubectl apply -f k8s/deployment.yaml
+    - kubectl apply -f k8s/service.yaml
+    - kubectl apply -f k8s/ingress.yaml
+    - echo "Waiting for deployment to be ready..."
+    - kubectl rollout status deployment/devops-backend -n emzops-staging --timeout=5m
+    - echo "✅ Deployment successful!"
+    - kubectl get pods -n emzops-staging
   environment:
-    name: production
-    url: http://$VM_HOST:8080
+    name: staging
+    url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
   only:
     - main
-  dependencies:
-    - compile

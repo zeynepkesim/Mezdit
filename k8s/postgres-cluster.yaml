@@ -1,0 +1,21 @@
+# CloudNativePG operator kullanarak PostgreSQL cluster
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-cluster
+  namespace: emzops-staging
+spec:
+  instances: 1
+  storage:
+    size: 400Mi
+    storageClass: standard
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+  bootstrap:
+    initdb:
+      database: devops
+      owner: devops
+      secret:
+        name: postgres-superuser-secret

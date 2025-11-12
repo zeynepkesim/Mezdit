@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: devops-backend-ingress
+  namespace: emzops-staging
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - devops-mezdit.kubernetes.devops.cs.ut.ee
+    secretName: backend-tls-cert
+  rules:
+  - host: devops-mezdit.kubernetes.devops.cs.ut.ee
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: devops-backend-service
+            port:
+              number: 80
