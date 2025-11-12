@@ -4,14 +4,13 @@ stages:
   - security
   - test
   - build
-  - build-image  # YENİ STAGE
+  - build-image
   - deploy
 
 variables:
   IMAGE_NAME: $CI_REGISTRY_IMAGE
   IMAGE_TAG: $CI_COMMIT_SHORT_SHA
 
-# Security: Secrets Detection
 secrets-detection:
   stage: security
   image: zricethezav/gitleaks:latest
@@ -61,7 +60,6 @@ compile:
     paths:
       - mybinaries
 
-# YENİ: Container Image Build Stage
 build-docker-image:
   stage: build-image
   image: quay.io/buildah/stable:latest
@@ -73,11 +71,10 @@ build-docker-image:
     - echo "Pushing to GitLab Container Registry..."
     - buildah push $IMAGE_NAME:$IMAGE_TAG
     - buildah push $IMAGE_NAME:latest
-    - echo "✅ Backend image pushed: $IMAGE_NAME:latest"
+    - echo "✅ Backend image pushed - $IMAGE_NAME:latest"
   only:
     - main
 
-# VM deployment (şimdilik kalabilir, Week 10'da kaldırılacak)
 deploy:
   stage: deploy
   image: alpine:latest
