@@ -17,7 +17,7 @@ spec:
     spec:
       # Secret to pull images from GitLab Registry
       imagePullSecrets:
-        - name: gitlab-registry-secret
+        - name: frontend-registry-secret
       containers:
       - name: frontend
         # Update image name according to your frontend repository
