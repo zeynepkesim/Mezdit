@@ -493,6 +493,26 @@ Frontend is currently deployed to VM at: `http://devops-mezdit-vm13.cloud.ut.ee`
 
 ### Migration to Kubernetes
 
+**⚡ Detailed Vue.js Frontend Deployment Guide:**
+
+Since your frontend is developed with Vue.js, we have prepared a separate document with detailed deployment steps:
+
+👉 **[FRONTEND_DEPLOYMENT_GUIDE.md](./FRONTEND_DEPLOYMENT_GUIDE.md)** - Complete guide for Vue.js frontend
+
+This guide includes:
+- ✅ Custom Dockerfile for Vue.js
+- ✅ NGINX configuration
+- ✅ Kubernetes manifests (ConfigMap, Deployment, Service, Ingress)
+- ✅ GitLab CI/CD pipeline
+- ✅ Backend-Frontend integration
+- ✅ CORS settings
+- ✅ Environment variables
+- ✅ Troubleshooting
+
+**Below is a general summary. For details, refer to the document above.**
+
+---
+
 **Step-by-step guide to deploy frontend to Kubernetes:**
 
 #### 1. Create Frontend Dockerfile

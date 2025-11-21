@@ -16,10 +16,27 @@ spec:
   - host: devops-mezdit.kubernetes.devops.cs.ut.ee
     http:
       paths:
-      - path: /
+      # Backend API - /api path (MUST be first)
+      - path: /api
         pathType: Prefix
         backend:
           service:
             name: devops-backend-service
+            port:
+              number: 80
+      # WebSocket (if you are using it)
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: devops-backend-service
+            port:
+              number: 80
+      # Frontend - Root path (MUST be last)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: devops-frontend-service
             port:
               number: 80
