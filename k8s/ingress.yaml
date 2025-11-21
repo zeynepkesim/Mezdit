@@ -36,8 +36,9 @@ spec:
             port:
               number: 80
       # Frontend - Root path (MUST be last)
-      - path: /
-        pathType: Prefix
+      # Regex captures full path so rewrite-target /$2 works correctly
+      - path: /()(.*)
+        pathType: ImplementationSpecific
         backend:
           service:
             name: devops-frontend-service
