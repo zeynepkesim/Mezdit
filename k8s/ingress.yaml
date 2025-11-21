@@ -6,6 +6,8 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
   ingressClassName: nginx
   tls:
@@ -17,8 +19,9 @@ spec:
     http:
       paths:
       # Backend API - /api path (MUST be first)
-      - path: /api
-        pathType: Prefix
+      # Regex: /api/posts -> /posts, /api/login -> /login
+      - path: /api(/|$)(.*)
+        pathType: ImplementationSpecific
         backend:
           service:
             name: devops-backend-service
