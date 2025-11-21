@@ -84,7 +84,7 @@ deploy-to-k8s:
     - echo "Waiting for deployment to be ready..."
     - kubectl rollout status deployment/devops-frontend -n emzops-staging --timeout=5m
     - echo "✅ Deployment successful!"
-    - echo "Frontend URL: https://devops-mezdit.kubernetes.devops.cs.ut.ee"
+    - echo "Frontend URL - https://devops-mezdit.kubernetes.devops.cs.ut.ee"
     - kubectl get pods -n emzops-staging -l app=devops-frontend
   environment:
     name: staging
