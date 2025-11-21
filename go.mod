@@ -1,6 +1,6 @@
 module devops-be
 
-go 1.23
+go 1.23.0
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
@@ -9,7 +9,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
-	golang.org/x/crypto v0.27.0
+	golang.org/x/crypto v0.37.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.0
 )
@@ -21,6 +21,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/text v0.24.0 // indirect
 )
