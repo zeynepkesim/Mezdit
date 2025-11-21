@@ -1,20 +1,41 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: devops-frontend-ingress
+  name: devops-backend-ingress
   namespace: emzops-staging
   annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
   ingressClassName: nginx
   tls:
   - hosts:
     - devops-mezdit.kubernetes.devops.cs.ut.ee
+    secretName: backend-tls-cert
   rules:
   - host: devops-mezdit.kubernetes.devops.cs.ut.ee
     http:
       paths:
-      # Frontend - serve all static files and SPA routes
+      # Backend API - /api path (MUST be first)
+      # Regex: /api/posts -> /posts, /api/login -> /login
+      - path: /api(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: devops-backend-service
+            port:
+              number: 80
+      # WebSocket (if you are using it)
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: devops-backend-service
+            port:
+              number: 80
+      # Frontend - Root path (MUST be last)
       - path: /
         pathType: Prefix
         backend:
