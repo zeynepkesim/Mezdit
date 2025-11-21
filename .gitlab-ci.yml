@@ -44,72 +44,50 @@ build:
 
 build-docker-image:
   stage: build-image
-  image: quay.io/buildah/stable:latest
-  before_script:
-    - buildah login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.0-debug
+    entrypoint: [""]
   script:
-    - echo "Building frontend container image..."
-    - buildah bud -t $IMAGE_NAME:$IMAGE_TAG -t $IMAGE_NAME:latest .
-    - echo "Pushing to GitLab Container Registry..."
-    - buildah push $IMAGE_NAME:$IMAGE_TAG
-    - buildah push $IMAGE_NAME:latest
+    - echo "Building frontend container image with Kaniko..."
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${IMAGE_NAME}:${IMAGE_TAG}"
+      --destination "${IMAGE_NAME}:latest"
+      --cache=true
+      --cache-ttl=24h
     - echo "✅ Frontend image pushed - $IMAGE_NAME:latest"
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure
   only:
     - main
 
-deploy:
+deploy-to-k8s:
   stage: deploy
-  image: alpine:latest
+  image: bitnami/kubectl:latest
   before_script:
-    - apk update && apk add openssh-client bash rsync
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
-    - ssh-keyscan -H $VM_HOST >> ~/.ssh/known_hosts || echo "StrictHostKeyChecking no" >> ~/.ssh/config
-    - echo "SSH configured securely (key not logged)"
+    - mkdir -p ~/.kube
+    - echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
+    - chmod 600 ~/.kube/config
   script:
-    - |
-      ssh $VM_USER@$VM_HOST << EOF
-        sudo mkdir -p /var/www/html/devops-fe
-        sudo chown -R centos:centos /var/www/html/devops-fe
-      EOF
-    - echo "Copying built files to VM..."
-    - rsync -avz --delete dist/ $VM_USER@$VM_HOST:/var/www/html/devops-fe/
-    - |
-      ssh $VM_USER@$VM_HOST << 'OUTER_EOF'
-        set -e
-        cat > /tmp/htaccess-temp << 'INNER_EOF'
-      <IfModule mod_rewrite.c>
-        RewriteEngine On
-        RewriteBase /
-        RewriteRule ^index\.html$ - [L]
-        RewriteCond %{REQUEST_FILENAME} !-f
-        RewriteCond %{REQUEST_FILENAME} !-d
-        RewriteRule . /index.html [L]
-      </IfModule>
-      INNER_EOF
-        sudo mv /tmp/htaccess-temp /var/www/html/devops-fe/.htaccess
-        sudo chown -R apache:apache /var/www/html/devops-fe
-        sudo chmod -R 755 /var/www/html/devops-fe
-        if command -v getenforce &> /dev/null && [ "$(getenforce)" != "Disabled" ]; then
-          echo "Fixing SELinux context..."
-          sudo chcon -R -t httpd_sys_content_t /var/www/html/devops-fe
-          sudo setsebool -P httpd_can_network_connect 1
-        fi
-        echo "Restarting Apache..."
-        sudo systemctl restart httpd
-        if ! sudo systemctl is-active --quiet httpd; then
-          echo "Apache failed to start!"
-          sudo systemctl status httpd
-          exit 1
-        fi
-        echo "Frontend deployment completed successfully!"
-      OUTER_EOF
+    - echo "Deploying frontend to Kubernetes namespace emzops-staging..."
+    - kubectl apply -f k8s/configmap.yaml
+    - kubectl apply -f k8s/deployment.yaml
+    - kubectl apply -f k8s/service.yaml
+    - echo "Waiting for deployment to be ready..."
+    - kubectl rollout status deployment/devops-frontend -n emzops-staging --timeout=5m
+    - echo "✅ Deployment successful!"
+    - echo "Frontend URL: https://devops-mezdit.kubernetes.devops.cs.ut.ee"
+    - kubectl get pods -n emzops-staging -l app=devops-frontend
   environment:
-    name: production
-    url: https://$VM_HOST
+    name: staging
+    url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
   only:
     - main
-  dependencies:
-    - build

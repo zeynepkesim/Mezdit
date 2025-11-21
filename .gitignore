@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Kubernetes secrets (never commit)
+k8s/secret.yaml
+k8s/*-secret.yaml
