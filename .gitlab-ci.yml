@@ -33,7 +33,8 @@ format:
 test:
   stage: test
   services:
-    - postgres:latest
+    - name: postgres:15-alpine
+      alias: postgres
   variables:
     POSTGRES_DB: postgres
     POSTGRES_USER: postgres
@@ -50,6 +51,11 @@ test:
     paths:
       - coverage.out
     expire_in: 1 week
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
 
 compile:
   stage: build
