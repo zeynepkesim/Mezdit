@@ -1,4 +1,4 @@
-image: golang:latest
+image: golang:1.21-alpine
 
 stages:
   - security
@@ -82,7 +82,14 @@ build-docker-image:
       --destination "${IMAGE_NAME}:${IMAGE_TAG}"
       --destination "${IMAGE_NAME}:latest"
       --cache=true
+      --cache-ttl=24h
     - echo "✅ Backend image pushed - $IMAGE_NAME:latest"
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure
   only:
     - main
 
