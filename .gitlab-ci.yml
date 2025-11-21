@@ -76,6 +76,9 @@ deploy-to-k8s:
     - mkdir -p ~/.kube
     - echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
     - chmod 600 ~/.kube/config
+    - export KUBECONFIG=~/.kube/config
+    - kubectl version --client
+    - kubectl cluster-info
   script:
     - echo "Deploying frontend to Kubernetes namespace emzops-staging..."
     - kubectl apply -f k8s/configmap.yaml
