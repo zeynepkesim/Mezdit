@@ -91,8 +91,9 @@ build-docker-image:
       - runner_system_failure
       - stuck_or_timeout_failure
       - script_failure
-  only:
-    - main
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $SKIP_BUILD != "true"'
+  allow_failure: true
 
 deploy-to-k8s:
   stage: deploy
