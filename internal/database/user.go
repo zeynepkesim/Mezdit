@@ -223,3 +223,28 @@ func ChangePassword(userID int, currentPassword string, newPassword string) erro
 	log.Printf("Password changed successfully for user %d", userID)
 	return nil
 }
+
+// GetAllUsers returns all users in the database (for metrics)
+func GetAllUsers() ([]models.User, error) {
+	query := `SELECT id, name, username, password, profile_photo, created_at FROM users`
+	rows, err := DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var user models.User
+		var profilePhoto sql.NullString
+		err := rows.Scan(&user.ID, &user.Name, &user.Username, &user.Password, &profilePhoto, &user.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		if profilePhoto.Valid {
+			user.ProfilePhoto = &profilePhoto.String
+		}
+		users = append(users, user)
+	}
+	return users, nil
+}

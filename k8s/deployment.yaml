@@ -20,6 +20,20 @@ spec:
         image: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest
         ports:
         - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
         env:
         - name: PORT
           valueFrom:

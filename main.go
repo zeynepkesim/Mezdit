@@ -14,6 +14,9 @@ import (
 )
 
 func main() {
+	// Health and readiness endpoints
+	http.HandleFunc("/healthz", handlers.HealthzHandler)
+	http.HandleFunc("/readyz", handlers.ReadyzHandler)
 	// Load .env file (ignore error if file doesn't exist - env vars might be set directly)
 	_ = godotenv.Load()
 
@@ -24,30 +27,43 @@ func main() {
 	// Initialize WebSocket hub
 	websocket.InitHub()
 
+
+	mux := http.NewServeMux()
+
 	// WebSocket endpoint
-	http.HandleFunc("/ws", handlers.WebSocketHandler)
+	mux.HandleFunc("/ws", handlers.WebSocketHandler)
 
 	// Auth endpoints (public - no authentication required)
-	http.HandleFunc("/login", handlers.LoginHandler)
-	http.HandleFunc("/register", handlers.RegisterHandler)
+	mux.HandleFunc("/login", handlers.LoginHandler)
+	mux.HandleFunc("/register", handlers.RegisterHandler)
 
 	// Protected auth endpoints
-	http.HandleFunc("/change-password", middleware.RequireAuth(handlers.ChangePasswordHandler))
+	mux.HandleFunc("/change-password", middleware.RequireAuth(handlers.ChangePasswordHandler))
 
 	// Post endpoints
-	http.HandleFunc("/posts", middleware.OptionalAuth(handlers.PostsHandler)) // GET is public, POST requires auth
-	http.HandleFunc("/posts/edit", middleware.RequireAuth(handlers.EditPostHandler))
-	http.HandleFunc("/posts/edit-with-image", middleware.RequireAuth(handlers.EditPostWithImageHandler))
-	http.HandleFunc("/posts/upload", middleware.RequireAuth(handlers.UploadPostHandler))
+	mux.HandleFunc("/posts", middleware.OptionalAuth(handlers.PostsHandler)) // GET is public, POST requires auth
+	mux.HandleFunc("/posts/edit", middleware.RequireAuth(handlers.EditPostHandler))
+	mux.HandleFunc("/posts/edit-with-image", middleware.RequireAuth(handlers.EditPostWithImageHandler))
+	mux.HandleFunc("/posts/upload", middleware.RequireAuth(handlers.UploadPostHandler))
 
 	// Image endpoints
-	http.HandleFunc("/upload", middleware.RequireAuth(handlers.UploadImageHandler))
+	mux.HandleFunc("/upload", middleware.RequireAuth(handlers.UploadImageHandler))
 
 	// Vote endpoints
-	http.HandleFunc("/vote", middleware.RequireAuth(handlers.VoteHandler))
+	mux.HandleFunc("/vote", middleware.RequireAuth(handlers.VoteHandler))
 
 	// Serve static images
-	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("./images/"))))
+	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("./images/"))))
+
+	// Health and readiness endpoints
+	mux.HandleFunc("/healthz", handlers.HealthzHandler)
+	mux.HandleFunc("/readyz", handlers.ReadyzHandler)
+
+	// Metrics endpoint (on main port for now)
+	mux.HandleFunc("/metrics", handlers.MetricsHandler)
+
+	// Wrap with metrics middleware
+	handler := handlers.MetricsMiddleware(mux)
 
 	fmt.Println("Server running on http://localhost:8080")
 	fmt.Println("WebSocket Hub initialized - Real-time updates enabled")
@@ -70,5 +86,5 @@ func main() {
 	fmt.Println("    POST /posts/upload")
 	fmt.Println("    POST /upload (Image upload)")
 	fmt.Println("    POST /vote")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", handler))
 }
