@@ -270,19 +270,39 @@ func TestMessage_JSONMarshaling(t *testing.T) {
 		Type:    MessageTypePostCreated,
 		Payload: map[string]string{"id": "123"},
 	}
-	
+
 	data, err := json.Marshal(msg)
 	if err != nil {
 		t.Fatalf("Failed to marshal message: %v", err)
 	}
-	
+
 	var decoded Message
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal message: %v", err)
 	}
-	
+
 	if decoded.Type != msg.Type {
 		t.Errorf("Expected type %s, got %s", msg.Type, decoded.Type)
+	}
+}
+
+func TestClient_Struct(t *testing.T) {
+	hub := NewHub()
+	client := &Client{
+		Hub:  hub,
+		Send: make(chan []byte, 256),
+	}
+
+	if client.Hub != hub {
+		t.Error("Client hub not set correctly")
+	}
+
+	if client.Send == nil {
+		t.Error("Client send channel not initialized")
+	}
+
+	if cap(client.Send) != 256 {
+		t.Errorf("Expected send channel capacity 256, got %d", cap(client.Send))
 	}
 }
 

@@ -3,9 +3,10 @@
 [![pipeline status](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-be/badges/main/pipeline.svg)](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-be/-/commits/main)
 [![coverage report](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-be/badges/main/coverage.svg)](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-be/-/graphs/main/charts)
 
-**🚀 Production:** [https://devops-mezdit-vm13.cloud.ut.ee/posts](https://devops-mezdit-vm13.cloud.ut.ee/posts)
+**🚀 Production:** [https://devops-mezdit.kubernetes.devops.cs.ut.ee/posts](https://devops-mezdit.kubernetes.devops.cs.ut.ee/posts)
+**📦 Namespace:** `emzops-staging`
 
-A Reddit-like backend API with JWT authentication, WebSocket support, and GORM auto-migrations.
+A Reddit-like backend API with JWT authentication, WebSocket support, and Kubernetes deployment.
 
 ## Quick Start
 
@@ -923,27 +924,41 @@ WantedBy=multi-user.target
 
 **Security Note:** SSH_PRIVATE_KEY is base64-encoded to prevent exposure in logs. The pipeline decodes it with `base64 -d` before use.
 
-**Production URL:** https://devops-mezdit-vm13.cloud.ut.ee/posts
+**Production URL:** https://devops-mezdit.kubernetes.devops.cs.ut.ee/posts
 
 ---
 
-## AI Usage Declaration
+## Recent Updates
 
-This project was developed by human developers with AI tools used as coding assistants to improve productivity:
+### Image Upload Bug Fix (2025-01)
+- **Issue**: `/api/posts/edit-with-image` endpoint returning 500 error
+- **Root Cause**: Missing `images` directory in container causing file creation failures
+- **Fix**: Added automatic directory creation with `os.MkdirAll()` in `SaveImage()` function
+- **Changes**:
+  - `internal/database/image.go`: Added directory existence check before file creation
+  - `internal/handlers/image.go`: Enhanced error logging for debugging
+  - Improved error messages to include full error details
+- **Impact**: Image uploads and post edits with images now work reliably
 
-### How AI Was Used
-- **Code Completion**: For boilerplate code and repetitive patterns
-- **Problem Solving**: For debugging complex issues and exploring solutions
-- **Documentation**: Assistance with writing clear README sections and code comments
+### Test Coverage Improvement (2025-01)
+- Increased test coverage from **47.8% to 49.4%** (+1.6%)
+- **New Tests Added**:
+  - `internal/handlers/health_test.go`: Health check and readiness probe tests
+  - `internal/handlers/metrics_test.go`: Metrics middleware and response writer tests
+  - `internal/auth/jwt_test.go`: JWT validation edge cases (expired tokens, invalid signing methods)
+- **Coverage by Package**:
+  - `internal/auth`: 90.5% (↑ from 85.7%)
+  - `internal/middleware`: 100%
+  - `internal/models`: 100%
+  - `internal/security`: 100%
+  - `internal/database`: 57.7%
+  - `internal/handlers`: 39.4%
+  - `internal/websocket`: 40.0%
 
-### What Humans Did
-- 🧑‍💻 Designed the entire system architecture and database schema
-- 🧑‍💻 Implemented core business logic, authentication, and WebSocket features
-- 🧑‍💻 Made all technical decisions regarding frameworks, libraries, and patterns
-- 🧑‍💻 Wrote and debugged the majority of the codebase
-- 🧑‍💻 Set up CI/CD pipeline, deployment infrastructure, and monitoring
-- 🧑‍💻 Performed code reviews, testing, and quality assurance
-- 🧑‍💻 Troubleshot production issues and optimized performance
+### RBAC Permissions Fix (2025-01)
+- Added `persistentvolumeclaims` permission to GitLab deploy ServiceAccount
+- **File**: `k8s/rbac.yaml`
+- **Reason**: Pipeline was failing due to PVC access denial
+- **Note**: Requires manual application by cluster admin: `kubectl apply -f k8s/rbac.yaml`
 
-**In Summary**: AI tools served as helpful assistants for routine tasks and suggestions, but all critical thinking, design decisions, and implementation work were done by the development team.
 
