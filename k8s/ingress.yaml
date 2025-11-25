@@ -27,9 +27,10 @@ spec:
             name: devops-backend-service
             port:
               number: 80
-      # WebSocket (if you are using it)
-      - path: /ws
-        pathType: Prefix
+      # WebSocket - preserve /ws path
+      # Pattern captures "ws" in $2 so rewrite keeps it: /ws -> /ws
+      - path: /()(ws.*)
+        pathType: ImplementationSpecific
         backend:
           service:
             name: devops-backend-service
