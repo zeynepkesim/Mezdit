@@ -151,6 +151,8 @@ func EditPostWithImage(postID int, userID int, newHeader string, newContentText 
 	}
 
 	var newImageID *int
+	var oldImageID sql.NullInt32
+	oldImageID = currentImageID // Store for later deletion
 
 	// Handle image update if provided
 	if imageFile != nil && imageFilename != "" {
@@ -167,22 +169,6 @@ func EditPostWithImage(postID int, userID int, newHeader string, newContentText 
 		}
 
 		newImageID = &savedImage.ID
-
-		// Delete old image file if it exists
-		if currentImageID.Valid {
-			var oldImagePath string
-			err = tx.QueryRow("SELECT path FROM images WHERE id = $1", currentImageID.Int32).Scan(&oldImagePath)
-			if err == nil && oldImagePath != "" {
-				// Delete old image file from filesystem
-				os.Remove(oldImagePath)
-				// Delete old image record from database
-				_, err = tx.Exec("DELETE FROM images WHERE id = $1", currentImageID.Int32)
-				if err != nil {
-					// Log the error but don't fail the transaction
-					fmt.Printf("Warning: failed to delete old image record: %v\n", err)
-				}
-			}
-		}
 	}
 
 	// Update the post header, content, publisher name, privacy, and image if provided
@@ -200,6 +186,22 @@ func EditPostWithImage(postID int, userID int, newHeader string, newContentText 
 	_, err = tx.Exec(updateQuery, updateArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update post")
+	}
+
+	// NOW delete old image after post has been updated with new image
+	if newImageID != nil && oldImageID.Valid {
+		var oldImagePath string
+		err = tx.QueryRow("SELECT path FROM images WHERE id = $1", oldImageID.Int32).Scan(&oldImagePath)
+		if err == nil && oldImagePath != "" {
+			// Delete old image file from filesystem
+			os.Remove(oldImagePath)
+			// Delete old image record from database (safe now since post no longer references it)
+			_, err = tx.Exec("DELETE FROM images WHERE id = $1", oldImageID.Int32)
+			if err != nil {
+				// Log the error but don't fail the transaction
+				fmt.Printf("Warning: failed to delete old image record: %v\n", err)
+			}
+		}
 	}
 
 	// Get updated post with all details including isLiked for the user
