@@ -35,7 +35,14 @@ func SaveImage(file multipart.File, filename string) (*models.Image, error) {
 
 	// Create unique filename: UUID_originalname
 	uniqueFilename := fmt.Sprintf("%s_%s", imageUUID, filename)
-	filePath := filepath.Join("images", uniqueFilename)
+
+	// Ensure images directory exists
+	imagesDir := "images"
+	if err := os.MkdirAll(imagesDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create images directory: %v", err)
+	}
+
+	filePath := filepath.Join(imagesDir, uniqueFilename)
 
 	// Create the file
 	dst, err := os.Create(filePath)
@@ -108,8 +115,11 @@ func EditPostWithImage(postID int, userID int, newHeader string, newContentText 
 		newPublisherName = "Anonymous"
 	}
 
+	fmt.Printf("EditPostWithImage called: postID=%d, userID=%d, hasImage=%v\n", postID, userID, imageFile != nil)
+
 	tx, err := DB.Begin()
 	if err != nil {
+		fmt.Printf("Failed to begin transaction: %v\n", err)
 		return nil, fmt.Errorf("failed to start transaction")
 	}
 	defer tx.Rollback()

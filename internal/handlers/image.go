@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"mime/multipart"
 	"net/http"
@@ -273,6 +274,7 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		log.Printf("Error in EditPostWithImageHandler: %v", err)
 		if err.Error() == "post not found" {
 			middleware.WriteError(w, http.StatusNotFound, "post_not_found", "Post not found")
 			return
@@ -289,7 +291,8 @@ func EditPostWithImageHandler(w http.ResponseWriter, r *http.Request) {
 			middleware.WriteError(w, http.StatusBadRequest, "invalid_file_type", err.Error())
 			return
 		}
-		middleware.WriteError(w, http.StatusInternalServerError, "server_error", "Failed to update post")
+		log.Printf("Unhandled error in EditPostWithImageHandler: %v", err)
+		middleware.WriteError(w, http.StatusInternalServerError, "server_error", fmt.Sprintf("Failed to update post: %v", err))
 		return
 	}
 

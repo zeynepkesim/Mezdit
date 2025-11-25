@@ -12,7 +12,7 @@ metadata:
   namespace: emzops-staging
 rules:
 - apiGroups: [""]
-  resources: ["services", "configmaps", "secrets", "pods", "pods/log"]
+  resources: ["services", "configmaps", "secrets", "pods", "pods/log", "persistentvolumeclaims"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 - apiGroups: ["apps"]
   resources: ["deployments", "statefulsets"]
