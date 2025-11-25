@@ -2,9 +2,10 @@
 
 [![pipeline status](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-fe/badges/main/pipeline.svg)](https://gitlab.cs.ut.ee/devops/teams/emzops/devops-fe/-/commits/main)
 
-**🚀 Production:** [https://devops-mezdit-vm13.cloud.ut.ee/posts](https://devops-mezdit-vm13.cloud.ut.ee/posts)
+**🚀 Production:** [https://devops-mezdit.kubernetes.devops.cs.ut.ee/posts](https://devops-mezdit.kubernetes.devops.cs.ut.ee/posts)
+**📦 Namespace:** `emzops-staging`
 
-A modern, full-featured social media platform built with Vue.js 3, featuring real-time updates via WebSocket, user authentication, post management, and voting system.
+A modern, full-featured social media platform built with Vue.js 3, featuring real-time updates via WebSocket, user authentication, post management, and voting system. Deployed on Kubernetes with automated CI/CD.
 
 ## Features
 
@@ -272,25 +273,38 @@ MIT License - see LICENSE file for details.
 
 ---
 
-## AI Usage Declaration
+## Recent Updates
 
-This project was developed by human developers with AI tools used as coding assistants to improve productivity:
+### Ingress Configuration Fix (2025-01)
+- **Issue**: 404 errors on all API endpoints, 413 errors on image uploads
+- **Root Cause**: Missing NGINX Ingress rewrite annotations and body size limits
+- **Fix**: Updated `k8s/ingress.yaml` with proper path rewriting and size limits
+- **Changes**:
+  - Added `nginx.ingress.kubernetes.io/rewrite-target: /$2` annotation
+  - Added `nginx.ingress.kubernetes.io/use-regex: "true"` annotation
+  - Added `nginx.ingress.kubernetes.io/proxy-body-size: "10m"` for file uploads
+  - Updated path patterns to use regex: `/api(/|$)(.*)`
+- **Impact**: All API endpoints now work correctly, image uploads up to 10MB supported
 
-### How AI Was Used
-- **Code Completion**: For Vue component boilerplate and repetitive code patterns
-- **Problem Solving**: For debugging UI issues and exploring implementation approaches
-- **Documentation**: Assistance with README sections and code documentation
+### Kubernetes Deployment (2025-01)
+- Migrated from VM deployment to Kubernetes cluster
+- **Production URL**: https://devops-mezdit.kubernetes.devops.cs.ut.ee/posts
+- **Namespace**: `emzops-staging`
+- **Components**:
+  - Frontend deployment with NGINX
+  - Backend deployment with persistent storage
+  - PostgreSQL StatefulSet with Longhorn storage
+  - Ingress with TLS/SSL support
+  - RBAC for GitLab CI/CD deployment
+  - NetworkPolicy for Prometheus metrics
+- **CI/CD**: Automated deployment via GitLab pipelines using Kaniko for container builds
 
-### What Humans Did
-- 🧑‍💻 Designed the entire UI/UX, user flows, and component architecture
-- 🧑‍💻 Implemented all Vue components, state management, and routing logic
-- 🧑‍💻 Made all design decisions regarding layout, styling, and user interactions
-- 🧑‍💻 Integrated WebSocket for real-time features and handled edge cases
-- 🧑‍💻 Developed responsive design and ensured cross-browser compatibility
-- 🧑‍💻 Wrote and maintained the codebase, performed testing and bug fixes
-- 🧑‍💻 Set up build pipeline and deployment configuration
-
-**In Summary**: AI tools served as helpful assistants for suggestions and routine tasks, but all creative work, technical decisions, and implementation were done by the development team.
+### Week 11 Compliance (2025-01)
+- ✅ Separated metrics endpoint to port 9090
+- ✅ Added NetworkPolicy for Prometheus scraping
+- ✅ Configured persistent storage with Longhorn
+- ✅ Implemented liveness and readiness probes
+- ✅ Set up automated monitoring with Prometheus/Grafana
 
 ---
 
