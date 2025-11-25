@@ -6,9 +6,7 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    # WebSocket support
+    # WebSocket support - critical for WebSocket upgrade
     nginx.ingress.kubernetes.io/websocket-services: "devops-backend-service"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
@@ -22,28 +20,25 @@ spec:
   - host: devops-mezdit.kubernetes.devops.cs.ut.ee
     http:
       paths:
-      # Backend API - /api path (MUST be first)
-      # Regex: /api/posts -> /posts, /api/login -> /login
-      - path: /api(/|$)(.*)
-        pathType: ImplementationSpecific
+      # WebSocket - MUST be first to avoid being caught by /api regex
+      - path: /ws
+        pathType: Prefix
         backend:
           service:
             name: devops-backend-service
             port:
               number: 80
-      # WebSocket - preserve /ws path
-      # Pattern captures "ws" in $2 so rewrite keeps it: /ws -> /ws
-      - path: /()(ws.*)
-        pathType: ImplementationSpecific
+      # Backend API - /api path rewrites to / via configuration-snippet
+      - path: /api
+        pathType: Prefix
         backend:
           service:
             name: devops-backend-service
             port:
               number: 80
       # Frontend - Root path (MUST be last)
-      # Regex captures full path so rewrite-target /$2 works correctly
-      - path: /()(.*)
-        pathType: ImplementationSpecific
+      - path: /
+        pathType: Prefix
         backend:
           service:
             name: devops-frontend-service
