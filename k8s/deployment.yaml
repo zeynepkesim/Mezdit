@@ -5,6 +5,8 @@ metadata:
   namespace: emzops-staging
 spec:
   replicas: 1
+  strategy:
+    type: Recreate  # Required for RWO volumes - terminates old pod before creating new one
   selector:
     matchLabels:
       app: devops-backend
