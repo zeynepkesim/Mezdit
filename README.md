@@ -308,4 +308,18 @@ MIT License - see LICENSE file for details.
 
 ---
 
+## AI Usage Disclosure
+
+This project was developed with AI assistance for documentation purposes:
+
+**AI was used for:**
+- Writing and formatting README documentation
+- Generating code comments and inline documentation
+- Creating technical explanations and setup guides
+- Structuring documentation sections and examples
+
+The core development work, including all code implementation, design decisions, and technical solutions, was performed entirely by human developers. AI tools served only as assistants for documentation and explanation tasks.
+
+---
+
 **Built with ❤️ using Vue.js 3 and modern web technologies**
