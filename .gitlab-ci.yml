@@ -94,7 +94,6 @@ build-docker-image:
       --destination "${IMAGE_NAME}:latest"
       --cache=true
       --cache-ttl=24h
-      --cache-repo="${IMAGE_NAME}/cache"
     - echo "✅ Backend image pushed - $IMAGE_NAME:latest"
   retry:
     max: 2

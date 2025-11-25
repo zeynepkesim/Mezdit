@@ -961,4 +961,17 @@ WantedBy=multi-user.target
 - **Reason**: Pipeline was failing due to PVC access denial
 - **Note**: Requires manual application by cluster admin: `kubectl apply -f k8s/rbac.yaml`
 
+---
+
+## AI Usage Disclosure
+
+This project was developed with AI assistance for documentation purposes:
+
+**AI was used for:**
+- Writing and formatting README documentation
+- Generating code comments and docstrings
+- Creating technical explanations and architecture descriptions
+
+The core development work, including all code implementation, infrastructure setup, and technical decisions, was performed entirely by human developers. AI tools served only as assistants for documentation and explanation tasks.
+
 

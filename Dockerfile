@@ -1,6 +1,5 @@
 # Single stage build - avoids pulling multiple base images
-# Using GitLab's cached image to avoid Docker Hub rate limits
-FROM registry.gitlab.com/gitlab-org/cluster-integration/auto-build-image/master:golang-1.23-alpine
+FROM golang:1.23-alpine
 WORKDIR /app
 
 # Install ca-certificates
