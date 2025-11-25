@@ -221,6 +221,53 @@ func TestTokenWithDifferentSecrets(t *testing.T) {
 	}
 }
 
+// TestValidateToken_InvalidSigningMethod tests token with invalid signing method
+func TestValidateToken_InvalidSigningMethod(t *testing.T) {
+	// Create a token with a different signing method (RS256 instead of HS256)
+	claims := &Claims{
+		UserID:   1,
+		Username: "test_user",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	// Create token with None signing method (should fail validation)
+	token := jwt.NewWithClaims(jwt.SigningMethodNone, claims)
+	tokenString, _ := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
+
+	// Try to validate - should fail
+	_, err := ValidateToken(tokenString)
+	if err == nil {
+		t.Error("Token with invalid signing method should fail validation")
+	}
+}
+
+// TestValidateToken_TokenNotValid tests token that fails Valid check
+func TestValidateToken_TokenNotValid(t *testing.T) {
+	// Create an expired token
+	expiredClaims := &Claims{
+		UserID:   1,
+		Username: "test_user",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-24 * time.Hour)), // Expired 24 hours ago
+			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-48 * time.Hour)),
+			NotBefore: jwt.NewNumericDate(time.Now().Add(-48 * time.Hour)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, expiredClaims)
+	tokenString, _ := token.SignedString(getJWTSecret())
+
+	// Try to validate - should fail because token is expired
+	_, err := ValidateToken(tokenString)
+	if err == nil {
+		t.Error("Expired token should fail validation")
+	}
+}
+
 // TestJWTClaims tests the Claims structure
 func TestJWTClaims(t *testing.T) {
 	claims := &Claims{

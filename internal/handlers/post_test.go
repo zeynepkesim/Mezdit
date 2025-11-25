@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-// TestPostsHandler_GET tests GET /posts endpoint
+// TestPostsHandler_GET tests GET /posts endpoint without userId (public posts)
 func TestPostsHandler_GET(t *testing.T) {
-	t.Skip("Skipping database-dependent test")
+	t.Skip("Skipping database-dependent test - requires initialized DB")
 }
 
 // TestPostsHandler_OPTIONS tests OPTIONS request (CORS preflight)

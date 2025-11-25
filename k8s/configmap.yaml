@@ -5,4 +5,4 @@ metadata:
   namespace: emzops-staging
 data:
   PORT: "8080"
-  # Diğer non-sensitive environment variables buraya
+  # Other non-sensitive environment variables go here

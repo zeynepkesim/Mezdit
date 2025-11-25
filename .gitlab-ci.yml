@@ -115,6 +115,7 @@ deploy-to-k8s:
     # Note: RBAC is deployed manually by cluster admin, not via pipeline
     # ServiceAccount cannot modify its own RBAC permissions
     - kubectl apply -f k8s/configmap.yaml
+    - kubectl apply -f k8s/images-pvc.yaml
     - kubectl apply -f k8s/postgres-statefulset.yaml
     - kubectl apply -f k8s/deployment.yaml
     - kubectl apply -f k8s/service.yaml

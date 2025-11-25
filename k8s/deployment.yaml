@@ -48,3 +48,10 @@ spec:
             secretKeyRef:
               name: backend-secret
               key: DATABASE_URL
+        volumeMounts:
+        - name: images-storage
+          mountPath: /app/images
+      volumes:
+      - name: images-storage
+        persistentVolumeClaim:
+          claimName: backend-images-storage
