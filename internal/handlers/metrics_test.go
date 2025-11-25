@@ -100,11 +100,61 @@ func TestResponseWriter_Hijack(t *testing.T) {
 	}
 }
 
-func TestMetricsHandler(t *testing.T) {
-	t.Skip("Skipping MetricsHandler test - requires DB setup")
-	// MetricsHandler calls database.GetPosts() and database.GetAllUsers()
-	// which require a real database connection. We test the core metrics
-	// (requests, errors, latency) via MetricsMiddleware tests instead.
+func TestMetricsHandler_ResponseFormat(t *testing.T) {
+	// Reset metrics for clean test
+	atomic.StoreUint64(&totalRequests, 100)
+	atomic.StoreUint64(&totalErrors, 10)
+	atomic.StoreInt64(&totalLatency, 5000)
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	w := httptest.NewRecorder()
+
+	MetricsHandler(w, req)
+
+	// Check content type
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "text/plain; version=0.0.4" {
+		t.Errorf("Expected Content-Type 'text/plain; version=0.0.4', got '%s'", contentType)
+	}
+
+	// Check response contains metrics
+	body := w.Body.String()
+	
+	expectedMetrics := []string{
+		"app_requests_total",
+		"app_errors_total",
+		"app_request_latency_microseconds",
+		"# HELP",
+		"# TYPE",
+	}
+
+	for _, metric := range expectedMetrics {
+		if !contains(body, metric) {
+			t.Errorf("Expected response to contain '%s'", metric)
+		}
+	}
+
+	// Verify actual metric values are present
+	if !contains(body, "app_requests_total 100") {
+		t.Error("Expected to find 'app_requests_total 100' in response")
+	}
+	if !contains(body, "app_errors_total 10") {
+		t.Error("Expected to find 'app_errors_total 10' in response")
+	}
+	if !contains(body, "app_request_latency_microseconds 5000") {
+		t.Error("Expected to find 'app_request_latency_microseconds 5000' in response")
+	}
+}
+
+func TestMetricsHandler_StatusCode(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	w := httptest.NewRecorder()
+
+	MetricsHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
 }
 
 func TestResponseWriter_DefaultStatus(t *testing.T) {
