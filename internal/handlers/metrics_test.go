@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"devops-be/internal/database"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -101,6 +102,10 @@ func TestResponseWriter_Hijack(t *testing.T) {
 }
 
 func TestMetricsHandler_ResponseFormat(t *testing.T) {
+	if database.DB == nil {
+		t.Skip("Skipping MetricsHandler test - no database connection")
+	}
+
 	// Reset metrics for clean test
 	atomic.StoreUint64(&totalRequests, 100)
 	atomic.StoreUint64(&totalErrors, 10)
@@ -147,6 +152,10 @@ func TestMetricsHandler_ResponseFormat(t *testing.T) {
 }
 
 func TestMetricsHandler_StatusCode(t *testing.T) {
+	if database.DB == nil {
+		t.Skip("Skipping MetricsHandler test - no database connection")
+	}
+
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	w := httptest.NewRecorder()
 
