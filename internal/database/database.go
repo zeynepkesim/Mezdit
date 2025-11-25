@@ -68,7 +68,7 @@ func initGormDB(databaseURL string) error {
 
 	// GORM configuration
 	config := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info), // Show SQL queries in development
+		Logger: logger.Default.LogMode(logger.Silent), // Silent mode to prevent [error] logs in tests
 	}
 
 	// Connect with GORM
