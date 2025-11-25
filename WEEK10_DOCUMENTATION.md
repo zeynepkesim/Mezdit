@@ -2,7 +2,6 @@
 
 **Team:** emzops  
 **Namespace:** emzops-staging  
-**Date:** November 23, 2025  
 **Production URL:** https://devops-mezdit.kubernetes.devops.cs.ut.ee
 
 ---
@@ -205,19 +204,33 @@ kind: Service
 metadata:
   name: devops-backend-service
   namespace: emzops-staging
+  annotations:
+    # Prometheus annotations (Week 11)
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
 spec:
   type: ClusterIP  # Internal only
   selector:
     app: devops-backend  # Matches pod labels
   ports:
-  - protocol: TCP
+  - name: http
+    protocol: TCP
     port: 80           # Service port (what others connect to)
     targetPort: 8080   # Container port (where app listens)
+  - name: metrics
+    protocol: TCP
+    port: 9090         # Metrics port for Prometheus scraping
+    targetPort: 9090
 ```
 
 **How it works:**
 ```
+# API requests:
 Other pods → devops-backend-service:80 → backend pod:8080
+
+# Prometheus scraping:
+Prometheus → devops-backend-service:9090 → backend pod:9090
 ```
 
 **Frontend Service:**
@@ -323,6 +336,10 @@ metadata:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     # Force HTTPS
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # WebSocket support - critical for WebSocket upgrade
+    nginx.ingress.kubernetes.io/websocket-services: "devops-backend-service"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     # Rewrite paths for backend API
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/use-regex: "true"
@@ -337,6 +354,7 @@ spec:
     http:
       paths:
       # Backend API (MUST be first - most specific)
+      # Regex: /api/posts -> /posts, /api/login -> /login
       - path: /api(/|$)(.*)
         pathType: ImplementationSpecific
         backend:
@@ -345,9 +363,10 @@ spec:
             port:
               number: 80
       
-      # WebSocket
-      - path: /ws
-        pathType: Prefix
+      # WebSocket - preserve /ws path
+      # Pattern captures "ws" in $2 so rewrite keeps it: /ws -> /ws
+      - path: /()(ws.*)
+        pathType: ImplementationSpecific
         backend:
           service:
             name: devops-backend-service
@@ -355,8 +374,9 @@ spec:
               number: 80
       
       # Frontend (MUST be last - catch-all)
-      - path: /
-        pathType: Prefix
+      # Regex captures full path so rewrite-target /$2 works correctly
+      - path: /()(.*)
+        pathType: ImplementationSpecific
         backend:
           service:
             name: devops-frontend-service
@@ -372,11 +392,53 @@ spec:
 |---------|---------|-----------|--------------|
 | `/api/posts` | `/api(/\|$)(.*)` | backend-service | `/posts` |
 | `/api/login` | `/api(/\|$)(.*)` | backend-service | `/login` |
-| `/ws` | `/ws` | backend-service | `/ws` (no rewrite) |
-| `/` | `/` | frontend-service | `/` |
-| `/about` | `/` | frontend-service | `/about` |
+| `/ws` | `/()(ws.*)` | backend-service | `/ws` (preserved) |
+| `/` | `/()(.*)` | frontend-service | `/` |
+| `/about` | `/()(.*)` | frontend-service | `/about` |
 
-### Path Rewriting Explained
+### WebSocket Support
+
+**Challenge:** WebSocket connections require special handling:
+- HTTP Upgrade headers must be preserved
+- Long-lived connections need extended timeouts
+- Path rewriting must not break WebSocket handshake
+
+**Annotations for WebSocket:**
+
+```yaml
+annotations:
+  # Tell nginx which services handle WebSocket
+  nginx.ingress.kubernetes.io/websocket-services: "devops-backend-service"
+  # Extend timeouts for long-lived WebSocket connections
+  nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"  # 1 hour
+  nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"  # 1 hour
+```
+
+**WebSocket Path Pattern:**
+
+```yaml
+# Pattern: /()(ws.*)
+# This captures "ws" in $2, so rewrite-target: /$2 preserves the path
+- path: /()(ws.*)
+  pathType: ImplementationSpecific
+```
+
+**Why this pattern?**
+
+```
+Request:  /ws
+Matches:  /  (empty)  ws
+          ─  ───────  ──
+          literal $1  $2
+Rewrite:  /$2 = /ws  ✅ Path preserved!
+
+Without the pattern (old approach):
+Path: /ws
+Rewrite would conflict with global rewrite-target
+Result: WebSocket connection fails ❌
+```
+
+### API Path Rewriting Explained
 
 **Problem:** Backend app expects `/posts`, but external URL is `/api/posts`
 
@@ -889,6 +951,140 @@ kubectl rollout restart deployment/devops-backend -n emzops-staging
 | Registry credentials | | ✅ |
 
 **Rule of thumb:** If you wouldn't commit it to Git, it goes in a Secret!
+
+---
+
+## NetworkPolicy for Observability
+
+### Purpose
+
+NetworkPolicy is a Kubernetes resource that controls network traffic between pods using label selectors. For Week 11's observability requirements, we need to allow Prometheus to scrape metrics from our backend while maintaining security.
+
+### Why NetworkPolicy?
+
+**Security Benefits:**
+- ✅ Restrict which namespaces can access your pods
+- ✅ Limit exposure of metrics endpoints
+- ✅ Prevent unauthorized pod-to-pod communication
+- ✅ Implement zero-trust networking
+
+### Implementation
+
+**File:** `devops-be/k8s/networkpolicy.yaml`
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scraping
+  namespace: emzops-staging
+spec:
+  podSelector:
+    matchLabels:
+      app: devops-backend  # Apply to backend pods only
+  policyTypes:
+  - Ingress  # Control incoming traffic
+  ingress:
+  # Rule 1: Allow Prometheus to scrape metrics (port 9090)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: prometheus-stack
+    ports:
+    - protocol: TCP
+      port: 9090
+  
+  # Rule 2: Allow ingress controller traffic (API requests on port 8080)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Rule 3: Allow traffic from same namespace (frontend, postgres, etc.)
+  - from:
+    - podSelector: {}  # Empty selector = all pods in namespace
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 9090
+```
+
+### Traffic Flow with NetworkPolicy
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Prometheus (prometheus-stack namespace)            │
+│    ↓                                                 │
+│  NetworkPolicy Check                                │
+│    ├─ Source namespace: prometheus-stack ✅         │
+│    ├─ Target port: 9090 ✅                          │
+│    └─ ALLOW                                         │
+│    ↓                                                 │
+│  Backend Pod (emzops-staging namespace)             │
+│    Receives metrics scrape on port 9090             │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  External User → Ingress Controller                 │
+│    ↓                                                 │
+│  NetworkPolicy Check                                │
+│    ├─ Source namespace: ingress-nginx ✅            │
+│    ├─ Target port: 8080 ✅                          │
+│    └─ ALLOW                                         │
+│    ↓                                                 │
+│  Backend Pod receives API request                   │
+└─────────────────────────────────────────────────────┘
+```
+
+### Key Rules Explained
+
+| Rule | Source | Port | Purpose |
+|------|--------|------|---------|
+| 1 | `prometheus-stack` namespace | 9090 | Prometheus metrics scraping |
+| 2 | `ingress-nginx` namespace | 8080 | Public API access via Ingress |
+| 3 | Same namespace (any pod) | 8080, 9090 | Internal communication |
+
+### Deployment
+
+```bash
+# Apply NetworkPolicy
+kubectl apply -f k8s/networkpolicy.yaml
+
+# Verify it exists
+kubectl get networkpolicy -n emzops-staging
+
+# Describe the policy
+kubectl describe networkpolicy allow-prometheus-scraping -n emzops-staging
+```
+
+### Verification
+
+```bash
+# Check if Prometheus can reach metrics endpoint
+# Visit: https://monitoring.kubernetes.devops.cs.ut.ee
+# Navigate to: Status → Targets
+# Look for: emzops-staging/devops-backend-service endpoints
+
+# Test metrics endpoint via port-forward (bypasses NetworkPolicy)
+kubectl port-forward service/devops-backend-service -n emzops-staging 9090:9090
+curl http://localhost:9090/metrics
+```
+
+### What Happens Without NetworkPolicy?
+
+**Without NetworkPolicy:**
+- ❌ Any pod from any namespace can access your backend
+- ❌ Metrics endpoint exposed to entire cluster
+- ❌ No network segmentation
+
+**With NetworkPolicy:**
+- ✅ Only specific namespaces can access specific ports
+- ✅ Metrics only accessible to Prometheus
+- ✅ Defense-in-depth security
 
 ---
 

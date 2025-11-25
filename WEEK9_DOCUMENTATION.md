@@ -11,209 +11,215 @@
 1. [Overview](#overview)
 2. [Container Image Building](#container-image-building)
 3. [Image Tagging and Versioning Strategy](#image-tagging-and-versioning-strategy)
-4. [GitLab Container Registry Push Process](#gitlab-container-registry-push-process)
-5. [Kubernetes Deployment Structure](#kubernetes-deployment-structure)
-6. [Private Registry Authentication](#private-registry-authentication)
-7. [Secret Management](#secret-management)
-8. [Testing and Verification](#testing-and-verification)
+
+# Week 9 - Kubernetes Deployment Documentation
+
+**Team:** emzops  
+**Namespace:** emzops-staging  
+**Application URL:** https://devops-mezdit.kubernetes.devops.cs.ut.ee
 
 ---
 
 ## Overview
 
-This document describes the Week 9 Kubernetes deployment implementation for our DevOps project. We have successfully migrated our application from VM-based deployment to Kubernetes cluster deployment.
+This document describes the Week 9 Kubernetes deployment for our DevOps project, reflecting the current, production-grade setup. The application is now fully containerized and deployed on Kubernetes, with automated CI/CD, secure secret management, and robust networking.
 
-### Architecture Summary
+### Architecture
 
 ```
-GitLab Pipeline → Build Container Images → GitLab Registry → Kubernetes Cluster
-                                                              ↓
-                                          namespace: emzops-staging
-                                          ├── Backend (Go application)
-                                          ├── Frontend (Vue.js + Nginx)
-                                          └── PostgreSQL (StatefulSet)
+GitLab CI/CD → Build & Push Images → GitLab Registry → Kubernetes Cluster
+                                                    ↓
+                                    namespace: emzops-staging
+                                    ├── Backend (Go, port 8080)
+                                    ├── Frontend (Vue.js + Nginx, port 80)
+                                    └── PostgreSQL (StatefulSet, port 5432)
 ```
-
-### Key Components
-
-- **Backend**: Go 1.23 application running on port 8080
-- **Frontend**: Vue.js application served by Nginx on port 80
-- **Database**: PostgreSQL 15 (StatefulSet with 1Gi persistent volume)
-- **Ingress**: Automatic TLS termination with cert-manager
-- **Replicas**: 1 replica for each deployment (Phase 3 requirement)
 
 ---
 
 ## Container Image Building
 
-### Backend Image Build
+### Backend (Go) Multi-Stage Build
 
-**Technology:** Kaniko (rootless container builder)  
-**Base Image:** `golang:1.23-alpine`  
-**Build Location:** GitLab CI/CD Pipeline
+**Tool:** Kaniko (in CI/CD)  
+**Base Image:** `golang:1.23-alpine` (build), `alpine:latest` (run)
 
-#### Dockerfile Structure (Backend)
-
+**Dockerfile:**
 ```dockerfile
-# Single stage build
-FROM golang:1.23-alpine
+# --- Build Stage ---
+FROM golang:1.23-alpine AS builder
 WORKDIR /app
-
-# Install ca-certificates for HTTPS
 RUN apk --no-cache add ca-certificates
-
-# Copy source code
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-
-# Ensure Go 1.23 compatibility
-RUN go mod tidy
-
-# Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o main .
 
+# --- Run Stage ---
+FROM alpine:latest
+WORKDIR /root/
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /app/main .
 EXPOSE 8080
 CMD ["./main"]
 ```
 
-**Key Features:**
-- ✅ Alpine Linux for minimal image size
-- ✅ Static binary compilation (`CGO_ENABLED=0`)
-- ✅ CA certificates included for secure connections
-- ✅ Go mod tidy ensures dependency compatibility
+### Frontend (Vue.js + Nginx) Multi-Stage Build
 
-### Frontend Image Build
+**Tool:** Kaniko (in CI/CD)  
+**Base Images:** `node:22-alpine` (build), `nginx:alpine` (run)
 
-**Technology:** Kaniko (rootless container builder)  
-**Base Image:** `node:22-alpine` (build), `nginx:alpine` (production)  
-**Build Location:** GitLab CI/CD Pipeline
-
-#### Dockerfile Structure (Frontend)
-
+**Dockerfile:**
 ```dockerfile
-# Multi-stage build
-# Stage 1: Build Vue.js application
+# Build stage
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
-
-# Stage 2: Production nginx server
+# Production stage
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-**Key Features:**
-- ✅ Multi-stage build (reduced final image size)
-- ✅ `npm ci` for reproducible builds
-- ✅ Custom nginx configuration for SPA routing
-- ✅ Alpine Linux for minimal footprint
+---
 
-### GitLab CI/CD Pipeline Configuration
+## CI/CD Pipeline & Image Tagging
 
-Both backend and frontend use similar CI/CD pipeline structure:
-
-#### Pipeline Stages
-
+**Pipeline Stages:**
 ```yaml
 stages:
-  - security      # Secret scanning with gitleaks
-  - test          # Unit tests (backend only)
-  - build         # Compile application
-  - build-image   # Build container image
-  - deploy        # Deploy to Kubernetes
+  - security
+  - test
+  - build
+  - build-image
+  - deploy
 ```
 
-#### Build Image Stage (Example - Backend)
+**Image Tagging:**
+- `latest`: Most recent build from `main`
+- `<commit-sha>`: Immutable version for rollback
 
-```yaml
-build-docker-image:
-  stage: build-image
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.0-debug
-    entrypoint: [""]
-  script:
-    - echo "Building backend container image with Kaniko..."
-    - mkdir -p /kaniko/.docker
-    # Create Docker config with GitLab credentials
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
-    # Build and push with Kaniko
-    - >-
-      /kaniko/executor
-      --context "${CI_PROJECT_DIR}"
-      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
-      --destination "${IMAGE_NAME}:${IMAGE_TAG}"
-      --destination "${IMAGE_NAME}:latest"
-      --cache=true
-      --cache-ttl=24h
-    - echo "✅ Backend image pushed - $IMAGE_NAME:latest"
-  only:
-    - main
-```
-
-**Why Kaniko?**
-- ✅ Builds containers without requiring Docker daemon
-- ✅ Works in unprivileged CI/CD environments
-- ✅ Supports layer caching for faster builds
-- ✅ Directly pushes to container registry
-
----
-
-## Image Tagging and Versioning Strategy
-
-### Tagging Strategy
-
-We use a **dual-tag approach** for container images:
-
-1. **`latest` tag**: Always points to the most recent build from `main` branch
-2. **Git commit SHA tag**: Specific version for rollback capability
-
-#### Implementation
-
-```yaml
-variables:
-  IMAGE_NAME: $CI_REGISTRY_IMAGE
-  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
-```
-
-**Example image tags:**
+**Example:**
 - `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest`
-- `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:a1b2c3d`
-
-### Benefits
-
-| Tag | Purpose | Use Case |
-|-----|---------|----------|
-| `latest` | Always current | Kubernetes deployments, testing |
-| `<commit-sha>` | Specific version | Rollback, debugging, audit trail |
-
-### Version Control
-
-- ✅ Every `main` branch commit creates a new tagged image
-- ✅ Commit SHA provides immutable reference
-- ✅ GitLab Container Registry stores all historical versions
-- ✅ Easy rollback using `kubectl set image` with specific tag
+- `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:abc1234`
 
 ---
 
-## GitLab Container Registry Push Process
+## Kubernetes Deployment Structure
 
-### Registry Details
+**Namespace:** `emzops-staging`
 
-**Backend Registry:**  
-`registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be`
+**Key Resources:**
+- Deployments: `devops-backend`, `devops-frontend`
+- StatefulSet: `postgres`
+- Services: `devops-backend-service`, `devops-frontend-service`, `postgres-service`
+- Ingress: `devops-backend-ingress` (TLS enabled)
+- ConfigMaps: `backend-config`, `frontend-config`
+- Secrets: `gitlab-registry-secret`, `frontend-registry-secret`, `backend-secret`, `postgres-superuser-secret`
 
-**Frontend Registry:**  
-`registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-fe`
+**Backend Deployment Example:**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-backend
+  namespace: emzops-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devops-backend
+  template:
+    metadata:
+      labels:
+        app: devops-backend
+    spec:
+      imagePullSecrets:
+        - name: gitlab-registry-secret
+      containers:
+      - name: backend
+        image: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: PORT
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: DATABASE_URL
+```
+
+---
+
+## Private Registry Authentication
+
+**ImagePullSecrets** are used for GitLab Container Registry authentication. Secrets are created using deploy tokens and referenced in deployments.
+
+**Example:**
+```bash
+kubectl create secret docker-registry gitlab-registry-secret \
 
 ### Authentication Flow
 
 ```
+```
+
+---
+
+## Secret Management
+
+- All sensitive data (e.g., `DATABASE_URL`, DB credentials) is managed via Kubernetes Secrets.
+- Secret manifests are templated and not committed to Git (see `.gitignore`).
+- Secrets are injected as environment variables into pods.
+
+**Example Secret:**
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: emzops-staging
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://devops:<password>@postgres-service:5432/devops"
+```
+
+---
+
+## Testing and Verification
+
+- Port-forwarding is used to test pods and services locally.
+- All deployments, services, and secrets are verified with `kubectl` commands.
+- Ingress is tested for HTTPS and routing.
+
+**Example:**
+```bash
+kubectl port-forward deployment/devops-backend -n emzops-staging 8080:8080
+curl -I http://localhost:8080
+```
+
+---
+
+## Summary
+
+All Week 9 requirements are fully met:
+- CI/CD builds and pushes images
+- Private registry authentication
+- Secure secret management
+- Kubernetes deployment with Ingress and TLS
+- Port-forwarding and verification
+
+> This document is up-to-date as of November 2025 and reflects the current state of the project.
 GitLab CI/CD Pipeline
   ↓
 Uses built-in variables:
