@@ -5,7 +5,7 @@ metadata:
   namespace: emzops-staging
   annotations:
     prometheus.io/scrape: "true"
-    prometheus.io/port: "8080"
+    prometheus.io/port: "9090"
     prometheus.io/path: "/metrics"
 spec:
   selector:
@@ -17,6 +17,6 @@ spec:
     targetPort: 8080
   - name: metrics
     protocol: TCP
-    port: 8080
-    targetPort: 8080
+    port: 9090
+    targetPort: 9090
   type: ClusterIP

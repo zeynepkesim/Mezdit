@@ -20,6 +20,9 @@ spec:
         image: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest
         ports:
         - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
         livenessProbe:
           httpGet:
             path: /healthz

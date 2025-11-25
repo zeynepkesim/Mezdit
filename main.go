@@ -59,13 +59,20 @@ func main() {
 	mux.HandleFunc("/healthz", handlers.HealthzHandler)
 	mux.HandleFunc("/readyz", handlers.ReadyzHandler)
 
-	// Metrics endpoint (on main port for now)
-	mux.HandleFunc("/metrics", handlers.MetricsHandler)
-
 	// Wrap with metrics middleware
 	handler := handlers.MetricsMiddleware(mux)
 
-	fmt.Println("Server running on http://localhost:8080")
+	// Metrics server (separate port for Week 11 requirement)
+	metricsServeMux := http.NewServeMux()
+	metricsServeMux.HandleFunc("/metrics", handlers.MetricsHandler)
+	go func() {
+		fmt.Println("📊 Metrics server running on http://localhost:9090/metrics")
+		if err := http.ListenAndServe(":9090", metricsServeMux); err != nil {
+			log.Fatalf("Metrics server failed: %v", err)
+		}
+	}()
+
+	fmt.Println("🚀 Server running on http://localhost:8080")
 	fmt.Println("WebSocket Hub initialized - Real-time updates enabled")
 	fmt.Println("JWT Authentication enabled - Token expiry: 24 hours")
 	fmt.Println("CORS enabled for all origins")
@@ -86,5 +93,8 @@ func main() {
 	fmt.Println("    POST /posts/upload")
 	fmt.Println("    POST /upload (Image upload)")
 	fmt.Println("    POST /vote")
+	fmt.Println("")
+	fmt.Println("  📊 Metrics endpoint (separate port):")
+	fmt.Println("    GET  http://localhost:9090/metrics")
 	log.Fatal(http.ListenAndServe(":8080", handler))
 }
