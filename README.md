@@ -60,12 +60,71 @@ This project is deployed on Kubernetes cluster with automated CI/CD via GitLab p
 
 ### Architecture
 
+**High-Level Components:**
 - **Backend**: Deployment with 1 replica
 - **Database**: StatefulSet (PostgreSQL 15)
 - **Storage**: Longhorn PVC (2Gi for images, 1Gi for database)
 - **Ingress**: NGINX with TLS certificate (cert-manager)
 - **Namespace**: `emzops-staging`
 - **Production URL**: https://devops-mezdit.kubernetes.devops.cs.ut.ee
+
+**Traffic Flow:**
+
+```
+Internet (HTTPS)
+    ↓
+Ingress Controller (NGINX + TLS/cert-manager)
+    ├─ /api/* → backend-service:80
+    ├─ /ws → backend-service:80 (WebSocket)
+    └─ /* → frontend-service:80
+    ↓
+Services (ClusterIP)
+    ├─ backend-service
+    │   └─ Selector: app=devops-backend
+    │   └─ Ports: 80→8080 (http), 9090→9090 (metrics)
+    │
+    ├─ frontend-service
+    │   └─ Selector: app=devops-frontend
+    │   └─ Port: 80→80
+    │
+    └─ postgres-service (Headless)
+        └─ Selector: app=postgres
+        └─ Port: 5432→5432
+    ↓
+Pods
+    ├─ devops-backend (1 replica)
+    │   ├─ Container Port 8080: HTTP API + WebSocket
+    │   ├─ Container Port 9090: Prometheus metrics
+    │   ├─ Volume Mount: /app/images → backend-images-storage (PVC)
+    │   ├─ Liveness Probe: /healthz
+    │   └─ Readiness Probe: /readyz
+    │
+    ├─ devops-frontend (1 replica)
+    │   └─ Container Port 80: NGINX serving React build
+    │
+    └─ postgres-0 (StatefulSet)
+        ├─ Container Port 5432: PostgreSQL
+        └─ Volume Mount: /var/lib/postgresql/data → postgres-storage-postgres-0 (PVC)
+    ↓
+Persistent Storage (Longhorn)
+    ├─ backend-images-storage (2Gi, RWO)
+    └─ postgres-storage-postgres-0 (1Gi, RWO)
+```
+
+**Request Flow Example:**
+```
+User → https://devops-mezdit.kubernetes.devops.cs.ut.ee/api/posts
+  ↓
+Ingress (TLS termination) → Routes /api/* to backend-service:80
+  ↓
+backend-service → Load balances to devops-backend Pod:8080
+  ↓
+Backend Pod → Queries postgres-service:5432
+  ↓
+postgres-0 Pod → Returns data
+  ↓
+Response → backend-service → Ingress → User
+```
 
 ### GitLab CI/CD Pipeline
 
@@ -90,12 +149,43 @@ The pipeline consists of **5 stages**:
    - Tags with `latest` and commit SHA
    - Pushes to GitLab Container Registry
    - Image: `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest`
+   
+   **Kaniko Build Command:**
+   ```bash
+   /kaniko/executor \
+     --context "${CI_PROJECT_DIR}" \
+     --dockerfile "${CI_PROJECT_DIR}/Dockerfile" \
+     --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}" \
+     --destination "${CI_REGISTRY_IMAGE}:latest"
+   ```
+   
+   **Image Tagging Strategy:**
+   - `latest`: Updated on every main branch push (for development/testing)
+   - `${CI_COMMIT_SHA}`: Immutable tag with commit hash (for production/rollback)
+   - Example: `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:a1b2c3d4`
+   
+   **Registry Authentication:**
+   GitLab CI/CD automatically provides credentials:
+   - `CI_REGISTRY`: registry.gitlab.cs.ut.ee
+   - `CI_REGISTRY_USER`: gitlab-ci-token
+   - `CI_REGISTRY_PASSWORD`: Auto-generated token
+   - `CI_REGISTRY_IMAGE`: Full image path
 
 5. **Deploy to Kubernetes Stage** (main branch only)
    - Uses `kubectl` to apply Kubernetes manifests
    - Deploys to `emzops-staging` namespace
    - Rolling update with zero downtime
    - Waits for deployment to be ready
+   
+   **Deployment Commands:**
+   ```bash
+   kubectl apply -f k8s/configmap.yaml
+   kubectl apply -f k8s/images-pvc.yaml
+   kubectl apply -f k8s/postgres-statefulset.yaml
+   kubectl apply -f k8s/deployment.yaml
+   kubectl apply -f k8s/service.yaml
+   kubectl rollout status deployment/devops-backend -n emzops-staging
+   ```
 
 ### Kubernetes Manifest Files
 
@@ -112,6 +202,43 @@ All Kubernetes resources are defined in the `k8s/` directory:
 | `images-pvc.yaml` | Persistent volume claim for uploaded images (Longhorn) |
 | `rbac.yaml` | ServiceAccount, Role, RoleBinding for GitLab CI/CD |
 | `networkpolicy.yaml` | Network security (allows Prometheus + Ingress) |
+
+### Private Registry Authentication
+
+**How Pods Access GitLab Container Registry:**
+
+Pods use `imagePullSecrets` to authenticate with the private GitLab Container Registry.
+
+**Secret Configuration:**
+The `gitlab-registry-secret` was created by cluster admin:
+```bash
+kubectl create secret docker-registry gitlab-registry-secret \
+  --docker-server=registry.gitlab.cs.ut.ee \
+  --docker-username=<gitlab-username> \
+  --docker-password=<gitlab-token> \
+  --docker-email=<email> \
+  -n emzops-staging
+```
+
+**Deployment Configuration:**
+```yaml
+# k8s/deployment.yaml
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+      - name: gitlab-registry-secret  # ← Authenticates with registry
+      containers:
+      - name: backend
+        image: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest
+```
+
+**How it works:**
+1. Kubernetes tries to pull image from registry
+2. Checks `imagePullSecrets` in Pod spec
+3. Uses credentials from `gitlab-registry-secret`
+4. Authenticates with GitLab Container Registry
+5. Pulls image successfully
 
 ### RBAC and Access
 
@@ -445,19 +572,113 @@ ingress:
 
 **Grafana Dashboard:**
 
-- **Access**: https://monitoring.kubernetes.devops.cs.ut.ee
+- **Dashboard URL**: https://monitoring.kubernetes.devops.cs.ut.ee/d/eef7whv/emzops-dashboard
+- **Access**: https://monitoring.kubernetes.devops.cs.ut.ee (University credentials via OIDC-Keycloak)
 - **Team Folder**: emzops
-- **Panels**:
-  1. Request Rate (`rate(app_requests_total[5m])`)
-  2. Error Rate (`rate(app_errors_total[5m])`)
-  3. Average Latency (`rate(app_request_latency_microseconds[5m]) / rate(app_requests_total[5m])`)
-  4. Posts Count (`app_posts_total`)
-  5. Users Count (`app_users_total`)
-  6. Backend Health (`up{job="devops-backend"}`)
-  7. Database Health (`up{job="postgres"}`)
-  8. Storage Usage (PV usage percentage)
-  9. CPU Usage (container CPU)
-  10. Memory Usage (container memory)
+
+**Important PromQL Queries:**
+
+1. **Request Rate (requests/sec):**
+   ```promql
+   rate(app_requests_total{namespace="emzops-staging"}[5m])
+   ```
+
+2. **Error Percentage:**
+   ```promql
+   (rate(app_errors_total{namespace="emzops-staging"}[5m]) / 
+    rate(app_requests_total{namespace="emzops-staging"}[5m])) * 100
+   ```
+
+3. **Average Latency (milliseconds):**
+   ```promql
+   (rate(app_request_latency_microseconds{namespace="emzops-staging"}[5m]) / 
+    rate(app_requests_total{namespace="emzops-staging"}[5m])) / 1000
+   ```
+
+4. **Posts Count:**
+   ```promql
+   app_posts_total{namespace="emzops-staging"}
+   ```
+
+5. **Users Count:**
+   ```promql
+   app_users_total{namespace="emzops-staging"}
+   ```
+
+6. **Backend Health Status:**
+   ```promql
+   up{job="devops-backend",namespace="emzops-staging"}
+   ```
+
+7. **Database Health Status:**
+   ```promql
+   up{job="postgres",namespace="emzops-staging"}
+   ```
+
+8. **Storage Usage (percentage):**
+   ```promql
+   (kubelet_volume_stats_used_bytes{persistentvolumeclaim="backend-images-storage"} / 
+    kubelet_volume_stats_capacity_bytes{persistentvolumeclaim="backend-images-storage"}) * 100
+   ```
+
+9. **Pod CPU Usage (percentage):**
+   ```promql
+   rate(container_cpu_usage_seconds_total{pod=~"devops-backend.*",namespace="emzops-staging"}[5m]) * 100
+   ```
+
+10. **Pod Memory Usage (MB):**
+    ```promql
+    container_memory_usage_bytes{pod=~"devops-backend.*",namespace="emzops-staging"} / 1024 / 1024
+    ```
+
+### Testing Health Endpoints
+
+**Local Testing:**
+```bash
+# Start application locally
+go run .
+
+# Test healthz
+curl http://localhost:8080/healthz
+# Expected: ok
+
+# Test readyz
+curl http://localhost:8080/readyz
+# Expected: ok (if database connected)
+```
+
+**Kubernetes Testing:**
+```bash
+# Port-forward to pod
+kubectl port-forward deployment/devops-backend 8080:8080 -n emzops-staging
+
+# Test in another terminal
+curl http://localhost:8080/healthz
+curl http://localhost:8080/readyz
+
+# Or exec into pod
+kubectl exec -it deployment/devops-backend -n emzops-staging -- sh
+wget -qO- http://localhost:8080/healthz
+wget -qO- http://localhost:8080/readyz
+exit
+```
+
+**Production Testing (via Ingress):**
+```bash
+# If exposed publicly
+curl https://devops-mezdit.kubernetes.devops.cs.ut.ee/healthz
+curl https://devops-mezdit.kubernetes.devops.cs.ut.ee/readyz
+```
+
+**Verify Probes in Kubernetes:**
+```bash
+# Check probe configuration
+kubectl describe deployment devops-backend -n emzops-staging | grep -A 5 "Liveness\|Readiness"
+
+# Check probe status
+kubectl get pods -n emzops-staging
+# READY column shows readiness: 1/1 means ready
+```
 
 ## Environment Variables
 
