@@ -117,8 +117,6 @@ deploy-to-k8s:
     - chmod 600 ~/.kube/config
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging..."
-    # Note: RBAC is deployed manually by cluster admin, not via pipeline
-    # ServiceAccount cannot modify its own RBAC permissions
     - kubectl apply -f k8s/configmap.yaml
     - kubectl apply -f k8s/images-pvc.yaml
     - kubectl apply -f k8s/postgres-statefulset.yaml

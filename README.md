@@ -54,13 +54,22 @@ go run .
 
 **Note**: We use the default `postgres` database that comes with PostgreSQL installation.
 
-## 🚀 Deployment
+## 🚀 Kubernetes Deployment
 
-This project includes automated CI/CD deployment to a VM using GitLab pipelines with security scanning.
+This project is deployed on Kubernetes cluster with automated CI/CD via GitLab pipelines.
+
+### Architecture
+
+- **Backend**: Deployment with 1 replica
+- **Database**: StatefulSet (PostgreSQL 15)
+- **Storage**: Longhorn PVC (2Gi for images, 1Gi for database)
+- **Ingress**: NGINX with TLS certificate (cert-manager)
+- **Namespace**: `emzops-staging`
+- **Production URL**: https://devops-mezdit.kubernetes.devops.cs.ut.ee
 
 ### GitLab CI/CD Pipeline
 
-The pipeline consists of four stages:
+The pipeline consists of **5 stages**:
 
 1. **Security Stage**
    - Secrets detection using Gitleaks
@@ -74,56 +83,127 @@ The pipeline consists of four stages:
 
 3. **Build Stage**
    - Compiles Go binary
-   - Stores artifact for deployment
+   - Validates build success
 
-4. **Deploy Stage** (main branch only)
-   - Automatically deploys to VM via SSH
-   - Restarts systemd service
-   - Zero-downtime deployment
+4. **Build Image Stage**
+   - Builds Docker image using Kaniko (rootless, secure)
+   - Tags with `latest` and commit SHA
+   - Pushes to GitLab Container Registry
+   - Image: `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest`
 
-### Quick Deployment Setup
+5. **Deploy to Kubernetes Stage** (main branch only)
+   - Uses `kubectl` to apply Kubernetes manifests
+   - Deploys to `emzops-staging` namespace
+   - Rolling update with zero downtime
+   - Waits for deployment to be ready
 
-**Prerequisites:**
-- VM with SSH access
-- PostgreSQL installed on VM
-- GitLab repository access
+### Kubernetes Manifest Files
 
-**Steps:**
+All Kubernetes resources are defined in the `k8s/` directory:
 
-1. **Create SSH key pair:**
-   ```bash
-   ssh-keygen -t rsa -b 4096 -C "gitlab-ci@devops-be" -f ~/.ssh/gitlab-ci-devops-be
-   ```
+| File | Purpose |
+|------|---------|
+| `deployment.yaml` | Backend application deployment (1 replica, health probes, metrics port) |
+| `service.yaml` | ClusterIP service with Prometheus annotations |
+| `ingress.yaml` | External access with TLS/HTTPS (cert-manager) |
+| `configmap.yaml` | Non-sensitive environment variables (PORT, LOG_LEVEL) |
+| `secret.yaml` | Sensitive data (DATABASE_URL) - **NOT in Git** |
+| `postgres-statefulset.yaml` | PostgreSQL database with persistent storage |
+| `images-pvc.yaml` | Persistent volume claim for uploaded images (Longhorn) |
+| `rbac.yaml` | ServiceAccount, Role, RoleBinding for GitLab CI/CD |
+| `networkpolicy.yaml` | Network security (allows Prometheus + Ingress) |
 
-2. **Encode SSH private key with base64:**
-   ```bash
-   # Encode to prevent exposure in logs
-   cat ~/.ssh/gitlab-ci-devops-be | base64 | tr -d '\n'
-   # Copy the output (long base64 string)
-   ```
+### RBAC and Access
 
-3. **Add GitLab CI/CD variables** (Settings → CI/CD → Variables):
-   - `SSH_PRIVATE_KEY` - Base64-encoded private key (masked)
-   - `VM_HOST` - VM hostname/IP address
-   - `VM_USER` - VM username (e.g., `ubuntu`)
+**GitLab CI/CD Access to Kubernetes:**
 
-   **Important:** Mark `SSH_PRIVATE_KEY` as "Masked" in GitLab to prevent exposure in logs
+1. **ServiceAccount**: `gitlab-deploy` (in `emzops-staging` namespace)
+2. **Role**: `gitlab-deploy-role` with permissions to manage deployments, services, configmaps, secrets, etc.
+3. **RoleBinding**: Binds the ServiceAccount to the Role
+4. **KUBECONFIG**: Stored as base64-encoded GitLab CI/CD variable (`KUBECONFIG_CONTENT`)
 
-4. **Configure VM** (see [DEPLOYMENT.md](DEPLOYMENT.md) for details):
-   - Add SSH public key to VM
-   - Create systemd service
-   - Grant sudo permissions
-   - Configure PostgreSQL
+**How it works:**
+- GitLab pipeline decodes KUBECONFIG
+- Authenticates as `gitlab-deploy` ServiceAccount
+- Applies Kubernetes manifests using `kubectl`
+- Kubernetes validates permissions via RBAC
 
-5. **Push to main branch:**
-   ```bash
-   git push origin main
-   ```
+### Deployment Workflow
 
-Your application will automatically deploy to the VM! 🎉
+```
+1. Developer pushes code to main branch
+   ↓
+2. GitLab CI/CD pipeline triggered
+   ↓
+3. Security scan (Gitleaks) → Tests → Build
+   ↓
+4. Kaniko builds Docker image
+   ↓
+5. Image pushed to GitLab Container Registry
+   ↓
+6. kubectl applies manifests to Kubernetes
+   ↓
+7. Kubernetes performs rolling update
+   ↓
+8. New Pod created, health checks pass
+   ↓
+9. Old Pod terminated
+   ↓
+10. Application accessible via HTTPS
+```
 
-**📚 For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)**
-**🔒 For Week 7 security changes, see [WEEK7_CHANGES.md](WEEK7_CHANGES.md)**
+### Configuration Management
+
+**Non-Sensitive Data (ConfigMap):**
+```yaml
+# k8s/configmap.yaml
+data:
+  PORT: "8080"
+  LOG_LEVEL: "info"
+```
+
+**Sensitive Data (Secret):**
+```yaml
+# k8s/secret.yaml (NOT in Git)
+stringData:
+  DATABASE_URL: "postgresql://user:pass@postgres-service:5432/devops"
+```
+
+**Usage in Deployment:**
+```yaml
+env:
+- name: PORT
+  valueFrom:
+    configMapKeyRef:
+      name: backend-config
+      key: PORT
+- name: DATABASE_URL
+  valueFrom:
+    secretKeyRef:
+      name: backend-secret
+      key: DATABASE_URL
+```
+
+**✅ No hardcoded values in code**
+**✅ No secrets in GitLab repository**
+**✅ Environment-specific configuration**
+
+### Persistent Storage
+
+**Images Storage (Longhorn PVC):**
+- **Size**: 2Gi
+- **Access Mode**: ReadWriteOnce
+- **Storage Class**: longhorn
+- **Mount Path**: `/app/images`
+- **Persists**: Uploaded images survive Pod restarts
+
+**Database Storage (StatefulSet):**
+- **Size**: 1Gi
+- **Access Mode**: ReadWriteOnce
+- **Mount Path**: `/var/lib/postgresql/data`
+- **Persists**: Database data survives Pod restarts
+
+**📚 For detailed Kubernetes setup, see [KUBERNETES_SETUP.md](KUBERNETES_SETUP.md)**
 
 ### Adding New Fields
 
@@ -164,19 +244,220 @@ Server runs on http://localhost:8080
 
 **GORM Auto-Migration:** Tables (`users`, `posts`, `images`, `user_votes`) are created automatically. To add new fields, just update models in `internal/models/models.go` and restart the server.
 
-## 🚀 Deployment
+## � Monitoring and Observability
 
-**GitLab CI/CD Pipeline** (3 stages):
-1. **Test**: Code formatting, unit tests with PostgreSQL, coverage calculation (target: >50%)
-2. **Build**: Compiles Go binary
-3. **Deploy**: Auto-deploys to VM via SSH on main branch push
+### Health Check Endpoints
 
-**Setup GitLab CI/CD variables:**
-- `SSH_PRIVATE_KEY` - Your private key
-- `VM_HOST` - VM hostname/IP
-- `VM_USER` - VM username
+The application implements two health check endpoints for Kubernetes probes:
 
-**📚 For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)**
+#### `/healthz` - Liveness Probe
+- **Purpose**: Checks if the application is running
+- **Implementation**: `internal/handlers/health.go`
+- **Response**: HTTP 200 "ok"
+- **Used by**: Kubernetes liveness probe (restarts Pod if fails)
+- **Check**: Simple application health (no external dependencies)
+
+```go
+func HealthzHandler(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte("ok"))
+}
+```
+
+#### `/readyz` - Readiness Probe
+- **Purpose**: Checks if the application is ready to serve traffic
+- **Implementation**: `internal/handlers/health.go`
+- **Response**: HTTP 200 "ok" if ready, 503 if not
+- **Used by**: Kubernetes readiness probe (removes from Service if fails)
+- **Check**: Database connectivity
+
+```go
+func ReadyzHandler(w http.ResponseWriter, r *http.Request) {
+    if database.DB == nil {
+        w.WriteHeader(http.StatusServiceUnavailable)
+        w.Write([]byte("db not ready"))
+        return
+    }
+    if err := database.DB.Ping(); err != nil {
+        w.WriteHeader(http.StatusServiceUnavailable)
+        w.Write([]byte("db not ready"))
+        return
+    }
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte("ok"))
+}
+```
+
+### Metrics Endpoint
+
+#### `/metrics` - Prometheus Metrics
+- **Port**: 9090 (separate from main app port 8080)
+- **Implementation**: `internal/handlers/metrics.go`
+- **Format**: Prometheus text format
+- **Access**: http://localhost:9090/metrics (via port-forward)
+
+**Collected Metrics (5 total):**
+
+| Metric | Type | Description | Golden Signal |
+|--------|------|-------------|---------------|
+| `app_requests_total` | Counter | Total HTTP requests | Traffic |
+| `app_errors_total` | Counter | Total HTTP errors (4xx, 5xx) | Errors |
+| `app_request_latency_microseconds` | Counter | Total request latency | Latency |
+| `app_posts_total` | Gauge | Current number of posts | Custom |
+| `app_users_total` | Gauge | Current number of users | Custom |
+
+**Metrics Middleware:**
+```go
+// Tracks requests, errors, and latency for every HTTP request
+func MetricsMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        atomic.AddUint64(&totalRequests, 1)
+        
+        ww := &responseWriter{ResponseWriter: w, status: 200}
+        next.ServeHTTP(ww, r)
+        
+        if ww.status >= 400 {
+            atomic.AddUint64(&totalErrors, 1)
+        }
+        
+        latency := time.Since(start).Microseconds()
+        atomic.AddInt64(&totalLatency, latency)
+    })
+}
+```
+
+**Separate Metrics Server:**
+```go
+// main.go - Metrics server on port 9090
+metricsServeMux := http.NewServeMux()
+metricsServeMux.HandleFunc("/metrics", handlers.MetricsHandler)
+go func() {
+    http.ListenAndServe(":9090", metricsServeMux)
+}()
+```
+
+### Kubernetes Monitoring Setup
+
+#### Liveness and Readiness Probes
+
+**Deployment Configuration (`k8s/deployment.yaml`):**
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 5   # Wait 5s before first check
+  periodSeconds: 10         # Check every 10s
+  failureThreshold: 3       # Restart after 3 failures
+  timeoutSeconds: 5
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+  timeoutSeconds: 5
+```
+
+**How it works:**
+- **Liveness**: Kubernetes checks `/healthz` every 10 seconds. If it fails 3 times, Pod is restarted.
+- **Readiness**: Kubernetes checks `/readyz` every 10 seconds. If it fails, Pod is removed from Service (no traffic).
+
+#### Prometheus Scraping
+
+**Service Annotations (`k8s/service.yaml`):**
+
+```yaml
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"   # Enable scraping
+    prometheus.io/port: "9090"     # Metrics port
+    prometheus.io/path: "/metrics" # Metrics path
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  - name: metrics  # Expose metrics port
+    port: 9090
+    targetPort: 9090
+```
+
+**NetworkPolicy (`k8s/networkpolicy.yaml`):**
+- Allows Prometheus (from `prometheus-stack` namespace) to scrape port 9090
+- Allows Ingress controller to access port 8080
+
+```yaml
+ingress:
+- from:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: prometheus-stack
+  ports:
+  - protocol: TCP
+    port: 9090  # Metrics port
+```
+
+### Monitoring Workflow
+
+**Data Collection Flow:**
+
+```
+1. Application Code
+   ↓
+   MetricsMiddleware tracks requests, errors, latency
+   ↓
+   /metrics endpoint exposes data (port 9090)
+   ↓
+2. Prometheus
+   ↓
+   Scrapes /metrics every 15 seconds
+   ↓
+   Stores in time-series database
+   ↓
+3. Grafana
+   ↓
+   Queries Prometheus using PromQL
+   ↓
+   Visualizes metrics in dashboards
+```
+
+**Metrics Collection:**
+
+1. **Application Metrics (Custom):**
+   - Tracked by `MetricsMiddleware` in `internal/handlers/metrics.go`
+   - Updated on every HTTP request
+   - Exposed at `/metrics` endpoint
+
+2. **System Metrics (Kubernetes):**
+   - Collected by kubelet
+   - CPU: `container_cpu_usage_seconds_total`
+   - Memory: `container_memory_usage_bytes`
+   - Storage: `kubelet_volume_stats_used_bytes`
+
+3. **Health Metrics:**
+   - Prometheus tracks scrape success
+   - `up{job="devops-backend"}` = 1 if healthy, 0 if down
+
+**Grafana Dashboard:**
+
+- **Access**: https://monitoring.kubernetes.devops.cs.ut.ee
+- **Team Folder**: emzops
+- **Panels**:
+  1. Request Rate (`rate(app_requests_total[5m])`)
+  2. Error Rate (`rate(app_errors_total[5m])`)
+  3. Average Latency (`rate(app_request_latency_microseconds[5m]) / rate(app_requests_total[5m])`)
+  4. Posts Count (`app_posts_total`)
+  5. Users Count (`app_users_total`)
+  6. Backend Health (`up{job="devops-backend"}`)
+  7. Database Health (`up{job="postgres"}`)
+  8. Storage Usage (PV usage percentage)
+  9. CPU Usage (container CPU)
+  10. Memory Usage (container memory)
 
 ## Environment Variables
 
