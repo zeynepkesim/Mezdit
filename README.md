@@ -5,6 +5,8 @@
 **🚀 Production:** [https://devops-mezdit.kubernetes.devops.cs.ut.ee/posts](https://devops-mezdit.kubernetes.devops.cs.ut.ee/posts)
 **📦 Namespace:** `emzops-staging`
 
+> **Note:** This is a frontend-only project. Unit tests are implemented in the backend repository. Frontend testing focuses on manual UI/UX testing and integration with backend API.
+
 A modern, full-featured social media platform built with Vue.js 3, featuring real-time updates via WebSocket, user authentication, post management, and voting system. Deployed on Kubernetes with automated CI/CD.
 
 ## Features
@@ -290,14 +292,31 @@ MIT License - see LICENSE file for details.
 - Migrated from VM deployment to Kubernetes cluster
 - **Production URL**: https://devops-mezdit.kubernetes.devops.cs.ut.ee/posts
 - **Namespace**: `emzops-staging`
-- **Components**:
-  - Frontend deployment with NGINX
-  - Backend deployment with persistent storage
-  - PostgreSQL StatefulSet with Longhorn storage
-  - Ingress with TLS/SSL support
-  - RBAC for GitLab CI/CD deployment
-  - NetworkPolicy for Prometheus metrics
-- **CI/CD**: Automated deployment via GitLab pipelines using Kaniko for container builds
+
+**Architecture:**
+- Frontend deployment with NGINX serving static build
+- Backend deployment with persistent storage
+- PostgreSQL StatefulSet with Longhorn storage
+- Ingress with TLS/SSL support (cert-manager)
+- RBAC for GitLab CI/CD deployment
+- NetworkPolicy for Prometheus metrics
+
+**GitLab CI/CD Pipeline (4 stages):**
+1. **Security**: Gitleaks secrets detection
+2. **Build**: `npm ci` and `npm run build` for production bundle
+3. **Build Image**: Kaniko builds Docker image and pushes to GitLab registry
+4. **Deploy**: `kubectl` applies manifests to Kubernetes cluster
+
+**Kubernetes Manifest Files (`k8s/` directory):**
+- `deployment.yaml` - Frontend deployment (NGINX serving static files)
+- `service.yaml` - ClusterIP service for internal access
+- `ingress.yaml` - External access with TLS, path routing for API/WebSocket/Frontend
+- `configmap.yaml` - Frontend environment variables (REACT_APP_API_URL)
+
+**Deployment Workflow:**
+```
+Code Push → GitLab CI/CD → Build → Kaniko Image → Registry → kubectl Deploy → Kubernetes
+```
 
 ### Week 11 Compliance (2025-01)
 - ✅ Separated metrics endpoint to port 9090
