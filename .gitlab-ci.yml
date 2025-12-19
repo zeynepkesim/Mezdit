@@ -117,14 +117,7 @@ deploy-to-k8s:
     - chmod 600 ~/.kube/config
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
-    - helm upgrade --install devops-backend ./chart
-      --namespace emzops-staging
-      --set image.tag=$IMAGE_TAG
-      --set secrets.backend.databaseUrl=$DATABASE_URL
-      --set secrets.postgres.username=$POSTGRES_USER
-      --set secrets.postgres.password=$POSTGRES_PASSWORD
-      --atomic
-      --timeout 5m
+    - helm upgrade --install devops-backend ./chart --namespace emzops-staging --set image.tag=$IMAGE_TAG --set secrets.backend.databaseUrl=$DATABASE_URL --set secrets.postgres.username=$POSTGRES_USER --set secrets.postgres.password=$POSTGRES_PASSWORD --atomic --timeout 5m
     - echo "✅ Deployment successful!"
   environment:
     name: staging
