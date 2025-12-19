@@ -83,11 +83,7 @@ deploy-to-k8s:
     - chmod 600 ~/.kube/config
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
-    - helm upgrade --install devops-frontend ./chart \
-      --namespace emzops-staging \
-      --set image.tag=$IMAGE_TAG \
-      --atomic \
-      --timeout 5m
+    - helm upgrade --install devops-frontend ./chart --namespace emzops-staging --set image.tag=$IMAGE_TAG --atomic --timeout 5m
     - echo "✅ Deployment successful!"
     - kubectl get pods -n emzops-staging -l app=devops-frontend
   environment:
