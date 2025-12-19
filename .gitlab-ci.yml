@@ -76,22 +76,19 @@ build-docker-image:
 
 deploy-to-k8s:
   stage: deploy
-  image: bitnami/kubectl:latest
+  image: dtzar/helm-kubectl:latest
   before_script:
     - mkdir -p ~/.kube
     - echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
     - chmod 600 ~/.kube/config
-    - export KUBECONFIG=~/.kube/config
   script:
-    - echo "Deploying frontend to Kubernetes namespace emzops-staging..."
-    - kubectl apply -f k8s/configmap.yaml
-    - kubectl apply -f k8s/deployment.yaml
-    - kubectl apply -f k8s/service.yaml
-    - kubectl apply -f k8s/ingress.yaml
-    - echo "Waiting for deployment to be ready..."
-    - kubectl rollout status deployment/devops-frontend -n emzops-staging --timeout=5m
+    - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
+    - helm upgrade --install devops-frontend ./chart \
+      --namespace emzops-staging \
+      --set image.tag=$IMAGE_TAG \
+      --atomic \
+      --timeout 5m
     - echo "✅ Deployment successful!"
-    - echo "Frontend URL - https://devops-mezdit.kubernetes.devops.cs.ut.ee"
     - kubectl get pods -n emzops-staging -l app=devops-frontend
   environment:
     name: staging
