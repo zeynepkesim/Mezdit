@@ -110,23 +110,22 @@ build-docker-image:
 
 deploy-to-k8s:
   stage: deploy
-  image: bitnami/kubectl:latest
+  image: dtzar/helm-kubectl:latest
   before_script:
     - mkdir -p ~/.kube
     - echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
     - chmod 600 ~/.kube/config
   script:
-    - echo "Deploying to Kubernetes namespace emzops-staging..."
-    - kubectl apply -f k8s/configmap.yaml
-    - kubectl apply -f k8s/images-pvc.yaml
-    - kubectl apply -f k8s/postgres-statefulset.yaml
-    - kubectl apply -f k8s/deployment.yaml
-    - kubectl apply -f k8s/service.yaml
-    - kubectl apply -f k8s/networkpolicy.yaml
-    - echo "Waiting for deployment to be ready..."
-    - kubectl rollout status deployment/devops-backend -n emzops-staging --timeout=5m
+    - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
+    - helm upgrade --install devops-backend ./chart
+      --namespace emzops-staging
+      --set image.tag=$IMAGE_TAG
+      --set secrets.backend.databaseUrl=$DATABASE_URL
+      --set secrets.postgres.username=$POSTGRES_USER
+      --set secrets.postgres.password=$POSTGRES_PASSWORD
+      --atomic
+      --timeout 5m
     - echo "✅ Deployment successful!"
-    - kubectl get pods -n emzops-staging
   environment:
     name: staging
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee

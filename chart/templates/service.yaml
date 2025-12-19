@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-service
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.serviceInfo.metricsPort }}"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: {{ .Values.serviceInfo.port }}
+  - name: metrics
+    protocol: TCP
+    port: {{ .Values.serviceInfo.metricsPort }}
+    targetPort: {{ .Values.serviceInfo.metricsPort }}
+  type: ClusterIP
