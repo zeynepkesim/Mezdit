@@ -86,6 +86,7 @@ deploy-to-k8s:
     - kubectl delete deployment devops-frontend -n emzops-staging --ignore-not-found
     - kubectl delete service devops-frontend-service -n emzops-staging --ignore-not-found
     - kubectl delete ingress devops-frontend-ingress -n emzops-staging --ignore-not-found
+    - kubectl delete ingress devops-backend-ingress -n emzops-staging --ignore-not-found
     - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - helm upgrade --install devops-frontend ./chart --namespace emzops-staging --set image.tag=$IMAGE_TAG --atomic --timeout 5m
