@@ -20,20 +20,6 @@ resources:
     cpu: 200m
     memory: 256Mi
 
-minio:
-  storageClassName: longhorn-single
-  storage:
-    size: 5Gi
-  rootUser: ""
-  rootPassword: ""
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
 postgres:
   image: postgres:15-alpine
   dbName: devops
