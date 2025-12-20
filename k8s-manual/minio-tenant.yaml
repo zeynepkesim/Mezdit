@@ -33,3 +33,6 @@ spec:
   # MinIO credentials from secrets
   configuration:
     name: devops-backend-minio-env-config
+
+  # Disable auto TLS for simpler setup
+  requestAutoCert: false

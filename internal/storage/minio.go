@@ -32,6 +32,8 @@ func InitMinIO() error {
 		return fmt.Errorf("MinIO environment variables not set")
 	}
 
+	log.Printf("Initializing MinIO client: endpoint=%s, useSSL=%v, bucket=%s", endpoint, useSSL, bucketName)
+
 	var err error
 	minioClient, err = minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),

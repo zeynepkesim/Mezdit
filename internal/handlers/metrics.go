@@ -31,20 +31,24 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "# TYPE app_request_latency_microseconds counter\n")
 	fmt.Fprintf(w, "app_request_latency_microseconds %d\n", atomic.LoadInt64(&totalLatency))
 
-	// Custom metric: total posts
-	posts, err := database.GetPosts()
-	if err == nil {
-		fmt.Fprintf(w, "# HELP app_posts_total Total number of posts\n")
-		fmt.Fprintf(w, "# TYPE app_posts_total gauge\n")
-		fmt.Fprintf(w, "app_posts_total %d\n", len(posts))
+	// Custom metric: total posts (only if DB is available)
+	if database.DB != nil {
+		posts, err := database.GetPosts()
+		if err == nil {
+			fmt.Fprintf(w, "# HELP app_posts_total Total number of posts\n")
+			fmt.Fprintf(w, "# TYPE app_posts_total gauge\n")
+			fmt.Fprintf(w, "app_posts_total %d\n", len(posts))
+		}
 	}
 
-	// Custom metric: total users
-	users, err := database.GetAllUsers()
-	if err == nil {
-		fmt.Fprintf(w, "# HELP app_users_total Total number of users\n")
-		fmt.Fprintf(w, "# TYPE app_users_total gauge\n")
-		fmt.Fprintf(w, "app_users_total %d\n", len(users))
+	// Custom metric: total users (only if DB is available)
+	if database.DB != nil {
+		users, err := database.GetAllUsers()
+		if err == nil {
+			fmt.Fprintf(w, "# HELP app_users_total Total number of users\n")
+			fmt.Fprintf(w, "# TYPE app_users_total gauge\n")
+			fmt.Fprintf(w, "app_users_total %d\n", len(users))
+		}
 	}
 }
 

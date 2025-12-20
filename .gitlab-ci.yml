@@ -138,7 +138,7 @@ deploy-to-k8s:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --atomic --timeout 15m
+        --wait --timeout 15m
     - echo "✅ Deployment successful!"
   environment:
     name: staging
