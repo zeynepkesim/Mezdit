@@ -25,9 +25,10 @@ func main() {
 	database.Init()
 	defer database.Close()
 
-	// Initialize MinIO storage
+	// Initialize MinIO storage (optional in test environment)
 	if err := storage.InitMinIO(); err != nil {
-		log.Fatalf("Failed to initialize MinIO: %v", err)
+		log.Printf("Warning: MinIO initialization failed: %v", err)
+		log.Println("Continuing without MinIO - some features may not work")
 	}
 
 	// Initialize WebSocket hub

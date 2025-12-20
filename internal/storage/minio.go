@@ -63,11 +63,7 @@ func InitMinIO() error {
 
 // UploadImage uploads an image to MinIO and returns the object path
 func UploadImage(file multipart.File, filename string) (string, error) {
-	if minioClient == nil {
-		return "", fmt.Errorf("MinIO client not initialized")
-	}
-
-	// Validate file extension
+	// Validate file extension FIRST (before checking MinIO client)
 	ext := filepath.Ext(filename)
 	ext = strings.ToLower(ext)
 
@@ -80,6 +76,11 @@ func UploadImage(file multipart.File, filename string) (string, error) {
 	contentType, ok := allowedTypes[ext]
 	if !ok {
 		return "", fmt.Errorf("invalid file type. Only JPG, JPEG, and PNG files are allowed")
+	}
+
+	// Then check MinIO client
+	if minioClient == nil {
+		return "", fmt.Errorf("MinIO client not initialized - check MINIO environment variables")
 	}
 
 	// Generate unique filename with UUID
