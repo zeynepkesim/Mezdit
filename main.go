@@ -15,21 +15,23 @@ import (
 )
 
 func main() {
-	// Health and readiness endpoints
-	http.HandleFunc("/healthz", handlers.HealthzHandler)
-	http.HandleFunc("/readyz", handlers.ReadyzHandler)
 	// Load .env file (ignore error if file doesn't exist - env vars might be set directly)
 	_ = godotenv.Load()
 
-	// Initialize database connection
-	database.Init()
-	defer database.Close()
+	// Initialize database connection in background
+	go func() {
+		database.Init()
+	}()
 
-	// Initialize MinIO storage (optional in test environment)
-	if err := storage.InitMinIO(); err != nil {
-		log.Printf("Warning: MinIO initialization failed: %v", err)
-		log.Println("Continuing without MinIO - some features may not work")
-	}
+	// Initialize MinIO storage in background (optional in test environment)
+	go func() {
+		if err := storage.InitMinIO(); err != nil {
+			log.Printf("Warning: MinIO initialization failed: %v", err)
+			log.Println("Continuing without MinIO - some features may not work")
+		} else {
+			log.Println("✅ MinIO initialized successfully")
+		}
+	}()
 
 	// Initialize WebSocket hub
 	websocket.InitHub()

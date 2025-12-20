@@ -37,16 +37,20 @@ spec:
           httpGet:
             path: /healthz
             port: {{ .Values.serviceInfo.port }}
-          initialDelaySeconds: 60
+          initialDelaySeconds: 10
           periodSeconds: 10
-          failureThreshold: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /readyz
+            path: /healthz
             port: {{ .Values.serviceInfo.port }}
-          initialDelaySeconds: 60
-          periodSeconds: 10
-          failureThreshold: 10
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
         env:
         - name: PORT
           valueFrom:
