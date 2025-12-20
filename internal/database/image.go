@@ -3,58 +3,17 @@ package database
 import (
 	"database/sql"
 	"devops-be/internal/models"
+	"devops-be/internal/storage"
 	"fmt"
-	"io"
 	"mime/multipart"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 func SaveImage(file multipart.File, filename string) (*models.Image, error) {
-	// Get file extension and validate
-	ext := filepath.Ext(filename)
-	ext = strings.ToLower(ext)
-
-	// Check allowed file types
-	allowedTypes := map[string]bool{
-		".jpg":  true,
-		".jpeg": true,
-		".png":  true,
-	}
-
-	if !allowedTypes[ext] {
-		return nil, fmt.Errorf("invalid file type. Only JPG, JPEG, and PNG files are allowed")
-	}
-
-	// Generate UUID for unique filename
-	imageUUID := uuid.New().String()
-
-	// Create unique filename: UUID_originalname
-	uniqueFilename := fmt.Sprintf("%s_%s", imageUUID, filename)
-
-	// Ensure images directory exists
-	imagesDir := "images"
-	if err := os.MkdirAll(imagesDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create images directory: %v", err)
-	}
-
-	filePath := filepath.Join(imagesDir, uniqueFilename)
-
-	// Create the file
-	dst, err := os.Create(filePath)
+	// Upload to MinIO and get object path
+	objectPath, err := storage.UploadImage(file, filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create file: %v", err)
-	}
-	defer dst.Close()
-
-	// Copy uploaded file to destination
-	_, err = io.Copy(dst, file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to save file: %v", err)
+		return nil, fmt.Errorf("failed to upload image: %v", err)
 	}
 
 	// Insert image record to database
@@ -66,13 +25,13 @@ func SaveImage(file multipart.File, filename string) (*models.Image, error) {
 	var image models.Image
 	var postIDNull sql.NullInt32
 
-	err = DB.QueryRow(query, filePath, time.Now()).Scan(
+	err = DB.QueryRow(query, objectPath, time.Now()).Scan(
 		&image.ID, &postIDNull, &image.Path, &image.CreatedAt,
 	)
 
 	if err != nil {
-		// Clean up file if database insert fails
-		os.Remove(filePath)
+		// Clean up file from MinIO if database insert fails
+		storage.DeleteImage(objectPath)
 		return nil, fmt.Errorf("failed to save image record: %v", err)
 	}
 
@@ -193,8 +152,8 @@ func EditPostWithImage(postID int, userID int, newHeader string, newContentText 
 		var oldImagePath string
 		err = tx.QueryRow("SELECT path FROM images WHERE id = $1", oldImageID.Int32).Scan(&oldImagePath)
 		if err == nil && oldImagePath != "" {
-			// Delete old image file from filesystem
-			os.Remove(oldImagePath)
+			// Delete old image file from MinIO
+			storage.DeleteImage(oldImagePath)
 			// Delete old image record from database (safe now since post no longer references it)
 			_, err = tx.Exec("DELETE FROM images WHERE id = $1", oldImageID.Int32)
 			if err != nil {

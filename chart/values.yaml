@@ -10,7 +10,7 @@ serviceInfo:
   port: 8080
   metricsPort: 9090
 
-replicaCount: 1
+replicaCount: 2
 
 resources:
   requests:
@@ -20,10 +20,19 @@ resources:
     cpu: 200m
     memory: 256Mi
 
-storage:
-  images:
-    size: 2Gi
-    className: longhorn
+minio:
+  storageClassName: longhorn-single
+  storage:
+    size: 5Gi
+  rootUser: ""
+  rootPassword: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
 postgres:
   image: postgres:15-alpine
@@ -35,6 +44,11 @@ postgres:
 secrets:
   backend:
     databaseUrl: ""
+    minioEndpoint: ""
+    minioAccessKey: ""
+    minioSecretKey: ""
+    minioBucketName: ""
+    minioUseSSL: ""
   postgres:
     username: ""
     password: ""

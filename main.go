@@ -8,6 +8,7 @@ import (
 	"devops-be/internal/database"
 	"devops-be/internal/handlers"
 	"devops-be/internal/middleware"
+	"devops-be/internal/storage"
 	"devops-be/internal/websocket"
 
 	"github.com/joho/godotenv"
@@ -23,6 +24,11 @@ func main() {
 	// Initialize database connection
 	database.Init()
 	defer database.Close()
+
+	// Initialize MinIO storage
+	if err := storage.InitMinIO(); err != nil {
+		log.Fatalf("Failed to initialize MinIO: %v", err)
+	}
 
 	// Initialize WebSocket hub
 	websocket.InitHub()
@@ -48,12 +54,10 @@ func main() {
 
 	// Image endpoints
 	mux.HandleFunc("/upload", middleware.RequireAuth(handlers.UploadImageHandler))
+	mux.HandleFunc("/image-url", handlers.ImageURLHandler) // Public endpoint for getting presigned URLs
 
 	// Vote endpoints
 	mux.HandleFunc("/vote", middleware.RequireAuth(handlers.VoteHandler))
-
-	// Serve static images
-	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("./images/"))))
 
 	// Health and readiness endpoints
 	mux.HandleFunc("/healthz", handlers.HealthzHandler)

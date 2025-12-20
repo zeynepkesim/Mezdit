@@ -126,7 +126,21 @@ deploy-to-k8s:
     - kubectl delete secret postgres-superuser-secret -n emzops-staging --ignore-not-found
     - kubectl delete networkpolicy allow-prometheus-scraping -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
-    - helm upgrade --install devops-backend ./chart --namespace emzops-staging --set image.tag=$IMAGE_TAG --set secrets.backend.databaseUrl=$DATABASE_URL --set secrets.postgres.username=$POSTGRES_USER --set secrets.postgres.password=$POSTGRES_PASSWORD --atomic --timeout 15m
+    - |
+      helm upgrade --install devops-backend ./chart \
+        --namespace emzops-staging \
+        --set image.tag=$IMAGE_TAG \
+        --set secrets.backend.databaseUrl=$DATABASE_URL \
+        --set secrets.postgres.username=$POSTGRES_USER \
+        --set secrets.postgres.password=$POSTGRES_PASSWORD \
+        --set secrets.backend.minioEndpoint=$MINIO_ENDPOINT \
+        --set secrets.backend.minioAccessKey=$MINIO_ACCESS_KEY \
+        --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
+        --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
+        --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
+        --set minio.rootUser=$MINIO_ROOT_USER \
+        --set minio.rootPassword=$MINIO_ROOT_PASSWORD \
+        --atomic --timeout 15m
     - echo "✅ Deployment successful!"
   environment:
     name: staging
