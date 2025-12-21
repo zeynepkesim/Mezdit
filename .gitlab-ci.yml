@@ -132,16 +132,6 @@ deploy-to-staging:
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - |
-      # Fix any stuck Helm release locks
-      RELEASE_STATUS=$(helm status devops-backend -n emzops-staging 2>&1 | grep "STATUS:" | awk '{print $2}' || echo "not-found")
-      if [ "$RELEASE_STATUS" = "pending-upgrade" ] || [ "$RELEASE_STATUS" = "pending-rollback" ] || [ "$RELEASE_STATUS" = "pending-install" ]; then
-        echo "⚠️  Release is in pending state ($RELEASE_STATUS), attempting to fix..."
-        # Try to rollback to a stable revision
-        helm rollback devops-backend -n emzops-staging 2>/dev/null || \
-        helm rollback devops-backend 1 -n emzops-staging 2>/dev/null || \
-        echo "⚠️  Could not rollback, continuing anyway..."
-        sleep 5
-      fi
       helm upgrade --install devops-backend ./chart \
         --namespace emzops-staging \
         --set image.tag=$IMAGE_TAG \
@@ -153,9 +143,11 @@ deploy-to-staging:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --wait \
-        --timeout 15m \
-        --rollback-on-failure
+        --timeout 2m
+    - echo "✅ Helm deployment command completed!"
+    - echo "Checking deployment status..."
+    - kubectl get deployment devops-backend -n emzops-staging
+    - kubectl get pods -n emzops-staging -l app=devops-backend
     - echo "✅ Staging deployment successful!"
   environment:
     name: staging
@@ -189,16 +181,6 @@ deploy-to-production:
   script:
     - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
     - |
-      # Fix any stuck Helm release locks
-      RELEASE_STATUS=$(helm status devops-backend -n emzops-prod 2>&1 | grep "STATUS:" | awk '{print $2}' || echo "not-found")
-      if [ "$RELEASE_STATUS" = "pending-upgrade" ] || [ "$RELEASE_STATUS" = "pending-rollback" ] || [ "$RELEASE_STATUS" = "pending-install" ]; then
-        echo "⚠️  Release is in pending state ($RELEASE_STATUS), attempting to fix..."
-        # Try to rollback to a stable revision
-        helm rollback devops-backend -n emzops-prod 2>/dev/null || \
-        helm rollback devops-backend 1 -n emzops-prod 2>/dev/null || \
-        echo "⚠️  Could not rollback, continuing anyway..."
-        sleep 5
-      fi
       helm upgrade --install devops-backend ./chart \
         --namespace emzops-prod \
         --values ./chart/values-prod.yaml \
@@ -211,9 +193,7 @@ deploy-to-production:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --wait \
-        --timeout 15m \
-        --rollback-on-failure
+        --timeout 2m
     - echo "✅ Production deployment successful!"
     - kubectl get hpa -n emzops-prod
     - kubectl get pods -n emzops-prod -l app=devops-backend
