@@ -120,8 +120,7 @@ container-security-scan:
   variables:
     TRIVY_NO_PROGRESS: "true"
     TRIVY_SKIP_DB_UPDATE: "false"
-    TRIVY_FORMAT: "template"
-    TRIVY_TEMPLATE: "@contrib/gitlab.tpl"
+    TRIVY_FORMAT: "json"
     TRIVY_OUTPUT: "gl-container-scanning-report.json"
     TRIVY_EXIT_CODE: "0"
     TRIVY_IGNORE_UNFIXED: "false"
@@ -135,7 +134,6 @@ container-security-scan:
         --exit-code $TRIVY_EXIT_CODE \
         --severity $TRIVY_SEVERITY \
         --format $TRIVY_FORMAT \
-        --template $TRIVY_TEMPLATE \
         -o $TRIVY_OUTPUT \
         "$CI_REGISTRY/$CI_PROJECT_PATH:$IMAGE_TAG"
     - echo "✅ Security scan completed for $IMAGE_NAME:$IMAGE_TAG"
