@@ -6,7 +6,7 @@ metadata:
   labels:
     app: {{ .Release.Name }}
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -45,13 +45,13 @@ spec:
           httpGet:
             path: /
             port: 80
-          initialDelaySeconds: 60
+          initialDelaySeconds: 10
           periodSeconds: 10
-          failureThreshold: 10
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /
             port: 80
-          initialDelaySeconds: 60
-          periodSeconds: 10
-          failureThreshold: 10
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3
