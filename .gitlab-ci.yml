@@ -83,7 +83,7 @@ container-security-scan:
   variables:
     TRIVY_NO_PROGRESS: "true"
     TRIVY_SKIP_DB_UPDATE: "false"
-    TRIVY_FORMAT: "gitlab"
+    TRIVY_FORMAT: "json"
     TRIVY_OUTPUT: "gl-container-scanning-report.json"
     TRIVY_EXIT_CODE: "0"
     TRIVY_IGNORE_UNFIXED: "false"
