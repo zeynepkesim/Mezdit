@@ -32,7 +32,7 @@ config:
 ingress:
   enabled: true
   className: nginx
-  host: devops-mezdit.kubernetes.devops.cs.ut.ee
+  host: devops-mezdit-prod.kubernetes.devops.cs.ut.ee  # Different host for production to avoid conflict with staging
   tls:
     enabled: true
     secretName: backend-tls-cert
