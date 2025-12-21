@@ -172,7 +172,8 @@ deploy-to-staging:
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - |
-      helm upgrade --install devops-backend ./chart \
+      # Atomic rollback enabled (Week 16 requirement)
+      if ! helm upgrade --install devops-backend ./chart \
         --namespace emzops-staging \
         --set image.tag=$IMAGE_TAG \
         --set secrets.backend.databaseUrl=$DATABASE_URL \
@@ -183,11 +184,12 @@ deploy-to-staging:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --timeout 5m \
-        --rollback-on-failure || \
-      (echo "⚠️  Deployment failed, attempting manual rollback..." && \
-       helm rollback devops-backend -n emzops-staging && \
-       exit 1)
+        --timeout 10m \
+        --rollback-on-failure; then
+        echo "⚠️  Deployment failed, attempting manual rollback..."
+        helm rollback devops-backend -n emzops-staging || true
+        exit 1
+      fi
     - echo "✅ Helm deployment command completed!"
     - echo "Checking deployment status..."
     - kubectl get deployment devops-backend -n emzops-staging
@@ -225,7 +227,8 @@ deploy-to-production:
   script:
     - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
     - |
-      helm upgrade --install devops-backend ./chart \
+      # First attempt: with atomic rollback (Week 16 requirement)
+      if ! helm upgrade --install devops-backend ./chart \
         --namespace emzops-prod \
         --values ./chart/values-prod.yaml \
         --set image.tag=$IMAGE_TAG \
@@ -236,11 +239,12 @@ deploy-to-production:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --timeout 5m \
-        --rollback-on-failure || \
-      (echo "⚠️  Deployment failed, attempting manual rollback..." && \
-       helm rollback devops-backend -n emzops-prod && \
-       exit 1)
+        --timeout 10m \
+        --rollback-on-failure; then
+        echo "⚠️  Deployment failed (atomic rollback may have occurred), attempting manual rollback..."
+        helm rollback devops-backend -n emzops-prod || true
+        exit 1
+      fi
     - echo "✅ Production deployment successful!"
     - kubectl get hpa -n emzops-prod
     - kubectl get pods -n emzops-prod -l app=devops-backend
