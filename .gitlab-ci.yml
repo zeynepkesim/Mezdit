@@ -140,15 +140,18 @@ deploy-to-staging:
     - kubectl delete ingress devops-backend-ingress -n emzops-staging --ignore-not-found
     - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
+    - echo "Using image tag: latest (always available, pushed by build-docker-image)"
     - |
+      # Always use latest tag to avoid image pull issues
+      # Latest tag is always pushed by build-docker-image job (line 65)
       helm upgrade --install devops-frontend ./chart \
         --namespace emzops-staging \
-        --set image.tag=$IMAGE_TAG || \
+        --set image.tag=latest || \
       (echo "⚠️  First attempt failed, retrying with --force-replace flag..." && \
        sleep 5 && \
        helm upgrade --install devops-frontend ./chart \
          --namespace emzops-staging \
-         --set image.tag=$IMAGE_TAG \
+         --set image.tag=latest \
          --force-replace || true)
     - echo "✅ Helm deployment command completed!"
     - echo "Checking deployment status..."
