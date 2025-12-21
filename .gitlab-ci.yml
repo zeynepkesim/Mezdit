@@ -74,7 +74,7 @@ build-docker-image:
   only:
     - main
 
-deploy-to-k8s:
+deploy-to-staging:
   stage: deploy
   image: dtzar/helm-kubectl:latest
   before_script:
@@ -96,7 +96,7 @@ deploy-to-k8s:
         --wait \
         --timeout 10m \
         --rollback-on-failure
-    - echo "✅ Deployment successful!"
+    - echo "✅ Staging deployment successful!"
     - kubectl get pods -n emzops-staging -l app=devops-frontend
     - kubectl get deployment devops-frontend -n emzops-staging
   environment:
@@ -104,3 +104,31 @@ deploy-to-k8s:
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
   only:
     - main
+
+deploy-to-production:
+  stage: deploy
+  image: dtzar/helm-kubectl:latest
+  before_script:
+    - mkdir -p ~/.kube
+    - echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
+    - chmod 600 ~/.kube/config
+  script:
+    - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
+    - |
+      helm upgrade --install devops-frontend ./chart \
+        --namespace emzops-prod \
+        --create-namespace \
+        --values ./chart/values-prod.yaml \
+        --set image.tag=$IMAGE_TAG \
+        --wait \
+        --timeout 10m \
+        --rollback-on-failure
+    - echo "✅ Production deployment successful!"
+    - kubectl get hpa -n emzops-prod
+    - kubectl get pods -n emzops-prod -l app=devops-frontend
+  environment:
+    name: production
+    url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
+  only:
+    - main
+  when: manual

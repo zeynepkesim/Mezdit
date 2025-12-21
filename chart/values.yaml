@@ -44,3 +44,11 @@ ingress:
 backend:
   serviceName: devops-backend-service
   port: 80
+
+# Staging: Autoscaling disabled by default
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
