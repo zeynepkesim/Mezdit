@@ -90,38 +90,10 @@ deploy-to-k8s:
     - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - echo "Using image tag: $IMAGE_TAG"
-    - helm upgrade --install devops-frontend ./chart --namespace emzops-staging --set image.tag=$IMAGE_TAG
-    - echo "Waiting for deployment to be ready..."
-    - |
-      for i in {1..60}; do
-        echo "Checking pod status (attempt $i/60)..."
-        POD_STATUS=$(kubectl get pods -n emzops-staging -l app=devops-frontend -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
-        if [ "$POD_STATUS" = "Running" ]; then
-          READY=$(kubectl get pods -n emzops-staging -l app=devops-frontend -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-          if [ "$READY" = "True" ]; then
-            echo "✅ Pod is ready!"
-            break
-          fi
-        fi
-        if [ "$POD_STATUS" = "Error" ] || [ "$POD_STATUS" = "CrashLoopBackOff" ]; then
-          echo "❌ Pod is in error state: $POD_STATUS"
-          kubectl describe pods -n emzops-staging -l app=devops-frontend | tail -50
-          kubectl logs -n emzops-staging -l app=devops-frontend --tail=50 || true
-          exit 1
-        fi
-        sleep 5
-      done
-    - echo "Final pod status:"
+    - helm upgrade --install devops-frontend ./chart --namespace emzops-staging --set image.tag=$IMAGE_TAG --wait --timeout 10m --rollback-on-failure
+    - echo "Checking deployment status..."
     - kubectl get pods -n emzops-staging -l app=devops-frontend
-    - kubectl get pods -n emzops-staging -l app=devops-frontend -o wide
-    - |
-      POD_READY=$(kubectl get pods -n emzops-staging -l app=devops-frontend -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
-      if [ "$POD_READY" != "True" ]; then
-        echo "⚠️  Pod is not ready, showing details..."
-        kubectl describe pods -n emzops-staging -l app=devops-frontend
-        kubectl logs -n emzops-staging -l app=devops-frontend --tail=100 || true
-        exit 1
-      fi
+    - kubectl get deployment devops-frontend -n emzops-staging
     - echo "✅ Deployment successful!"
   environment:
     name: staging
