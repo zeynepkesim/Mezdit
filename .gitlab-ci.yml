@@ -85,7 +85,7 @@ container-security-scan:
     entrypoint: [""]
   variables:
     TRIVY_NO_PROGRESS: "true"
-    TRIVY_SKIP_UPDATE: "false"
+    TRIVY_SKIP_DB_UPDATE: "false"
     TRIVY_FORMAT: "template"
     TRIVY_TEMPLATE: "@contrib/gitlab.tpl"
     TRIVY_OUTPUT: "gl-container-scanning-report.json"
@@ -94,7 +94,16 @@ container-security-scan:
     TRIVY_SEVERITY: "CRITICAL,HIGH"
   script:
     - echo "🔒 Scanning frontend container image for vulnerabilities..."
-    - trivy image --exit-code $TRIVY_EXIT_CODE --severity $TRIVY_SEVERITY --format $TRIVY_FORMAT --template $TRIVY_TEMPLATE -o $TRIVY_OUTPUT $IMAGE_NAME:$IMAGE_TAG
+    - |
+      trivy image \
+        --username "$CI_REGISTRY_USER" \
+        --password "$CI_REGISTRY_PASSWORD" \
+        --exit-code $TRIVY_EXIT_CODE \
+        --severity $TRIVY_SEVERITY \
+        --format $TRIVY_FORMAT \
+        --template $TRIVY_TEMPLATE \
+        -o $TRIVY_OUTPUT \
+        "$CI_REGISTRY/$CI_PROJECT_PATH:$IMAGE_TAG"
     - echo "✅ Security scan completed for $IMAGE_NAME:$IMAGE_TAG"
   artifacts:
     reports:
