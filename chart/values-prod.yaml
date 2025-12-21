@@ -26,11 +26,20 @@ resources:
     memory: 512Mi
 
 postgres:
+  enabled: true
   image: postgres:15-alpine
   dbName: devops
+  replicas: 1  # StatefulSet: Single replica for now (can be scaled if needed)
   storage:
     size: 2Gi  # Production: Larger storage
     className: longhorn
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
 
 secrets:
   backend:

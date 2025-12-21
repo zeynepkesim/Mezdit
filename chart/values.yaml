@@ -21,11 +21,20 @@ resources:
     memory: 256Mi
 
 postgres:
+  enabled: true
   image: postgres:15-alpine
   dbName: devops
+  replicas: 1
   storage:
     size: 1Gi
     className: longhorn
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
 
 secrets:
   backend:
