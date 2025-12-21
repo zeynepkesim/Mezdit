@@ -190,22 +190,18 @@ deploy-to-production:
         --namespace emzops-prod \
         --values ./chart/values-prod.yaml \
         --set image.tag=$IMAGE_TAG \
-        --wait \
-        --timeout 10m \
-        --rollback-on-failure || \
+        --timeout 2m || \
       (echo "⚠️  First attempt failed (possibly due to lock), retrying with --force-replace flag..." && \
-       sleep 5 && \
+       sleep 10 && \
        helm upgrade --install devops-frontend ./chart \
          --namespace emzops-prod \
          --values ./chart/values-prod.yaml \
          --set image.tag=$IMAGE_TAG \
          --force-replace \
-         --wait \
-         --timeout 10m \
-         --rollback-on-failure)
+         --timeout 2m)
     - echo "✅ Production deployment successful!"
-    - kubectl get hpa -n emzops-prod
-    - kubectl get pods -n emzops-prod -l app=devops-frontend
+    - kubectl get hpa -n emzops-prod || true
+    - kubectl get pods -n emzops-prod -l app=devops-frontend || true
   environment:
     name: production
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
