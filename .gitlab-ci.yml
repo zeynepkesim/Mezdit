@@ -118,20 +118,18 @@ deploy-to-staging:
         echo "❌ ERROR: KUBECONFIG_CONTENT variable is empty or not set!"
         exit 1
       fi
-    - |
       if ! echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config 2>/dev/null; then
         echo "❌ ERROR: Failed to decode KUBECONFIG_CONTENT (invalid base64 or corrupted data)!"
         exit 1
       fi
-    - |
       if [ ! -s ~/.kube/config ]; then
         echo "❌ ERROR: KUBECONFIG file is empty after decoding!"
         exit 1
       fi
-    - chmod 600 ~/.kube/config
-    - echo "✅ KUBECONFIG decoded successfully"
-    - echo "Testing cluster connection..."
-    - kubectl cluster-info --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster. Please check KUBECONFIG_CONTENT variable!" && exit 1)
+      chmod 600 ~/.kube/config
+      echo "✅ KUBECONFIG decoded successfully"
+      echo "Testing cluster connection..."
+      kubectl cluster-info --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster. Please check KUBECONFIG_CONTENT variable!" && exit 1)
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - |
@@ -183,20 +181,18 @@ deploy-to-production:
         echo "❌ ERROR: KUBECONFIG_CONTENT variable is empty or not set!"
         exit 1
       fi
-    - |
       if ! echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config 2>/dev/null; then
         echo "❌ ERROR: Failed to decode KUBECONFIG_CONTENT (invalid base64 or corrupted data)!"
         exit 1
       fi
-    - |
       if [ ! -s ~/.kube/config ]; then
         echo "❌ ERROR: KUBECONFIG file is empty after decoding!"
         exit 1
       fi
-    - chmod 600 ~/.kube/config
-    - echo "✅ KUBECONFIG decoded successfully"
-    - echo "Testing cluster connection..."
-    - kubectl cluster-info --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster. Please check KUBECONFIG_CONTENT variable!" && exit 1)
+      chmod 600 ~/.kube/config
+      echo "✅ KUBECONFIG decoded successfully"
+      echo "Testing cluster connection..."
+      kubectl cluster-info --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster. Please check KUBECONFIG_CONTENT variable!" && exit 1)
   script:
     - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
     - |
