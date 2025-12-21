@@ -10,7 +10,7 @@ serviceInfo:
   port: 8080
   metricsPort: 9090
 
-replicaCount: 2
+replicaCount: 1
 
 resources:
   requests:
