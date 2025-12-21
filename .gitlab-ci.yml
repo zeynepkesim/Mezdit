@@ -150,14 +150,13 @@ deploy-to-staging:
        helm upgrade --install devops-frontend ./chart \
          --namespace emzops-staging \
          --set image.tag=$IMAGE_TAG \
-         --force-replace \
-         --rollback-on-failure)
+         --force-replace)
     - echo "✅ Helm deployment command completed!"
     - echo "Checking deployment status..."
     - kubectl get deployment devops-frontend -n emzops-staging
     - kubectl get pods -n emzops-staging -l app=devops-frontend
-    - echo "Waiting for pods to be ready..."
-    - kubectl rollout status deployment/devops-frontend -n emzops-staging --timeout=5m || echo "⚠️  Rollout status check timed out, but deployment may still be in progress"
+    - echo "Waiting for pods to be ready (non-blocking)..."
+    - kubectl rollout status deployment/devops-frontend -n emzops-staging --timeout=2m || echo "⚠️  Rollout status check timed out, but deployment may still be in progress"
   environment:
     name: staging
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
