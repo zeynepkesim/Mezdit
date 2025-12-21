@@ -147,7 +147,6 @@ deploy-to-production:
     - |
       helm upgrade --install devops-frontend ./chart \
         --namespace emzops-prod \
-        --create-namespace \
         --values ./chart/values-prod.yaml \
         --set image.tag=$IMAGE_TAG \
         --wait \
