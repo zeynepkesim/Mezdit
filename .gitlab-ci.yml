@@ -125,6 +125,8 @@ deploy-to-production:
       fi
       chmod 600 ~/.kube/config
       echo "✅ KUBECONFIG decoded successfully"
+      echo "Switching to production context..."
+      kubectl config use-context gitlab-deploy-prod 2>/dev/null || echo "⚠️  Production context not found, using default context"
       echo "Testing cluster connection..."
       kubectl cluster-info --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster. Please check KUBECONFIG_CONTENT variable!" && exit 1)
   script:
