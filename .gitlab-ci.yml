@@ -132,7 +132,7 @@ deploy-to-k8s:
         --wait \
         --timeout 15m \
         --rollback-on-failure || \
-      (echo "⚠️  First attempt failed (possibly due to lock), retrying with --force flag..." && \
+      (echo "⚠️  First attempt failed (possibly due to lock), retrying with --force-replace flag..." && \
        sleep 5 && \
        helm upgrade --install devops-backend ./chart \
          --namespace emzops-staging \
@@ -145,7 +145,7 @@ deploy-to-k8s:
          --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
          --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
          --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-         --force \
+         --force-replace \
          --wait \
          --timeout 15m \
          --rollback-on-failure)
