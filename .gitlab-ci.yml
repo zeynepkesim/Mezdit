@@ -140,7 +140,15 @@ deploy-to-staging:
     - kubectl delete ingress devops-backend-ingress -n emzops-staging --ignore-not-found
     - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
-    - helm upgrade --install devops-frontend ./chart --namespace emzops-staging --set image.tag=latest
+    - |
+      helm upgrade --install devops-frontend ./chart \
+        --namespace emzops-staging \
+        --set image.tag=latest \
+        --timeout 5m \
+        --rollback-on-failure || \
+      (echo "⚠️  Deployment failed, attempting manual rollback..." && \
+       helm rollback devops-frontend -n emzops-staging && \
+       exit 1)
     - echo "✅ Helm deployment command completed!"
     - echo "Checking deployment status..."
     - kubectl get deployment devops-frontend -n emzops-staging
@@ -177,19 +185,25 @@ deploy-to-production:
   script:
     - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
     - |
-      helm upgrade --install devops-frontend ./chart \
+      if ! helm upgrade --install devops-frontend ./chart \
         --namespace emzops-prod \
         --values ./chart/values-prod.yaml \
         --set image.tag=$IMAGE_TAG \
-        --timeout 2m || \
-      (echo "⚠️  First attempt failed (possibly due to lock), retrying with --force-replace flag..." && \
-       sleep 10 && \
-       helm upgrade --install devops-frontend ./chart \
-         --namespace emzops-prod \
-         --values ./chart/values-prod.yaml \
-         --set image.tag=$IMAGE_TAG \
-         --force-replace \
-         --timeout 2m)
+        --timeout 5m \
+        --rollback-on-failure; then
+        echo "⚠️  First attempt failed (possibly due to lock), retrying with --force-replace flag..."
+        sleep 10
+        if ! helm upgrade --install devops-frontend ./chart \
+          --namespace emzops-prod \
+          --values ./chart/values-prod.yaml \
+          --set image.tag=$IMAGE_TAG \
+          --force-replace \
+          --timeout 5m; then
+          echo "⚠️  Deployment failed, attempting manual rollback..."
+          helm rollback devops-frontend -n emzops-prod || true
+          exit 1
+        fi
+      fi
     - echo "✅ Production deployment successful!"
     - kubectl get hpa -n emzops-prod || true
     - kubectl get pods -n emzops-prod -l app=devops-frontend || true
