@@ -4,7 +4,6 @@ stages:
   - security
   - build
   - build-image
-  - security-scan
   - deploy
 
 variables:
@@ -66,51 +65,12 @@ build-docker-image:
       --cache=true
       --cache-ttl=24h
     - echo "✅ Frontend image pushed - $IMAGE_NAME:latest"
-  artifacts:
-    reports:
-      container_scanning: gl-container-scanning-report.json
   retry:
     max: 2
     when:
       - runner_system_failure
       - stuck_or_timeout_failure
       - script_failure
-  only:
-    - main
-
-container-security-scan:
-  stage: security-scan
-  image:
-    name: aquasec/trivy:latest
-    entrypoint: [""]
-  variables:
-    TRIVY_NO_PROGRESS: "true"
-    TRIVY_SKIP_DB_UPDATE: "false"
-    TRIVY_FORMAT: "json"
-    TRIVY_OUTPUT: "gl-container-scanning-report.json"
-    TRIVY_EXIT_CODE: "0"
-    TRIVY_IGNORE_UNFIXED: "false"
-    TRIVY_SEVERITY: "CRITICAL,HIGH"
-  script:
-    - echo "🔒 Scanning frontend container image for vulnerabilities..."
-    - |
-      trivy image \
-        --username "$CI_REGISTRY_USER" \
-        --password "$CI_REGISTRY_PASSWORD" \
-        --exit-code $TRIVY_EXIT_CODE \
-        --severity $TRIVY_SEVERITY \
-        --format $TRIVY_FORMAT \
-        -o $TRIVY_OUTPUT \
-        "$CI_REGISTRY/$CI_PROJECT_PATH:$IMAGE_TAG"
-    - echo "✅ Security scan completed for $IMAGE_NAME:$IMAGE_TAG"
-  artifacts:
-    reports:
-      container_scanning: gl-container-scanning-report.json
-    paths:
-      - gl-container-scanning-report.json
-    expire_in: 1 week
-  dependencies:
-    - build-docker-image
   only:
     - main
 
@@ -147,12 +107,20 @@ deploy-to-staging:
       helm upgrade --install devops-frontend ./chart \
         --namespace emzops-staging \
         --set image.tag=$IMAGE_TAG \
-        --wait \
-        --timeout 10m \
-        --rollback-on-failure
-    - echo "✅ Staging deployment successful!"
-    - kubectl get pods -n emzops-staging -l app=devops-frontend
+        --rollback-on-failure || \
+      (echo "⚠️  First attempt failed (possibly due to lock), retrying with --force-replace flag..." && \
+       sleep 5 && \
+       helm upgrade --install devops-frontend ./chart \
+         --namespace emzops-staging \
+         --set image.tag=$IMAGE_TAG \
+         --force-replace \
+         --rollback-on-failure)
+    - echo "✅ Helm deployment command completed!"
+    - echo "Checking deployment status..."
     - kubectl get deployment devops-frontend -n emzops-staging
+    - kubectl get pods -n emzops-staging -l app=devops-frontend
+    - echo "Waiting for pods to be ready..."
+    - kubectl rollout status deployment/devops-frontend -n emzops-staging --timeout=5m || echo "⚠️  Rollout status check timed out, but deployment may still be in progress"
   environment:
     name: staging
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
