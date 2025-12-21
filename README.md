@@ -342,3 +342,4 @@ The core development work, including all code implementation, design decisions, 
 ---
 
 **Built with ❤️ using Vue.js 3 and modern web technologies**
+# Trigger pipeline
