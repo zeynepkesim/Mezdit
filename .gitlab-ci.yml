@@ -192,7 +192,17 @@ deploy-to-production:
         --set image.tag=$IMAGE_TAG \
         --wait \
         --timeout 10m \
-        --rollback-on-failure
+        --rollback-on-failure || \
+      (echo "⚠️  First attempt failed (possibly due to lock), retrying with --force-replace flag..." && \
+       sleep 5 && \
+       helm upgrade --install devops-frontend ./chart \
+         --namespace emzops-prod \
+         --values ./chart/values-prod.yaml \
+         --set image.tag=$IMAGE_TAG \
+         --force-replace \
+         --wait \
+         --timeout 10m \
+         --rollback-on-failure)
     - echo "✅ Production deployment successful!"
     - kubectl get hpa -n emzops-prod
     - kubectl get pods -n emzops-prod -l app=devops-frontend
