@@ -38,3 +38,11 @@ secrets:
   postgres:
     username: ""
     password: ""
+
+# Staging: Autoscaling disabled by default
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80

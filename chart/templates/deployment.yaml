@@ -24,6 +24,10 @@ spec:
 {{- range .Values.imagePullSecrets }}
         - name: {{ .name }}
 {{- end }}
+{{- if .Values.affinity }}
+      affinity:
+{{ toYaml .Values.affinity | nindent 8 }}
+{{- end }}
       containers:
       - name: backend
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

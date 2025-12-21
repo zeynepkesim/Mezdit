@@ -108,7 +108,7 @@ build-docker-image:
   only:
     - main
 
-deploy-to-k8s:
+deploy-to-staging:
   stage: deploy
   image: dtzar/helm-kubectl:latest
   before_script:
@@ -149,9 +149,64 @@ deploy-to-k8s:
          --wait \
          --timeout 15m \
          --rollback-on-failure)
-    - echo "✅ Deployment successful!"
+    - echo "✅ Staging deployment successful!"
   environment:
     name: staging
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
   only:
     - main
+
+deploy-to-production:
+  stage: deploy
+  image: dtzar/helm-kubectl:latest
+  before_script:
+    - mkdir -p ~/.kube
+    - echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
+    - chmod 600 ~/.kube/config
+  script:
+    - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
+    - |
+      helm upgrade --install devops-backend ./chart \
+        --namespace emzops-prod \
+        --create-namespace \
+        --values ./chart/values-prod.yaml \
+        --set image.tag=$IMAGE_TAG \
+        --set secrets.backend.databaseUrl=$DATABASE_URL \
+        --set secrets.postgres.username=$POSTGRES_USER \
+        --set secrets.postgres.password=$POSTGRES_PASSWORD \
+        --set secrets.backend.minioEndpoint=$MINIO_ENDPOINT \
+        --set secrets.backend.minioAccessKey=$MINIO_ACCESS_KEY \
+        --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
+        --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
+        --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
+        --wait \
+        --timeout 15m \
+        --rollback-on-failure || \
+      (echo "⚠️  First attempt failed (possibly due to lock), retrying with --force-replace flag..." && \
+       sleep 5 && \
+       helm upgrade --install devops-backend ./chart \
+         --namespace emzops-prod \
+         --create-namespace \
+         --values ./chart/values-prod.yaml \
+         --set image.tag=$IMAGE_TAG \
+         --set secrets.backend.databaseUrl=$DATABASE_URL \
+         --set secrets.postgres.username=$POSTGRES_USER \
+         --set secrets.postgres.password=$POSTGRES_PASSWORD \
+         --set secrets.backend.minioEndpoint=$MINIO_ENDPOINT \
+         --set secrets.backend.minioAccessKey=$MINIO_ACCESS_KEY \
+         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
+         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
+         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
+         --force-replace \
+         --wait \
+         --timeout 15m \
+         --rollback-on-failure)
+    - echo "✅ Production deployment successful!"
+    - kubectl get hpa -n emzops-prod
+    - kubectl get pods -n emzops-prod -l app=devops-backend
+  environment:
+    name: production
+    url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
+  only:
+    - main
+  when: manual
