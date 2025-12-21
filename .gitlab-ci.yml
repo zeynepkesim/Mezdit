@@ -89,13 +89,13 @@ deploy-to-k8s:
     - kubectl delete ingress devops-backend-ingress -n emzops-staging --ignore-not-found
     - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
-    - echo "Using image tag: $IMAGE_TAG"
-    - helm upgrade --install devops-frontend ./chart --namespace emzops-staging --set image.tag=$IMAGE_TAG
+    - |
+      helm upgrade --install devops-frontend ./chart \
+        --namespace emzops-staging \
+        --set image.tag=$IMAGE_TAG
     - echo "✅ Helm deployment completed!"
-    - echo "Checking deployment status..."
     - kubectl get deployment devops-frontend -n emzops-staging
     - kubectl get pods -n emzops-staging -l app=devops-frontend
-    - echo "Note: Pods may take time to start. Check pod status manually if needed."
   environment:
     name: staging
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
