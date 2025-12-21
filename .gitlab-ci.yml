@@ -89,6 +89,7 @@ deploy-to-k8s:
     - kubectl delete ingress devops-backend-ingress -n emzops-staging --ignore-not-found
     - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
+    - echo "Using image tag: $IMAGE_TAG"
     - |
       helm upgrade --install devops-frontend ./chart \
         --namespace emzops-staging \
@@ -96,7 +97,10 @@ deploy-to-k8s:
         --wait \
         --timeout 15m \
         --rollback-on-failure || \
-      (echo "⚠️  First attempt failed (possibly due to lock), uninstalling stuck release..." && \
+      (echo "⚠️  First attempt failed, checking pod status..." && \
+       kubectl get pods -n emzops-staging -l app=devops-frontend || true && \
+       kubectl describe pods -n emzops-staging -l app=devops-frontend | tail -50 || true && \
+       echo "Uninstalling stuck release..." && \
        helm uninstall devops-frontend --namespace emzops-staging --ignore-not-found || true && \
        sleep 5 && \
        echo "Retrying with fresh install..." && \
@@ -108,6 +112,7 @@ deploy-to-k8s:
          --timeout 15m)
     - echo "✅ Deployment successful!"
     - kubectl get pods -n emzops-staging -l app=devops-frontend
+    - kubectl get deployment devops-frontend -n emzops-staging -o yaml | grep -A 5 "readinessProbe\|livenessProbe" || true
   environment:
     name: staging
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
