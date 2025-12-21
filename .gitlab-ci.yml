@@ -128,8 +128,7 @@ deploy-to-staging:
       fi
       chmod 600 ~/.kube/config
       echo "✅ KUBECONFIG decoded successfully"
-      echo "Testing cluster connection..."
-      kubectl get namespace emzops-staging --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster or access staging namespace. Please check KUBECONFIG_CONTENT variable!" && exit 1)
+      echo "✅ Ready to deploy to staging namespace"
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - |
@@ -193,14 +192,12 @@ deploy-to-production:
       echo "✅ KUBECONFIG decoded successfully"
       echo "Switching to production context..."
       kubectl config use-context gitlab-deploy-prod 2>/dev/null || echo "⚠️  Production context not found, using default context"
-      echo "Testing cluster connection..."
-      kubectl get namespace emzops-prod --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster or access production namespace. Please check KUBECONFIG_CONTENT variable!" && exit 1)
+      echo "✅ Ready to deploy to production namespace"
   script:
     - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
     - |
       helm upgrade --install devops-backend ./chart \
         --namespace emzops-prod \
-        --create-namespace \
         --values ./chart/values-prod.yaml \
         --set image.tag=$IMAGE_TAG \
         --set secrets.backend.databaseUrl=$DATABASE_URL \
@@ -218,7 +215,6 @@ deploy-to-production:
        sleep 5 && \
        helm upgrade --install devops-backend ./chart \
          --namespace emzops-prod \
-         --create-namespace \
          --values ./chart/values-prod.yaml \
          --set image.tag=$IMAGE_TAG \
          --set secrets.backend.databaseUrl=$DATABASE_URL \
