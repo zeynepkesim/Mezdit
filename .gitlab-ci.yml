@@ -92,10 +92,13 @@ deploy-to-k8s:
     - |
       helm upgrade --install devops-frontend ./chart \
         --namespace emzops-staging \
-        --set image.tag=$IMAGE_TAG
-    - echo "✅ Helm deployment completed!"
-    - kubectl get deployment devops-frontend -n emzops-staging
+        --set image.tag=$IMAGE_TAG \
+        --wait \
+        --timeout 10m \
+        --rollback-on-failure
+    - echo "✅ Deployment successful!"
     - kubectl get pods -n emzops-staging -l app=devops-frontend
+    - kubectl get deployment devops-frontend -n emzops-staging
   environment:
     name: staging
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
