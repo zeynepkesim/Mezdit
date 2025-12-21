@@ -96,14 +96,16 @@ deploy-to-k8s:
         --wait \
         --timeout 15m \
         --rollback-on-failure || \
-      (echo "Deployment failed, trying with --force flag..." && \
-       helm upgrade --install devops-frontend ./chart \
+      (echo "⚠️  First attempt failed (possibly due to lock), uninstalling stuck release..." && \
+       helm uninstall devops-frontend --namespace emzops-staging --ignore-not-found || true && \
+       sleep 5 && \
+       echo "Retrying with fresh install..." && \
+       helm install devops-frontend ./chart \
          --namespace emzops-staging \
+         --create-namespace \
          --set image.tag=$IMAGE_TAG \
-         --force \
          --wait \
-         --timeout 15m \
-         --rollback-on-failure)
+         --timeout 15m)
     - echo "✅ Deployment successful!"
     - kubectl get pods -n emzops-staging -l app=devops-frontend
   environment:
