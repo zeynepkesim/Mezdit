@@ -129,7 +129,7 @@ deploy-to-staging:
       chmod 600 ~/.kube/config
       echo "✅ KUBECONFIG decoded successfully"
       echo "Testing cluster connection..."
-      kubectl cluster-info --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster. Please check KUBECONFIG_CONTENT variable!" && exit 1)
+      kubectl get namespace emzops-staging --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster or access staging namespace. Please check KUBECONFIG_CONTENT variable!" && exit 1)
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - |
@@ -194,7 +194,7 @@ deploy-to-production:
       echo "Switching to production context..."
       kubectl config use-context gitlab-deploy-prod 2>/dev/null || echo "⚠️  Production context not found, using default context"
       echo "Testing cluster connection..."
-      kubectl cluster-info --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster. Please check KUBECONFIG_CONTENT variable!" && exit 1)
+      kubectl get namespace emzops-prod --request-timeout=10s || (echo "❌ ERROR: Cannot connect to Kubernetes cluster or access production namespace. Please check KUBECONFIG_CONTENT variable!" && exit 1)
   script:
     - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
     - |
