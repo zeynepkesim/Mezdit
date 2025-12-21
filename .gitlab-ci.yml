@@ -94,19 +94,18 @@ deploy-to-k8s:
         --namespace emzops-staging \
         --set image.tag=$IMAGE_TAG \
         --wait \
-        --timeout 10m \
+        --timeout 5m \
         --rollback-on-failure || \
-      (echo "⚠️  First attempt failed, uninstalling and retrying..." && \
-       helm uninstall devops-frontend --namespace emzops-staging --ignore-not-found && \
-       sleep 5 && \
-       helm install devops-frontend ./chart \
-         --namespace emzops-staging \
-         --create-namespace \
-         --set image.tag=$IMAGE_TAG \
-         --wait \
-         --timeout 10m)
+      (echo "⚠️  Deployment failed or timed out, checking pod status..." && \
+       kubectl get pods -n emzops-staging -l app=devops-frontend || true && \
+       kubectl describe pods -n emzops-staging -l app=devops-frontend | tail -50 || true && \
+       kubectl logs -n emzops-staging -l app=devops-frontend --tail=50 || true && \
+       echo "⚠️  Showing deployment status..." && \
+       kubectl get deployment devops-frontend -n emzops-staging || true && \
+       exit 1)
     - echo "✅ Deployment successful!"
     - kubectl get pods -n emzops-staging -l app=devops-frontend
+    - kubectl get deployment devops-frontend -n emzops-staging
   environment:
     name: staging
     url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
