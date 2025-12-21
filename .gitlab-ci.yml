@@ -141,14 +141,18 @@ deploy-to-staging:
     - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - |
-      helm upgrade --install devops-frontend ./chart \
+      # Atomic rollback enabled
+      # Note: --rollback-on-failure waits for pods to be ready
+      if ! helm upgrade --install devops-frontend ./chart \
         --namespace emzops-staging \
         --set image.tag=latest \
-        --timeout 5m \
-        --rollback-on-failure || \
-      (echo "⚠️  Deployment failed, attempting manual rollback..." && \
-       helm rollback devops-frontend -n emzops-staging && \
-       exit 1)
+        --timeout 15m \
+        --rollback-on-failure; then
+        echo "⚠️  Deployment failed, attempting manual rollback..."
+        kubectl get pods -n emzops-staging -l app=devops-frontend || true
+        helm rollback devops-frontend -n emzops-staging || true
+        exit 1
+      fi
     - echo "✅ Helm deployment command completed!"
     - echo "Checking deployment status..."
     - kubectl get deployment devops-frontend -n emzops-staging
@@ -185,14 +189,19 @@ deploy-to-production:
   script:
     - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
     - |
+      # First attempt: with atomic rollback
+      # Note: --rollback-on-failure waits for pods to be ready, so we use a longer timeout
       if ! helm upgrade --install devops-frontend ./chart \
         --namespace emzops-prod \
         --values ./chart/values-prod.yaml \
         --set image.tag=$IMAGE_TAG \
-        --timeout 5m \
+        --timeout 15m \
         --rollback-on-failure; then
-        echo "⚠️  First attempt failed (possibly due to lock), retrying with --force-replace flag..."
+        echo "⚠️  First attempt failed (timeout or deployment issue), checking status..."
+        kubectl get pods -n emzops-prod -l app=devops-frontend || true
+        echo "⚠️  Retrying without rollback-on-failure to avoid timeout..."
         sleep 10
+        # Retry: without rollback-on-failure (to avoid timeout issues)
         if ! helm upgrade --install devops-frontend ./chart \
           --namespace emzops-prod \
           --values ./chart/values-prod.yaml \
