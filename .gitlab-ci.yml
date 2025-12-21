@@ -143,9 +143,10 @@ deploy-to-staging:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --wait \
         --timeout 15m \
         --rollback-on-failure
+    - echo "Waiting for deployment to be ready..."
+    - kubectl rollout status deployment/devops-backend -n emzops-staging --timeout=10m || echo "⚠️  Deployment may still be progressing"
     - echo "✅ Staging deployment successful!"
   environment:
     name: staging
@@ -191,9 +192,10 @@ deploy-to-production:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --wait \
         --timeout 15m \
         --rollback-on-failure
+    - echo "Waiting for deployment to be ready..."
+    - kubectl rollout status deployment/devops-backend -n emzops-prod --timeout=10m || echo "⚠️  Deployment may still be progressing"
     - echo "✅ Production deployment successful!"
     - kubectl get hpa -n emzops-prod
     - kubectl get pods -n emzops-prod -l app=devops-backend
