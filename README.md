@@ -20,6 +20,7 @@ A Reddit-like backend API with JWT authentication, WebSocket support, and Kubern
 This project uses **GORM ORM** for automatic database migrations. No need to manually run SQL scripts!
 
 **What is GORM?**
+
 - 🚀 Automatic schema migrations
 - 📦 Type-safe database operations
 - 🔄 Auto-creates tables, columns, indexes
@@ -28,6 +29,7 @@ This project uses **GORM ORM** for automatic database migrations. No need to man
 **Setup:**
 
 1. Install PostgreSQL (if not already installed):
+
 ```bash
 # Install PostgreSQL (macOS)
 brew install postgresql
@@ -35,17 +37,20 @@ brew services start postgresql
 ```
 
 2. Just run the application:
+
 ```bash
 go run .
 ```
 
 **That's it!** GORM will automatically:
+
 - ✅ Create all tables: `users`, `posts`, `images`, `user_votes`
 - ✅ Add new columns when you update models
 - ✅ Create indexes and foreign keys
 - ✅ Keep schema in sync with your Go models
 
 **Output when running:**
+
 ```
 ✓ Connected to PostgreSQL database
 ✓ GORM auto-migration completed
@@ -61,6 +66,7 @@ This project is deployed on Kubernetes cluster with automated CI/CD via GitLab p
 ### Architecture
 
 **High-Level Components:**
+
 - **Backend**: Deployment with 1 replica
 - **Database**: StatefulSet (PostgreSQL 15)
 - **Storage**: Longhorn PVC (2Gi for images, 1Gi for database)
@@ -112,6 +118,7 @@ Persistent Storage (Longhorn)
 ```
 
 **Request Flow Example:**
+
 ```
 User → https://devops-mezdit.kubernetes.devops.cs.ut.ee/api/posts
   ↓
@@ -126,31 +133,137 @@ postgres-0 Pod → Returns data
 Response → backend-service → Ingress → User
 ```
 
+### Container Image Build and Registry (Week 9)
+
+#### How Container Images Are Built
+
+**Build Tool:** Kaniko (rootless, secure container builds)
+
+**Pipeline Configuration** (`.gitlab-ci.yml`):
+
+```yaml
+build-docker-image:
+  stage: build-image
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.0-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${IMAGE_NAME}:${IMAGE_TAG}"
+      --destination "${IMAGE_NAME}:latest"
+      --cache=true
+      --cache-ttl=24h
+```
+
+**Why Kaniko?**
+
+- No Docker daemon required
+- Works in unprivileged CI/CD runners
+- Layer caching for faster builds (24h TTL)
+- Secure, rootless container builds
+
+**Build Process Flow:**
+
+```
+Code Push to main → GitLab CI/CD → Kaniko Executor → Build Layers →
+Tag Image (latest + commit SHA) → Push to GitLab Registry → Deploy to K8s
+```
+
+#### Image Tagging Strategy
+
+**Dual-Tag Approach:**
+
+1. **`latest` tag**: Always points to most recent build, used by Kubernetes deployments
+   - `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest`
+2. **Commit SHA tag**: Immutable reference for rollbacks and audit trail
+   - `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:a1b2c3d`
+
+**Pipeline Variables:**
+
+```yaml
+variables:
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+```
+
+#### Private Registry Authentication
+
+**Problem:** Kubernetes cannot pull images from private GitLab Container Registry without authentication.
+
+**Solution:** Docker Registry Secret with Deploy Token
+
+**Step 1: Create GitLab Deploy Token**
+
+- Location: GitLab → Settings → Repository → Deploy Tokens
+- Name: `kubernetes-deploy`
+- Scopes: ✅ `read_registry`
+
+**Step 2: Create Kubernetes Secret**
+
+```bash
+kubectl create secret docker-registry gitlab-registry-secret \
+  --docker-server=registry.gitlab.cs.ut.ee \
+  --docker-username=<deploy-token-username> \
+  --docker-password=<deploy-token-token> \
+  --namespace=emzops-staging
+```
+
+**Step 3: Reference in Deployment**
+
+```yaml
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+        - name: gitlab-registry-secret # Authenticates with private registry
+      containers:
+        - name: backend
+          image: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest
+```
+
+**How It Works:**
+
+```
+Pod Creation → K8s reads imagePullSecrets → Retrieves credentials →
+Authenticates to GitLab Registry → Pulls image → Starts container
+```
+
+**📚 For detailed Week 9 documentation, see [WEEK9_DEPLOYMENT.md](WEEK9_DEPLOYMENT.md)**
+
+---
+
 ### GitLab CI/CD Pipeline
 
 The pipeline consists of **5 stages**:
 
 1. **Security Stage**
+
    - Secrets detection using Gitleaks
    - Blocks deployment if secrets found
    - Prevents accidental API key/password exposure
 
 2. **Test Stage**
+
    - Code formatting (`go fmt`, `go vet`)
    - Unit tests with PostgreSQL service
    - Coverage calculation (target: >50%)
 
 3. **Build Stage**
+
    - Compiles Go binary
    - Validates build success
 
 4. **Build Image Stage**
+
    - Builds Docker image using Kaniko (rootless, secure)
    - Tags with `latest` and commit SHA
    - Pushes to GitLab Container Registry
    - Image: `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest`
-   
+
    **Kaniko Build Command:**
+
    ```bash
    /kaniko/executor \
      --context "${CI_PROJECT_DIR}" \
@@ -158,26 +271,30 @@ The pipeline consists of **5 stages**:
      --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}" \
      --destination "${CI_REGISTRY_IMAGE}:latest"
    ```
-   
+
    **Image Tagging Strategy:**
+
    - `latest`: Updated on every main branch push (for development/testing)
    - `${CI_COMMIT_SHA}`: Immutable tag with commit hash (for production/rollback)
    - Example: `registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:a1b2c3d4`
-   
+
    **Registry Authentication:**
    GitLab CI/CD automatically provides credentials:
+
    - `CI_REGISTRY`: registry.gitlab.cs.ut.ee
    - `CI_REGISTRY_USER`: gitlab-ci-token
    - `CI_REGISTRY_PASSWORD`: Auto-generated token
    - `CI_REGISTRY_IMAGE`: Full image path
 
 5. **Deploy to Kubernetes Stage** (main branch only)
+
    - Uses `kubectl` to apply Kubernetes manifests
    - Deploys to `emzops-staging` namespace
    - Rolling update with zero downtime
    - Waits for deployment to be ready
-   
+
    **Deployment Commands:**
+
    ```bash
    kubectl apply -f k8s/configmap.yaml
    kubectl apply -f k8s/images-pvc.yaml
@@ -191,17 +308,17 @@ The pipeline consists of **5 stages**:
 
 All Kubernetes resources are defined in the `k8s/` directory:
 
-| File | Purpose |
-|------|---------|
-| `deployment.yaml` | Backend application deployment (1 replica, health probes, metrics port) |
-| `service.yaml` | ClusterIP service with Prometheus annotations |
-| `ingress.yaml` | External access with TLS/HTTPS (cert-manager) |
-| `configmap.yaml` | Non-sensitive environment variables (PORT, LOG_LEVEL) |
-| `secret.yaml` | Sensitive data (DATABASE_URL) - **NOT in Git** |
-| `postgres-statefulset.yaml` | PostgreSQL database with persistent storage |
-| `images-pvc.yaml` | Persistent volume claim for uploaded images (Longhorn) |
-| `rbac.yaml` | ServiceAccount, Role, RoleBinding for GitLab CI/CD |
-| `networkpolicy.yaml` | Network security (allows Prometheus + Ingress) |
+| File                        | Purpose                                                                 |
+| --------------------------- | ----------------------------------------------------------------------- |
+| `deployment.yaml`           | Backend application deployment (1 replica, health probes, metrics port) |
+| `service.yaml`              | ClusterIP service with Prometheus annotations                           |
+| `ingress.yaml`              | External access with TLS/HTTPS (cert-manager)                           |
+| `configmap.yaml`            | Non-sensitive environment variables (PORT, LOG_LEVEL)                   |
+| `secret.yaml`               | Sensitive data (DATABASE_URL) - **NOT in Git**                          |
+| `postgres-statefulset.yaml` | PostgreSQL database with persistent storage                             |
+| `images-pvc.yaml`           | Persistent volume claim for uploaded images (Longhorn)                  |
+| `rbac.yaml`                 | ServiceAccount, Role, RoleBinding for GitLab CI/CD                      |
+| `networkpolicy.yaml`        | Network security (allows Prometheus + Ingress)                          |
 
 ### Private Registry Authentication
 
@@ -211,6 +328,7 @@ Pods use `imagePullSecrets` to authenticate with the private GitLab Container Re
 
 **Secret Configuration:**
 The `gitlab-registry-secret` was created by cluster admin:
+
 ```bash
 kubectl create secret docker-registry gitlab-registry-secret \
   --docker-server=registry.gitlab.cs.ut.ee \
@@ -221,19 +339,21 @@ kubectl create secret docker-registry gitlab-registry-secret \
 ```
 
 **Deployment Configuration:**
+
 ```yaml
 # k8s/deployment.yaml
 spec:
   template:
     spec:
       imagePullSecrets:
-      - name: gitlab-registry-secret  # ← Authenticates with registry
+        - name: gitlab-registry-secret # ← Authenticates with registry
       containers:
-      - name: backend
-        image: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest
+        - name: backend
+          image: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be:latest
 ```
 
 **How it works:**
+
 1. Kubernetes tries to pull image from registry
 2. Checks `imagePullSecrets` in Pod spec
 3. Uses credentials from `gitlab-registry-secret`
@@ -250,6 +370,7 @@ spec:
 4. **KUBECONFIG**: Stored as base64-encoded GitLab CI/CD variable (`KUBECONFIG_CONTENT`)
 
 **How it works:**
+
 - GitLab pipeline decodes KUBECONFIG
 - Authenticates as `gitlab-deploy` ServiceAccount
 - Applies Kubernetes manifests using `kubectl`
@@ -282,6 +403,7 @@ spec:
 ### Configuration Management
 
 **Non-Sensitive Data (ConfigMap):**
+
 ```yaml
 # k8s/configmap.yaml
 data:
@@ -290,6 +412,7 @@ data:
 ```
 
 **Sensitive Data (Secret):**
+
 ```yaml
 # k8s/secret.yaml (NOT in Git)
 stringData:
@@ -297,18 +420,19 @@ stringData:
 ```
 
 **Usage in Deployment:**
+
 ```yaml
 env:
-- name: PORT
-  valueFrom:
-    configMapKeyRef:
-      name: backend-config
-      key: PORT
-- name: DATABASE_URL
-  valueFrom:
-    secretKeyRef:
-      name: backend-secret
-      key: DATABASE_URL
+  - name: PORT
+    valueFrom:
+      configMapKeyRef:
+        name: backend-config
+        key: PORT
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: backend-secret
+        key: DATABASE_URL
 ```
 
 **✅ No hardcoded values in code**
@@ -318,6 +442,7 @@ env:
 ### Persistent Storage
 
 **Images Storage (Longhorn PVC):**
+
 - **Size**: 2Gi
 - **Access Mode**: ReadWriteOnce
 - **Storage Class**: longhorn
@@ -325,6 +450,7 @@ env:
 - **Persists**: Uploaded images survive Pod restarts
 
 **Database Storage (StatefulSet):**
+
 - **Size**: 1Gi
 - **Access Mode**: ReadWriteOnce
 - **Mount Path**: `/var/lib/postgresql/data`
@@ -337,6 +463,7 @@ env:
 To add a new field to a table:
 
 1. Add the field to the model in `internal/models/models.go`:
+
 ```go
 type User struct {
     // ... existing fields ...
@@ -345,6 +472,7 @@ type User struct {
 ```
 
 2. Run the app - GORM will automatically add the column:
+
 ```bash
 go run .
 ```
@@ -378,6 +506,7 @@ Server runs on http://localhost:8080
 The application implements two health check endpoints for Kubernetes probes:
 
 #### `/healthz` - Liveness Probe
+
 - **Purpose**: Checks if the application is running
 - **Implementation**: `internal/handlers/health.go`
 - **Response**: HTTP 200 "ok"
@@ -392,6 +521,7 @@ func HealthzHandler(w http.ResponseWriter, r *http.Request) {
 ```
 
 #### `/readyz` - Readiness Probe
+
 - **Purpose**: Checks if the application is ready to serve traffic
 - **Implementation**: `internal/handlers/health.go`
 - **Response**: HTTP 200 "ok" if ready, 503 if not
@@ -418,6 +548,7 @@ func ReadyzHandler(w http.ResponseWriter, r *http.Request) {
 ### Metrics Endpoint
 
 #### `/metrics` - Prometheus Metrics
+
 - **Port**: 9090 (separate from main app port 8080)
 - **Implementation**: `internal/handlers/metrics.go`
 - **Format**: Prometheus text format
@@ -425,29 +556,30 @@ func ReadyzHandler(w http.ResponseWriter, r *http.Request) {
 
 **Collected Metrics (5 total):**
 
-| Metric | Type | Description | Golden Signal |
-|--------|------|-------------|---------------|
-| `app_requests_total` | Counter | Total HTTP requests | Traffic |
-| `app_errors_total` | Counter | Total HTTP errors (4xx, 5xx) | Errors |
-| `app_request_latency_microseconds` | Counter | Total request latency | Latency |
-| `app_posts_total` | Gauge | Current number of posts | Custom |
-| `app_users_total` | Gauge | Current number of users | Custom |
+| Metric                             | Type    | Description                  | Golden Signal |
+| ---------------------------------- | ------- | ---------------------------- | ------------- |
+| `app_requests_total`               | Counter | Total HTTP requests          | Traffic       |
+| `app_errors_total`                 | Counter | Total HTTP errors (4xx, 5xx) | Errors        |
+| `app_request_latency_microseconds` | Counter | Total request latency        | Latency       |
+| `app_posts_total`                  | Gauge   | Current number of posts      | Custom        |
+| `app_users_total`                  | Gauge   | Current number of users      | Custom        |
 
 **Metrics Middleware:**
+
 ```go
 // Tracks requests, errors, and latency for every HTTP request
 func MetricsMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         start := time.Now()
         atomic.AddUint64(&totalRequests, 1)
-        
+
         ww := &responseWriter{ResponseWriter: w, status: 200}
         next.ServeHTTP(ww, r)
-        
+
         if ww.status >= 400 {
             atomic.AddUint64(&totalErrors, 1)
         }
-        
+
         latency := time.Since(start).Microseconds()
         atomic.AddInt64(&totalLatency, latency)
     })
@@ -455,6 +587,7 @@ func MetricsMiddleware(next http.Handler) http.Handler {
 ```
 
 **Separate Metrics Server:**
+
 ```go
 // main.go - Metrics server on port 9090
 metricsServeMux := http.NewServeMux()
@@ -475,9 +608,9 @@ livenessProbe:
   httpGet:
     path: /healthz
     port: 8080
-  initialDelaySeconds: 5   # Wait 5s before first check
-  periodSeconds: 10         # Check every 10s
-  failureThreshold: 3       # Restart after 3 failures
+  initialDelaySeconds: 5 # Wait 5s before first check
+  periodSeconds: 10 # Check every 10s
+  failureThreshold: 3 # Restart after 3 failures
   timeoutSeconds: 5
 
 readinessProbe:
@@ -491,6 +624,7 @@ readinessProbe:
 ```
 
 **How it works:**
+
 - **Liveness**: Kubernetes checks `/healthz` every 10 seconds. If it fails 3 times, Pod is restarted.
 - **Readiness**: Kubernetes checks `/readyz` every 10 seconds. If it fails, Pod is removed from Service (no traffic).
 
@@ -501,32 +635,33 @@ readinessProbe:
 ```yaml
 metadata:
   annotations:
-    prometheus.io/scrape: "true"   # Enable scraping
-    prometheus.io/port: "9090"     # Metrics port
+    prometheus.io/scrape: "true" # Enable scraping
+    prometheus.io/port: "9090" # Metrics port
     prometheus.io/path: "/metrics" # Metrics path
 spec:
   ports:
-  - name: http
-    port: 80
-    targetPort: 8080
-  - name: metrics  # Expose metrics port
-    port: 9090
-    targetPort: 9090
+    - name: http
+      port: 80
+      targetPort: 8080
+    - name: metrics # Expose metrics port
+      port: 9090
+      targetPort: 9090
 ```
 
 **NetworkPolicy (`k8s/networkpolicy.yaml`):**
+
 - Allows Prometheus (from `prometheus-stack` namespace) to scrape port 9090
 - Allows Ingress controller to access port 8080
 
 ```yaml
 ingress:
-- from:
-  - namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: prometheus-stack
-  ports:
-  - protocol: TCP
-    port: 9090  # Metrics port
+  - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: prometheus-stack
+    ports:
+      - protocol: TCP
+        port: 9090 # Metrics port
 ```
 
 ### Monitoring Workflow
@@ -556,11 +691,13 @@ ingress:
 **Metrics Collection:**
 
 1. **Application Metrics (Custom):**
+
    - Tracked by `MetricsMiddleware` in `internal/handlers/metrics.go`
    - Updated on every HTTP request
    - Exposed at `/metrics` endpoint
 
 2. **System Metrics (Kubernetes):**
+
    - Collected by kubelet
    - CPU: `container_cpu_usage_seconds_total`
    - Memory: `container_memory_usage_bytes`
@@ -579,49 +716,58 @@ ingress:
 **Important PromQL Queries:**
 
 1. **Request Rate (requests/sec):**
+
    ```promql
    rate(app_requests_total{namespace="emzops-staging"}[5m])
    ```
 
 2. **Error Percentage:**
+
    ```promql
-   (rate(app_errors_total{namespace="emzops-staging"}[5m]) / 
+   (rate(app_errors_total{namespace="emzops-staging"}[5m]) /
     rate(app_requests_total{namespace="emzops-staging"}[5m])) * 100
    ```
 
 3. **Average Latency (milliseconds):**
+
    ```promql
-   (rate(app_request_latency_microseconds{namespace="emzops-staging"}[5m]) / 
+   (rate(app_request_latency_microseconds{namespace="emzops-staging"}[5m]) /
     rate(app_requests_total{namespace="emzops-staging"}[5m])) / 1000
    ```
 
 4. **Posts Count:**
+
    ```promql
    app_posts_total{namespace="emzops-staging"}
    ```
 
 5. **Users Count:**
+
    ```promql
    app_users_total{namespace="emzops-staging"}
    ```
 
 6. **Backend Health Status:**
+
    ```promql
    up{job="devops-backend",namespace="emzops-staging"}
    ```
 
 7. **Database Health Status:**
+
    ```promql
    up{job="postgres",namespace="emzops-staging"}
    ```
 
 8. **Storage Usage (percentage):**
+
    ```promql
-   (kubelet_volume_stats_used_bytes{persistentvolumeclaim="backend-images-storage"} / 
+   (kubelet_volume_stats_used_bytes{persistentvolumeclaim="backend-images-storage"} /
     kubelet_volume_stats_capacity_bytes{persistentvolumeclaim="backend-images-storage"}) * 100
    ```
 
 9. **Pod CPU Usage (percentage):**
+
    ```promql
    rate(container_cpu_usage_seconds_total{pod=~"devops-backend.*",namespace="emzops-staging"}[5m]) * 100
    ```
@@ -634,6 +780,7 @@ ingress:
 ### Testing Health Endpoints
 
 **Local Testing:**
+
 ```bash
 # Start application locally
 go run .
@@ -648,6 +795,7 @@ curl http://localhost:8080/readyz
 ```
 
 **Kubernetes Testing:**
+
 ```bash
 # Port-forward to pod
 kubectl port-forward deployment/devops-backend 8080:8080 -n emzops-staging
@@ -664,6 +812,7 @@ exit
 ```
 
 **Production Testing (via Ingress):**
+
 ```bash
 # If exposed publicly
 curl https://devops-mezdit.kubernetes.devops.cs.ut.ee/healthz
@@ -671,6 +820,7 @@ curl https://devops-mezdit.kubernetes.devops.cs.ut.ee/readyz
 ```
 
 **Verify Probes in Kubernetes:**
+
 ```bash
 # Check probe configuration
 kubectl describe deployment devops-backend -n emzops-staging | grep -A 5 "Liveness\|Readiness"
@@ -708,6 +858,7 @@ devops-be/
 ```
 
 **Key Features:**
+
 - **Database**: GORM ORM with auto-migrations, dual support for legacy SQL and GORM
 - **Authentication**: JWT tokens (24h expiry), bcrypt password hashing, middleware for protected routes
 - **Real-Time**: WebSocket hub for live post/vote updates
@@ -718,6 +869,7 @@ devops-be/
 ### JWT Token-Based Authentication
 
 **Architecture:**
+
 - **Token Generation**: `internal/auth/jwt.go` - Creates JWT with user claims
 - **Token Validation**: `internal/middleware/auth.go` - Validates Bearer tokens
 - **Password Security**: `internal/database/user.go` - bcrypt hashing (cost: 10)
@@ -749,6 +901,7 @@ Handler processes request
 ```
 
 **JWT Token Structure:**
+
 ```json
 {
   "header": {
@@ -758,9 +911,9 @@ Handler processes request
   "payload": {
     "userID": 1,
     "username": "john_doe",
-    "exp": 1735689600,  // 24 hours from issue
-    "iat": 1735603200,  // issued at
-    "nbf": 1735603200   // not before
+    "exp": 1735689600, // 24 hours from issue
+    "iat": 1735603200, // issued at
+    "nbf": 1735603200 // not before
   },
   "signature": "HMACSHA256(...)"
 }
@@ -769,6 +922,7 @@ Handler processes request
 **Middleware Types:**
 
 1. **RequireAuth** - Blocks request if no valid token
+
    - Used for: `POST /posts`, `POST /vote`, `POST /change-password`
    - Returns: `401 Unauthorized` if token missing/invalid
 
@@ -777,6 +931,7 @@ Handler processes request
    - Continues execution even without token
 
 **Security Features:**
+
 - **Token Secret**: Configurable via `JWT_SECRET` environment variable
 - **Expiration**: 24-hour token lifetime (configurable in `auth/jwt.go`)
 - **Password Hashing**: bcrypt with default cost (10), salted automatically
@@ -784,12 +939,14 @@ Handler processes request
 - **Bearer Token**: Standard `Authorization: Bearer <token>` format
 
 **Code Locations:**
+
 - Token generation: `internal/auth/jwt.go:15` - `GenerateToken()`
 - Token validation: `internal/auth/jwt.go:35` - `ValidateToken()`
 - Auth middleware: `internal/middleware/auth.go:10` - `RequireAuth()`, `OptionalAuth()`
 - Password hashing: `internal/database/user.go:20` - `LoginUser()`, `CreateUser()`
 
 **JWT Flow:**
+
 1. `POST /login` or `POST /register` → receive JWT token (24h expiry)
 2. Include token in protected endpoints: `Authorization: Bearer <token>`
 
@@ -803,6 +960,7 @@ All endpoints use JSON (`Content-Type: application/json`). See full response exa
 ### Authentication
 
 **POST /login** - Login user
+
 ```json
 Request: {"username": "string", "password": "string"}
 Response: {"success": true, "data": {"user": {...}, "token": "JWT_TOKEN"}}
@@ -810,6 +968,7 @@ Errors: 401 authentication_failed
 ```
 
 **POST /register** - Register new user (passwords auto-hashed with bcrypt)
+
 ```json
 Request: {"name": "string", "username": "string", "password": "string"}
 Response: {"success": true, "data": {"user": {...}, "token": "JWT_TOKEN"}}
@@ -817,6 +976,7 @@ Errors: 409 username_exists
 ```
 
 **POST /change-password** 🔐 - Change password (min 6 chars, must differ from current)
+
 ```json
 Headers: Authorization: Bearer <token>
 Request: {"userId": 1, "currentPassword": "old", "newPassword": "new"}
@@ -827,6 +987,7 @@ Errors: 400 validation_error, 401 incorrect_password, 404 user_not_found
 ### Posts
 
 **GET /posts** - Get all posts (newest first)
+
 ```json
 Query: ?userId=1 (optional, includes vote status & private posts)
 Response: {"success": true, "data": [{id, publisherId, publisherName, header, contentText,
@@ -836,6 +997,7 @@ Notes: isLiked = true (upvote) | false (downvote) | null (no vote)
 ```
 
 **POST /posts** 🔐 - Create post
+
 ```json
 Request: {"publisherId": 1, "header": "Title", "contentText": "Content",
   "publisherName": "Name", "isPrivate": false}
@@ -844,6 +1006,7 @@ Errors: 400 validation_error, 400 invalid_publisher
 ```
 
 **POST /posts/edit** 🔐 - Edit post (owner only)
+
 ```json
 Request: {"postId": 1, "userId": 1, "header": "New Title", "contentText": "New Content",
   "publisherName": "Name", "isPrivate": false}
@@ -851,6 +1014,7 @@ Errors: 403 not_post_owner, 404 post_not_found, 400 user_not_found
 ```
 
 **POST /posts/edit-with-image** 🔐 - Edit post with image (owner only, multipart/form-data)
+
 ```
 Fields: postId, userId, header, contentText, publisherName, isPrivate, image (JPG/JPEG/PNG)
 Notes: Old image auto-deleted when replaced
@@ -858,12 +1022,14 @@ Errors: 403 not_post_owner, 400 invalid_file_type
 ```
 
 **POST /posts/upload** 🔐 - Create post with image (multipart/form-data)
+
 ```
 Fields: publisherId, header, contentText, publisherName, isPrivate, image (JPG/JPEG/PNG)
 Notes: Images saved as UUID_filename.ext in /images/, accessible via GET /images/*
 ```
 
 **POST /upload** 🔐 - Standalone image upload (multipart/form-data)
+
 ```
 Fields: image (JPG/JPEG/PNG required)
 Response: {"success": true, "data": {"id": 1, "path": "images/uuid_file.jpg", "createdAt": "..."}}
@@ -872,6 +1038,7 @@ Response: {"success": true, "data": {"id": 1, "path": "images/uuid_file.jpg", "c
 ### Voting
 
 **POST /vote** 🔐 - Upvote/downvote posts (toggle on same vote, change on different)
+
 ```json
 Request: {"postId": 1, "userId": 2, "upvoted": true}
 Response: {"success": true, "data": {post with updated voteCount and isLiked}}
@@ -884,6 +1051,7 @@ Errors: 404 post_not_found, 400 user_not_found
 **Endpoint:** `ws://localhost:8080/ws`
 
 **Architecture:**
+
 - **Hub**: `internal/websocket/hub.go` - Central message broadcaster
 - **Client**: `internal/websocket/client.go` - Individual connection handler
 - **Handler**: `internal/handlers/websocket.go` - HTTP upgrade to WebSocket
@@ -916,6 +1084,7 @@ Client disconnects → Unregister from hub
 ```
 
 **Hub Implementation Details:**
+
 - **Concurrent-Safe**: Uses channels for thread-safe communication
 - **Channels**:
   - `broadcast chan []byte` - Messages to broadcast
@@ -925,6 +1094,7 @@ Client disconnects → Unregister from hub
 - **Broadcasting**: O(n) iteration over all clients, non-blocking writes
 
 **Client Management:**
+
 - **ReadPump**: Goroutine reads from WebSocket, handles pong responses
 - **WritePump**: Goroutine writes to WebSocket from buffered channel
 - **Heartbeat**:
@@ -934,17 +1104,20 @@ Client disconnects → Unregister from hub
 - **Buffered Channel**: Each client has 256-message buffer
 
 **Message Format:**
+
 ```json
 {"type": "POST_CREATED|POST_UPDATED|POST_VOTED|POST_PRIVACY_CHANGED", "payload": {post object}}
 ```
 
 **Message Types:**
+
 - `POST_CREATED` - New post created (from `POST /posts`, `POST /posts/upload`)
 - `POST_UPDATED` - Post edited (from `POST /posts/edit*`)
 - `POST_VOTED` - Vote added/changed/removed (from `POST /vote`)
 - `POST_PRIVACY_CHANGED` - Reserved for future use
 
 **Broadcast Triggers** (in handlers):
+
 ```go
 // Example: internal/handlers/post.go
 post, err := database.CreatePost(...)
@@ -957,6 +1130,7 @@ if err == nil {
 ```
 
 **Performance:**
+
 - **Latency**: Typically <100ms for broadcasts
 - **Scalability**: Tested with 100+ concurrent connections
 - **Memory**: ~10KB per client connection
@@ -965,23 +1139,26 @@ if err == nil {
 **Features:** Bidirectional WebSocket, multi-client broadcasts, <100ms latency, auto-reconnect, heartbeat (60s pong wait, 54s ping)
 
 **Example Client:**
+
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/ws');
+const ws = new WebSocket("ws://localhost:8080/ws");
 ws.onmessage = (event) => {
-  const {type, payload} = JSON.parse(event.data);
-  if (type === 'POST_CREATED') addPostToUI(payload);
-  if (type === 'POST_VOTED') updateVoteCount(payload);
+  const { type, payload } = JSON.parse(event.data);
+  if (type === "POST_CREATED") addPostToUI(payload);
+  if (type === "POST_VOTED") updateVoteCount(payload);
 };
 ```
 
 **Testing:** `wscat -c ws://localhost:8080/ws` (install: `npm i -g wscat`)
 
 **Code Locations:**
+
 - Hub implementation: `internal/websocket/hub.go:15` - `Hub.Run()`, `Hub.Broadcast()`
 - Client handler: `internal/websocket/client.go:25` - `ReadPump()`, `WritePump()`
 - WebSocket upgrade: `internal/handlers/websocket.go:10` - `HandleWebSocket()`
 
 ### Common Errors
+
 - `invalid_content_type`, `invalid_json`, `invalid_file_type`, `method_not_allowed`, `server_error`
 
 ## Security Implementation
@@ -1078,14 +1255,15 @@ DB.Query("SELECT * FROM posts WHERE id = $1", postID)
 
 **Attack Prevention Examples:**
 
-| Attack Attempt | Backend Processing | Result |
-|----------------|-------------------|--------|
-| `<script>alert('XSS')</script>` | Stripped by bluemonday | Empty string |
-| `<img src=x onerror=alert(1)>` | Stripped by bluemonday | Empty string |
-| `javascript:alert(1)` | Stored as-is but escaped in frontend | Displayed as text |
-| `' OR '1'='1` | Parameterized query prevents SQL injection | Safe |
+| Attack Attempt                  | Backend Processing                         | Result            |
+| ------------------------------- | ------------------------------------------ | ----------------- |
+| `<script>alert('XSS')</script>` | Stripped by bluemonday                     | Empty string      |
+| `<img src=x onerror=alert(1)>`  | Stripped by bluemonday                     | Empty string      |
+| `javascript:alert(1)`           | Stored as-is but escaped in frontend       | Displayed as text |
+| `' OR '1'='1`                   | Parameterized query prevents SQL injection | Safe              |
 
 **Code Locations:**
+
 - Sanitization: `internal/handlers/post.go:25`, `internal/handlers/auth.go:15`
 - Validation: `internal/handlers/post.go:50`, `internal/handlers/auth.go:30`
 - Content-Type middleware: `internal/middleware/middleware.go:20`
@@ -1150,6 +1328,7 @@ curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKE
 ## Testing
 
 **Run tests:**
+
 ```bash
 go test -v ./...                                    # All tests
 go test -coverprofile=coverage.out ./...           # With coverage
@@ -1159,6 +1338,7 @@ go tool cover -html=coverage.out                   # Coverage report (HTML)
 **Coverage:** 54%+ (enforced in CI/CD, target: >50%)
 
 **Test Suite:**
+
 - **Mock Tests** (sqlmock): User, post, vote, image operations without database
 - **Unit Tests**: Password hashing (bcrypt), JWT generation/validation, voting logic
 - **Integration Tests**: Auth handlers, middleware, WebSocket
@@ -1212,6 +1392,7 @@ curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $TOKE
 **Auto-Migration:** GORM automatically creates/updates tables when you run `go run .`
 
 **Adding new fields:**
+
 ```go
 // 1. Edit internal/models/models.go
 type User struct {
@@ -1270,6 +1451,7 @@ user_votes
 ```
 
 **Foreign Key Relationships:**
+
 - `posts.publisher_id` → `users.id` (many posts per user)
 - `posts.content_photo_id` → `images.id` (one image per post)
 - `user_votes.post_id` → `posts.id` (many votes per post)
@@ -1277,6 +1459,7 @@ user_votes
 - `images.post_id` → `posts.id` (image can belong to post)
 
 **Indexes:**
+
 - `users.username` - Unique index for fast lookup
 - `user_votes(post_id, user_id)` - Composite primary key
 
@@ -1375,6 +1558,7 @@ deploy:
 ```
 
 **Key Pipeline Features:**
+
 - **Security**: Gitleaks scans for secrets before any deployment
 - **Testing**: Automated tests with PostgreSQL, 54%+ coverage required
 - **Build**: Compiles binary artifact for deployment
@@ -1405,6 +1589,7 @@ WantedBy=multi-user.target
 ```
 
 **Deployment Flow:**
+
 1. **Trigger**: Push to `main` branch
 2. **Security Scan**: Gitleaks checks for secrets (blocks if found)
 3. **Test**: Run all tests with PostgreSQL service
@@ -1420,6 +1605,7 @@ WantedBy=multi-user.target
 6. **Rollback**: If service fails to start, logs are shown in pipeline
 
 **Environment Variables (GitLab CI/CD Settings):**
+
 - `SSH_PRIVATE_KEY` - Base64-encoded private key for VM access (masked)
 - `VM_HOST` - VM hostname/IP
 - `VM_USER` - VM username (e.g., centos)
@@ -1433,6 +1619,7 @@ WantedBy=multi-user.target
 ## Recent Updates
 
 ### Image Upload Bug Fix (2025-01)
+
 - **Issue**: `/api/posts/edit-with-image` endpoint returning 500 error
 - **Root Cause**: Missing `images` directory in container causing file creation failures
 - **Fix**: Added automatic directory creation with `os.MkdirAll()` in `SaveImage()` function
@@ -1443,6 +1630,7 @@ WantedBy=multi-user.target
 - **Impact**: Image uploads and post edits with images now work reliably
 
 ### Test Coverage Improvement (2025-01)
+
 - Increased test coverage from **47.8% to 49.4%** (+1.6%)
 - **New Tests Added**:
   - `internal/handlers/health_test.go`: Health check and readiness probe tests
@@ -1458,6 +1646,7 @@ WantedBy=multi-user.target
   - `internal/websocket`: 40.0%
 
 ### RBAC Permissions Fix (2025-01)
+
 - Added `persistentvolumeclaims` permission to GitLab deploy ServiceAccount
 - **File**: `k8s/rbac.yaml`
 - **Reason**: Pipeline was failing due to PVC access denial
@@ -1470,12 +1659,142 @@ WantedBy=multi-user.target
 This project was developed with AI assistance for documentation purposes:
 
 **AI was used for:**
+
 - Writing and formatting README documentation
 - Generating code comments and docstrings
 - Creating technical explanations and architecture descriptions
 
 The core development work, including all code implementation, infrastructure setup, and technical decisions, was performed entirely by human developers. AI tools served only as assistants for documentation and explanation tasks.
 
+---
 
-# Clean deployment
-# Production deployment
+## Weekly Development Progress
+
+### Week 13 - Templating & Infrastructure as Code
+
+**Focus:** Helm templating, secret management, and application statelessness
+
+**Key Achievements:**
+
+- **Helm Chart Implementation**:
+  - Migrated from raw Kubernetes manifests to Helm charts
+  - Chart structure: `chart/Chart.yaml`, `chart/values.yaml`, `chart/templates/`
+  - Go template syntax for dynamic configuration injection
+  - Atomic rollback with `--rollback-on-failure` flag
+- **Secret Management Strategy**:
+  - All secrets stored as GitLab CI/CD variables (Protected & Masked)
+  - Empty placeholders in `values.yaml` (never commit secrets)
+  - Secrets injected via `--set` flags during deployment
+  - Template uses `{{ .Values.secrets.backend.databaseUrl | b64enc }}` for base64 encoding
+- **Application Statelessness**:
+  - **Images**: MinIO object storage (S3-compatible) with presigned URLs
+  - **Data**: PostgreSQL with persistent volumes (Longhorn)
+  - **Sessions**: JWT tokens (stateless authentication, no server-side state)
+  - Zero data loss during pod kills/restarts
+  - Multi-replica support without shared state
+
+**Verification:**
+
+- Pod failure test: Delete pod → new pod starts → no data loss
+- Multi-replica test: Scale to 2 replicas → both access same data independently
+
+**Documentation:** [WEEK13_DOCUMENTATION.md](WEEK13_DOCUMENTATION.md)
+
+---
+
+### Week 14 - Production Deployment
+
+**Focus:** Production environment, autoscaling, and high availability
+
+**Key Achievements:**
+
+- **Staging vs Production Separation**:
+  - **Staging** (`emzops-staging`): 1 replica, lower resources, no autoscaling
+  - **Production** (`emzops-prod`): 2+ replicas, higher resources, HPA enabled
+  - Production deployment is manual (`when: manual`) for safety
+  - Separate values file: `chart/values-prod.yaml`
+- **Horizontal Pod Autoscaler (HPA)**:
+  - CPU-based scaling: Target 30% utilization (low for demo)
+  - Memory-based scaling: Target 50% utilization
+  - Replicas: 2-5 (minimum 2 for high availability)
+  - Aggressive scale-up: +100% or +2 pods every 30s
+  - Conservative scale-down: -50% every 60s with 5-minute stabilization
+- **Pod Anti-Affinity**:
+  - Pods spread across different nodes (`kubernetes.io/hostname`)
+  - Preferred (soft) constraint with weight 100
+  - Prevents single node failure from taking down the application
+  - Zero downtime during node failures
+- **Chaos Engineering Readiness**:
+  - Multiple replicas with anti-affinity
+  - Rolling updates with `maxUnavailable: 0`
+  - Readiness probes ensure healthy traffic routing
+  - Resource limits prevent resource exhaustion
+
+**Deployments Scaled:**
+
+- ✅ Backend deployment (API and business logic)
+- ✅ Frontend deployment (static file serving)
+- ❌ PostgreSQL StatefulSet (single replica sufficient)
+
+**Documentation:** [WEEK14_DOCUMENTATION.md](WEEK14_DOCUMENTATION.md)
+
+---
+
+### Week 15 - Security & Monitoring
+
+**Focus:** Container security scanning and production observability
+
+**Key Achievements:**
+
+- **Trivy Container Security Scanning**:
+  - Integrated Trivy into both backend and frontend pipelines
+  - Scans for OS package vulnerabilities and application dependencies
+  - GitLab-compatible security reports (`gl-container-scanning-report.json`)
+  - Scans CRITICAL and HIGH severity vulnerabilities
+  - Runs automatically after every image build on `main` branch
+  - Reports visible in GitLab Security tab
+  - Current configuration: `TRIVY_EXIT_CODE: "0"` (non-blocking for review)
+- **Production Grafana Dashboard**:
+  - Namespace: `emzops-prod`
+  - URL: https://monitoring.kubernetes.devops.cs.ut.ee
+  - **Dashboard Sections**:
+    1. **Application Health**: Pod status, ready replicas, overall health
+    2. **Pod Status & Chaos Engineering**: Pod lifecycle events, restarts, node distribution
+    3. **Autoscaling Visibility**: HPA current/desired replicas, scale events, CPU/Memory metrics
+    4. **Critical Components**: Backend, Frontend, PostgreSQL (CPU, memory, requests)
+    5. **Golden Signals with Thresholds**:
+       - Latency (p50, p95, p99) - Warning >500ms, Critical >1s
+       - Traffic (requests/sec by HTTP method)
+       - Errors (4xx, 5xx rates) - Warning >1%, Critical >5%
+       - Saturation (CPU/Memory %) - Warning >70%, Critical >90%
+    6. **Resource Usage**: CPU/Memory vs requests/limits with colored zones
+    7. **Service State**: Healthy/Unhealthy indicators, uptime percentage
+  - **Diagnostic Scenarios**: High error rate, slow response, pod killed, autoscaling issues, service unavailable
+
+**Security Scan Pipeline:**
+
+```yaml
+container-security-scan:
+  stage: security-scan
+  image: aquasec/trivy:latest
+  script:
+    - trivy image --severity CRITICAL,HIGH --format template --template @contrib/gitlab.tpl
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+```
+
+**Documentation:** [WEEK15_DOCUMENTATION.md](WEEK15_DOCUMENTATION.md)
+
+---
+
+## Development Timeline Summary
+
+| Week | Focus Area | Key Technologies | Status |
+|------|-----------|------------------|--------|
+| Week 9 | Kubernetes Deployment | Kaniko, GitLab Container Registry, imagePullSecrets | ✅ Complete - [See Kubernetes Section](#container-image-build-and-registry-week-9) |
+| Week 13 | Templating & IaC | Helm, MinIO, Secret Management | ✅ Complete |
+| Week 14 | Production & Scaling | HPA, Pod Anti-Affinity, Chaos Engineering | ✅ Complete |
+| Week 15 | Security & Monitoring | Trivy, Grafana, Golden Signals | ✅ Complete |
+
+---
