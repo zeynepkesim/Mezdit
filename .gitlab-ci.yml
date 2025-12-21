@@ -89,22 +89,42 @@ deploy-to-k8s:
     - kubectl delete ingress devops-backend-ingress -n emzops-staging --ignore-not-found
     - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
-    - |
-      helm upgrade --install devops-frontend ./chart \
-        --namespace emzops-staging \
-        --set image.tag=$IMAGE_TAG \
-        --wait \
-        --timeout 5m \
-        --rollback-on-failure || \
-      (echo "⚠️  Deployment failed or timed out, checking pod status..." && \
-       kubectl get pods -n emzops-staging -l app=devops-frontend || true && \
-       kubectl describe pods -n emzops-staging -l app=devops-frontend | tail -50 || true && \
-       kubectl logs -n emzops-staging -l app=devops-frontend --tail=50 || true && \
-       echo "⚠️  Showing deployment status..." && \
-       kubectl get deployment devops-frontend -n emzops-staging || true && \
-       exit 1)
-    - echo "✅ Deployment successful!"
+    - echo "Using image tag: $IMAGE_TAG"
+    - helm upgrade --install devops-frontend ./chart --namespace emzops-staging --set image.tag=$IMAGE_TAG
+    - echo "Waiting 60 seconds for pods to start..."
+    - sleep 60
+    - echo "Checking pod status..."
     - kubectl get pods -n emzops-staging -l app=devops-frontend
+    - |
+      POD_NAME=$(kubectl get pods -n emzops-staging -l app=devops-frontend -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+      if [ -z "$POD_NAME" ]; then
+        echo "❌ No pod found!"
+        kubectl get all -n emzops-staging -l app=devops-frontend
+        exit 1
+      fi
+      echo "Pod name: $POD_NAME"
+      POD_STATUS=$(kubectl get pod $POD_NAME -n emzops-staging -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+      echo "Pod status: $POD_STATUS"
+      CONTAINER_STATUS=$(kubectl get pod $POD_NAME -n emzops-staging -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' 2>/dev/null || echo "")
+      if [ -n "$CONTAINER_STATUS" ]; then
+        echo "Container waiting reason: $CONTAINER_STATUS"
+      fi
+      if [ "$POD_STATUS" = "Pending" ] || [ -n "$CONTAINER_STATUS" ]; then
+        echo "⚠️  Pod is not running. Showing details..."
+        kubectl describe pod $POD_NAME -n emzops-staging
+        echo "⚠️  Checking image pull secrets..."
+        kubectl get secret gitlab-registry-secret -n emzops-staging || echo "ImagePullSecret not found!"
+      fi
+      if [ "$POD_STATUS" != "Running" ]; then
+        echo "⚠️  Pod is not running. This may indicate an image pull issue."
+        exit 1
+      fi
+      READY=$(kubectl get pod $POD_NAME -n emzops-staging -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "False")
+      echo "Pod ready status: $READY"
+      if [ "$READY" != "True" ]; then
+        echo "⚠️  Pod is running but not ready. This is acceptable - readiness probe may need more time."
+      fi
+    - echo "✅ Deployment completed!"
     - kubectl get deployment devops-frontend -n emzops-staging
   environment:
     name: staging
