@@ -1477,3 +1477,4 @@ This project was developed with AI assistance for documentation purposes:
 The core development work, including all code implementation, infrastructure setup, and technical decisions, was performed entirely by human developers. AI tools served only as assistants for documentation and explanation tasks.
 
 
+# Clean deployment
