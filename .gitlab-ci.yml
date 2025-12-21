@@ -183,7 +183,11 @@ deploy-to-staging:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --timeout 2m
+        --timeout 5m \
+        --rollback-on-failure || \
+      (echo "⚠️  Deployment failed, attempting manual rollback..." && \
+       helm rollback devops-backend -n emzops-staging && \
+       exit 1)
     - echo "✅ Helm deployment command completed!"
     - echo "Checking deployment status..."
     - kubectl get deployment devops-backend -n emzops-staging
@@ -232,7 +236,11 @@ deploy-to-production:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --timeout 2m
+        --timeout 5m \
+        --rollback-on-failure || \
+      (echo "⚠️  Deployment failed, attempting manual rollback..." && \
+       helm rollback devops-backend -n emzops-prod && \
+       exit 1)
     - echo "✅ Production deployment successful!"
     - kubectl get hpa -n emzops-prod
     - kubectl get pods -n emzops-prod -l app=devops-backend
