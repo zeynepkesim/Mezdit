@@ -6,6 +6,8 @@ image:
 imagePullSecrets:
   - name: gitlab-registry-secret
 
+replicaCount: 1
+
 service:
   type: ClusterIP
   port: 80
