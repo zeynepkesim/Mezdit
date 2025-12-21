@@ -89,7 +89,7 @@ deploy-to-k8s:
     - kubectl delete ingress devops-backend-ingress -n emzops-staging --ignore-not-found
     - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
-    - helm upgrade --install devops-frontend ./chart --namespace emzops-staging --set image.tag=$IMAGE_TAG --wait --timeout 15m
+    - helm upgrade --install devops-frontend ./chart --namespace emzops-staging --set image.tag=latest --wait --timeout 15m
     - echo "✅ Deployment successful!"
     - kubectl get pods -n emzops-staging -l app=devops-frontend
   environment:
