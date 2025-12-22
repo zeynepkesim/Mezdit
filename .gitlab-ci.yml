@@ -115,18 +115,24 @@ build-docker-image:
 container-security-scan:
   stage: security-scan
   image:
-    name: aquasec/trivy:latest
+    name: aquasec/trivy:0.51.2
     entrypoint: [""]
   variables:
     TRIVY_NO_PROGRESS: "true"
-    TRIVY_SKIP_DB_UPDATE: "false"
+    TRIVY_SKIP_DB_UPDATE: "false"  # Update DB to get latest vulnerabilities
     TRIVY_FORMAT: "json"
     TRIVY_OUTPUT: "gl-container-scanning-report.json"
     TRIVY_EXIT_CODE: "0"
     TRIVY_IGNORE_UNFIXED: "false"
     TRIVY_SEVERITY: "CRITICAL,HIGH"
+    TRIVY_CACHE_DIR: "/tmp/trivy-cache"  # Cache directory for faster subsequent scans
+  cache:
+    key: trivy-cache
+    paths:
+      - /tmp/trivy-cache
   script:
     - echo "🔒 Scanning backend container image for vulnerabilities..."
+    - mkdir -p "$TRIVY_CACHE_DIR"
     - |
       trivy image \
         --username "$CI_REGISTRY_USER" \
@@ -134,9 +140,14 @@ container-security-scan:
         --exit-code $TRIVY_EXIT_CODE \
         --severity $TRIVY_SEVERITY \
         --format $TRIVY_FORMAT \
+        --scanners vuln \
+        --cache-dir "$TRIVY_CACHE_DIR" \
+        --timeout 10m \
         -o $TRIVY_OUTPUT \
         "$CI_REGISTRY/$CI_PROJECT_PATH:$IMAGE_TAG"
     - echo "✅ Security scan completed for $IMAGE_NAME:$IMAGE_TAG"
+  timeout: 15 minutes
+  tags: []
   artifacts:
     reports:
       container_scanning: gl-container-scanning-report.json
@@ -172,7 +183,9 @@ deploy-to-staging:
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - |
-      # Atomic rollback enabled (Week 16 requirement)
+      # Atomic rollback enabled
+      # Note: --rollback-on-failure waits for pods to be ready, so we use a longer timeout
+      # If pods fail to become ready (e.g., ImagePullBackOff), timeout will occur and rollback will happen
       if ! helm upgrade --install devops-backend ./chart \
         --namespace emzops-staging \
         --set image.tag=$IMAGE_TAG \
@@ -184,9 +197,11 @@ deploy-to-staging:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --timeout 10m \
+        --timeout 20m \
         --rollback-on-failure; then
-        echo "⚠️  Deployment failed, attempting manual rollback..."
+        echo "⚠️  Deployment failed (atomic rollback may have occurred), checking pod status..."
+        kubectl get pods -n emzops-staging -l app=devops-backend || true
+        echo "⚠️  Attempting manual rollback as fallback..."
         helm rollback devops-backend -n emzops-staging || true
         exit 1
       fi
@@ -227,7 +242,9 @@ deploy-to-production:
   script:
     - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
     - |
-      # First attempt: with atomic rollback (Week 16 requirement)
+      # First attempt: with atomic rollback
+      # Note: --rollback-on-failure waits for pods to be ready, so we use a longer timeout
+      # If pods fail to become ready (e.g., ImagePullBackOff), timeout will occur and rollback will happen
       if ! helm upgrade --install devops-backend ./chart \
         --namespace emzops-prod \
         --values ./chart/values-prod.yaml \
@@ -239,9 +256,11 @@ deploy-to-production:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --timeout 10m \
+        --timeout 20m \
         --rollback-on-failure; then
-        echo "⚠️  Deployment failed (atomic rollback may have occurred), attempting manual rollback..."
+        echo "⚠️  Deployment failed (atomic rollback may have occurred), checking status..."
+        kubectl get pods -n emzops-prod -l app=devops-backend || true
+        echo "⚠️  Attempting manual rollback as fallback..."
         helm rollback devops-backend -n emzops-prod || true
         exit 1
       fi
