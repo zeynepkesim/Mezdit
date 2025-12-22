@@ -186,14 +186,18 @@ deploy-to-staging:
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
         --timeout 20m \
         --rollback-on-failure; then
-        echo "⚠️  First attempt failed, checking for conflicts..."
+        echo "⚠️  First attempt failed, checking status..."
         kubectl get pods -n emzops-staging -l app=devops-backend || true
-        echo "⚠️  Conflict detected, deleting deployment to resolve..."
+        helm status devops-backend -n emzops-staging || true
+        echo "⚠️  Clearing Helm release lock and resolving conflicts..."
+        # Clear Helm release lock by rolling back to a stable revision
+        helm rollback devops-backend -n emzops-staging || true
+        sleep 5
         # Delete deployment to resolve conflict with kubectl-patch
         kubectl delete deployment devops-backend -n emzops-staging --ignore-not-found=true
         sleep 5
-        echo "⚠️  Retrying deployment after conflict resolution..."
-        # Retry: normal deployment after deleting conflicting resource
+        echo "⚠️  Retrying deployment after lock clearance..."
+        # Retry: normal deployment after clearing lock and deleting conflicting resource
         if ! helm upgrade --install devops-backend ./chart \
           --namespace emzops-staging \
           --set image.tag=$IMAGE_TAG \
