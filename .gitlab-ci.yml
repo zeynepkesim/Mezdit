@@ -188,9 +188,12 @@ deploy-to-staging:
         --rollback-on-failure; then
         echo "⚠️  First attempt failed, checking for conflicts..."
         kubectl get pods -n emzops-staging -l app=devops-backend || true
-        echo "⚠️  Retrying with --force-replace to resolve conflicts..."
-        sleep 10
-        # Retry: with force-replace to resolve conflicts (e.g., from kubectl patch)
+        echo "⚠️  Conflict detected, deleting deployment to resolve..."
+        # Delete deployment to resolve conflict with kubectl-patch
+        kubectl delete deployment devops-backend -n emzops-staging --ignore-not-found=true
+        sleep 5
+        echo "⚠️  Retrying deployment after conflict resolution..."
+        # Retry: normal deployment after deleting conflicting resource
         if ! helm upgrade --install devops-backend ./chart \
           --namespace emzops-staging \
           --set image.tag=$IMAGE_TAG \
@@ -202,8 +205,8 @@ deploy-to-staging:
           --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
           --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
           --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-          --force-replace \
-          --timeout 20m; then
+          --timeout 20m \
+          --rollback-on-failure; then
           echo "⚠️  Deployment failed, attempting manual rollback..."
           helm rollback devops-backend -n emzops-staging || true
           exit 1
