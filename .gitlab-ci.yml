@@ -172,7 +172,8 @@ deploy-to-staging:
   script:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - |
-      helm upgrade --install devops-backend ./chart \
+      # First attempt: normal deployment with rollback-on-failure
+      if ! helm upgrade --install devops-backend ./chart \
         --namespace emzops-staging \
         --set image.tag=$IMAGE_TAG \
         --set secrets.backend.databaseUrl=$DATABASE_URL \
@@ -183,7 +184,31 @@ deploy-to-staging:
         --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
         --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
         --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
-        --timeout 2m
+        --timeout 20m \
+        --rollback-on-failure; then
+        echo "⚠️  First attempt failed, checking for conflicts..."
+        kubectl get pods -n emzops-staging -l app=devops-backend || true
+        echo "⚠️  Retrying with --force-replace to resolve conflicts..."
+        sleep 10
+        # Retry: with force-replace to resolve conflicts (e.g., from kubectl patch)
+        if ! helm upgrade --install devops-backend ./chart \
+          --namespace emzops-staging \
+          --set image.tag=$IMAGE_TAG \
+          --set secrets.backend.databaseUrl=$DATABASE_URL \
+          --set secrets.postgres.username=$POSTGRES_USER \
+          --set secrets.postgres.password=$POSTGRES_PASSWORD \
+          --set secrets.backend.minioEndpoint=$MINIO_ENDPOINT \
+          --set secrets.backend.minioAccessKey=$MINIO_ACCESS_KEY \
+          --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
+          --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
+          --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
+          --force-replace \
+          --timeout 20m; then
+          echo "⚠️  Deployment failed, attempting manual rollback..."
+          helm rollback devops-backend -n emzops-staging || true
+          exit 1
+        fi
+      fi
     - echo "✅ Helm deployment command completed!"
     - echo "Checking deployment status..."
     - kubectl get deployment devops-backend -n emzops-staging
