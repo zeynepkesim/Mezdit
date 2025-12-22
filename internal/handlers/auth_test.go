@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -476,6 +477,109 @@ func TestRegisterHandler_InvalidJSONFormat(t *testing.T) {
 }
 
 // TestChangePasswordHandler_InvalidJSONFormat tests invalid JSON for password change
+// TestRegisterHandler_TooLongFields tests registration with fields exceeding max length
+func TestRegisterHandler_TooLongFields(t *testing.T) {
+	tests := []struct {
+		name     string
+		reqBody  map[string]interface{}
+		expected string
+	}{
+		{
+			name: "Name too long",
+			reqBody: map[string]interface{}{
+				"name":     "VeryLongNameThatExceedsFiftyCharactersMaximumLengthForNames",
+				"username": "testuser",
+				"password": "password123",
+			},
+			expected: "Name is too long",
+		},
+		{
+			name: "Username too long",
+			reqBody: map[string]interface{}{
+				"name":     "Test User",
+				"username": "VeryLongUsernameThatExceedsTwentyChars",
+				"password": "password123",
+			},
+			expected: "Username is too long",
+		},
+		{
+			name: "Password too long",
+			reqBody: map[string]interface{}{
+				"name":     "Test User",
+				"username": "testuser",
+				"password": "VeryLongPasswordThatExceedsThirtyTwoCharactersAndShouldBeRejected",
+			},
+			expected: "Password is too long",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bodyBytes, _ := json.Marshal(tt.reqBody)
+			req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBuffer(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			RegisterHandler(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+			}
+
+			body := w.Body.String()
+			if !strings.Contains(body, tt.expected) {
+				t.Errorf("Expected error message containing '%s', got: %s", tt.expected, body)
+			}
+		})
+	}
+}
+
+// TestLoginHandler_TooLongFields tests login with fields exceeding max length
+func TestLoginHandler_TooLongFields(t *testing.T) {
+	tests := []struct {
+		name     string
+		reqBody  map[string]interface{}
+		expected string
+	}{
+		{
+			name: "Username too long",
+			reqBody: map[string]interface{}{
+				"username": "VeryLongUsernameThatExceedsTwentyChars",
+				"password": "password123",
+			},
+			expected: "Username is too long",
+		},
+		{
+			name: "Password too long",
+			reqBody: map[string]interface{}{
+				"username": "testuser",
+				"password": "VeryLongPasswordThatExceedsThirtyTwoCharactersAndShouldBeRejected",
+			},
+			expected: "Password is too long",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bodyBytes, _ := json.Marshal(tt.reqBody)
+			req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			LoginHandler(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+			}
+
+			body := w.Body.String()
+			if !strings.Contains(body, tt.expected) {
+				t.Errorf("Expected error message containing '%s', got: %s", tt.expected, body)
+			}
+		})
+	}
+}
+
 func TestChangePasswordHandler_InvalidJSONFormat(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/change-password", bytes.NewBufferString("{invalid"))
 	req.Header.Set("Content-Type", "application/json")

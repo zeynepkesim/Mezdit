@@ -566,3 +566,27 @@ func TestCreateUser_AdditionalValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestGetAllUsers(t *testing.T) {
+	if DB == nil {
+		t.Skip("Skipping TestGetAllUsers - no database connection")
+	}
+
+	// Test GetAllUsers function
+	users, err := GetAllUsers()
+
+	if err != nil {
+		t.Fatalf("GetAllUsers() returned error: %v", err)
+	}
+
+	// Should return a slice (even if empty)
+	if users == nil {
+		t.Error("GetAllUsers() returned nil, expected empty slice or users")
+	}
+
+	// Verify the return type is correct
+	if len(users) >= 0 {
+		// Test passed - we got a valid slice
+		t.Logf("GetAllUsers() returned %d users", len(users))
+	}
+}

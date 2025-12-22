@@ -102,10 +102,6 @@ func TestResponseWriter_Hijack(t *testing.T) {
 }
 
 func TestMetricsHandler_ResponseFormat(t *testing.T) {
-	if database.DB == nil {
-		t.Skip("Skipping MetricsHandler test - no database connection")
-	}
-
 	// Reset metrics for clean test
 	atomic.StoreUint64(&totalRequests, 100)
 	atomic.StoreUint64(&totalErrors, 10)
@@ -124,7 +120,7 @@ func TestMetricsHandler_ResponseFormat(t *testing.T) {
 
 	// Check response contains metrics
 	body := w.Body.String()
-	
+
 	expectedMetrics := []string{
 		"app_requests_total",
 		"app_errors_total",
@@ -152,10 +148,6 @@ func TestMetricsHandler_ResponseFormat(t *testing.T) {
 }
 
 func TestMetricsHandler_StatusCode(t *testing.T) {
-	if database.DB == nil {
-		t.Skip("Skipping MetricsHandler test - no database connection")
-	}
-
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	w := httptest.NewRecorder()
 
@@ -163,6 +155,42 @@ func TestMetricsHandler_StatusCode(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+func TestMetricsHandler_WithoutDatabase(t *testing.T) {
+	// Save original DB
+	origDB := database.DB
+	defer func() { database.DB = origDB }()
+
+	// Set DB to nil
+	database.DB = nil
+
+	atomic.StoreUint64(&totalRequests, 50)
+	atomic.StoreUint64(&totalErrors, 5)
+	atomic.StoreInt64(&totalLatency, 1000)
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	w := httptest.NewRecorder()
+
+	MetricsHandler(w, req)
+
+	// Should still return basic metrics even without DB
+	body := w.Body.String()
+
+	if !contains(body, "app_requests_total 50") {
+		t.Error("Expected to find 'app_requests_total 50' in response")
+	}
+	if !contains(body, "app_errors_total 5") {
+		t.Error("Expected to find 'app_errors_total 5' in response")
+	}
+
+	// DB-dependent metrics (posts, users) should not be present
+	if contains(body, "app_posts_total") {
+		t.Error("Did not expect to find 'app_posts_total' when DB is nil")
+	}
+	if contains(body, "app_users_total") {
+		t.Error("Did not expect to find 'app_users_total' when DB is nil")
 	}
 }
 
