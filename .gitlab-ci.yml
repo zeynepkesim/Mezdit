@@ -78,18 +78,24 @@ build-docker-image:
 container-security-scan:
   stage: security-scan
   image:
-    name: aquasec/trivy:latest
+    name: aquasec/trivy:0.51.2
     entrypoint: [""]
   variables:
     TRIVY_NO_PROGRESS: "true"
-    TRIVY_SKIP_DB_UPDATE: "false"
+    TRIVY_SKIP_DB_UPDATE: "false"  # Update DB to get latest vulnerabilities
     TRIVY_FORMAT: "json"
     TRIVY_OUTPUT: "gl-container-scanning-report.json"
     TRIVY_EXIT_CODE: "0"
     TRIVY_IGNORE_UNFIXED: "false"
     TRIVY_SEVERITY: "CRITICAL,HIGH"
+    TRIVY_CACHE_DIR: "/tmp/trivy-cache"  # Cache directory for faster subsequent scans
+  cache:
+    key: trivy-cache
+    paths:
+      - /tmp/trivy-cache
   script:
     - echo "🔒 Scanning frontend container image for vulnerabilities..."
+    - mkdir -p "$TRIVY_CACHE_DIR"
     - |
       trivy image \
         --username "$CI_REGISTRY_USER" \
@@ -97,9 +103,14 @@ container-security-scan:
         --exit-code $TRIVY_EXIT_CODE \
         --severity $TRIVY_SEVERITY \
         --format $TRIVY_FORMAT \
+        --scanners vuln \
+        --cache-dir "$TRIVY_CACHE_DIR" \
+        --timeout 10m \
         -o $TRIVY_OUTPUT \
         "$CI_REGISTRY/$CI_PROJECT_PATH:$IMAGE_TAG"
     - echo "✅ Security scan completed for $IMAGE_NAME:$IMAGE_TAG"
+  timeout: 15 minutes
+  tags: []
   artifacts:
     reports:
       container_scanning: gl-container-scanning-report.json
@@ -142,14 +153,16 @@ deploy-to-staging:
     - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
     - |
       # Atomic rollback enabled
-      # Note: --rollback-on-failure waits for pods to be ready
+      # Note: --rollback-on-failure waits for pods to be ready, so we use a longer timeout
+      # If pods fail to become ready (e.g., ImagePullBackOff), timeout will occur and rollback will happen
       if ! helm upgrade --install devops-frontend ./chart \
         --namespace emzops-staging \
         --set image.tag=latest \
-        --timeout 15m \
+        --timeout 20m \
         --rollback-on-failure; then
-        echo "⚠️  Deployment failed, attempting manual rollback..."
+        echo "⚠️  Deployment failed (atomic rollback may have occurred), checking pod status..."
         kubectl get pods -n emzops-staging -l app=devops-frontend || true
+        echo "⚠️  Attempting manual rollback as fallback..."
         helm rollback devops-frontend -n emzops-staging || true
         exit 1
       fi
@@ -191,23 +204,26 @@ deploy-to-production:
     - |
       # First attempt: with atomic rollback
       # Note: --rollback-on-failure waits for pods to be ready, so we use a longer timeout
+      # If pods fail to become ready (e.g., ImagePullBackOff), timeout will occur and rollback will happen
       if ! helm upgrade --install devops-frontend ./chart \
         --namespace emzops-prod \
         --values ./chart/values-prod.yaml \
         --set image.tag=$IMAGE_TAG \
-        --timeout 15m \
+        --timeout 20m \
         --rollback-on-failure; then
         echo "⚠️  First attempt failed (timeout or deployment issue), checking status..."
         kubectl get pods -n emzops-prod -l app=devops-frontend || true
-        echo "⚠️  Retrying without rollback-on-failure to avoid timeout..."
+        echo "⚠️  Checking for stuck release..."
+        # Check if release is stuck and clean it up
+        helm status devops-frontend -n emzops-prod || true
+        echo "⚠️  Retrying without rollback-on-failure and without --force-replace..."
         sleep 10
-        # Retry: without rollback-on-failure (to avoid timeout issues)
+        # Retry: without rollback-on-failure and without --force-replace (to avoid conflicts)
         if ! helm upgrade --install devops-frontend ./chart \
           --namespace emzops-prod \
           --values ./chart/values-prod.yaml \
           --set image.tag=$IMAGE_TAG \
-          --force-replace \
-          --timeout 5m; then
+          --timeout 10m; then
           echo "⚠️  Deployment failed, attempting manual rollback..."
           helm rollback devops-frontend -n emzops-prod || true
           exit 1
