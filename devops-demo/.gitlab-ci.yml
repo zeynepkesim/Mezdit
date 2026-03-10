@@ -1,0 +1,10 @@
+stages:
+  - build
+
+hello_world:
+  stage: build
+  image: golang:1.25
+  script:
+    - echo "Hello World from GitLab CI"
+    - go version
+    - go run main.go
