@@ -1,0 +1,165 @@
+<script setup>
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useToast } from "vue-toast-notification";
+import { login } from "../store/auth.js";
+import { validateUsername, MAX_PASSWORD_LENGTH } from "../utils/validation.js";
+
+const router = useRouter();
+const toast = useToast();
+
+const username = ref("");
+const password = ref("");
+const loading = ref(false);
+const error = ref("");
+const showPassword = ref(false);
+
+async function handleLogin() {
+  if (!username.value || !password.value) {
+    toast.error("Please enter username and password", {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
+  // Validate username format
+  if (!validateUsername(username.value)) {
+    toast.error("Invalid username format (max 20 chars, alphanumeric, _, -)", {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
+  // Validate password length
+  if (password.value.length < 6 || password.value.length > MAX_PASSWORD_LENGTH) {
+    toast.error(`Password must be 6-${MAX_PASSWORD_LENGTH} characters`, {
+      position: "bottom-right",
+      duration: 4000,
+    });
+    return;
+  }
+
+  loading.value = true;
+  error.value = "";
+
+  try {
+    await login(username.value, password.value);
+    toast.success("Successfully logged in!", {
+      position: "bottom-right",
+      duration: 3000,
+    });
+    router.push("/posts");
+  } catch (err) {
+    const errorMsg = err.response?.data?.error?.message || err.message || "Login failed. Please check your credentials.";
+    toast.error(errorMsg, {
+      position: "bottom-right",
+      duration: 5000,
+    });
+  } finally {
+    loading.value = false;
+  }
+}
+</script>
+
+<template>
+  <v-container fluid class="fill-height pa-0">
+    <v-row no-gutters class="fill-height">
+      <!-- Left Side - Branding (62.5%) -->
+      <v-col cols="12" md="8" class="d-none d-md-flex">
+        <v-sheet
+          class="fill-height d-flex flex-column justify-center align-center text-center"
+          color="primary"
+          style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 100%;
+          "
+        >
+          <div class="text-white w-100">
+            <v-icon size="120" class="mb-6">mdi-flash</v-icon>
+            <h1 class="text-h2 font-weight-bold mb-4">Mezdit</h1>
+            <p class="text-h5 opacity-80">Share your thoughts with others</p>
+          </div>
+        </v-sheet>
+      </v-col>
+
+      <!-- Right Side - Login Form (37.5%) -->
+      <v-col cols="12" md="4">
+        <v-sheet
+          class="fill-height d-flex align-center justify-center"
+          color="grey-lighten-4"
+        >
+          <v-card class="pa-8" width="100%" max-width="400" elevation="0">
+            <!-- Header -->
+            <div class="text-center mb-8">
+              <h2 class="text-h4 mb-2">Welcome</h2>
+              <p class="text-body-1 text-medium-emphasis">
+                Sign in to your account
+              </p>
+            </div>
+
+            <!-- Login Form -->
+            <v-form @submit.prevent="handleLogin">
+              <v-text-field
+                v-model="username"
+                label="Username"
+                prepend-inner-icon="mdi-account"
+                variant="outlined"
+                :disabled="loading"
+                class="mb-3"
+              />
+
+              <v-text-field
+                v-model="password"
+                :type="showPassword ? 'text' : 'password'"
+                label="Password"
+                prepend-inner-icon="mdi-lock"
+                :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                @click:append-inner="showPassword = !showPassword"
+                variant="outlined"
+                :disabled="loading"
+                class="mb-4"
+              />
+
+              <v-btn
+                type="submit"
+                block
+                size="large"
+                color="primary"
+                :loading="loading"
+                :disabled="!username || !password"
+                class="mb-4"
+              >
+                Sign In
+              </v-btn>
+            </v-form>
+
+            <div class="text-center mb-6">
+              <span class="text-medium-emphasis">Don't have an account?</span>
+              <v-btn
+                variant="text"
+                color="primary"
+                @click="router.push('/register')"
+                >Create Account</v-btn
+              >
+            </div>
+          </v-card>
+        </v-sheet>
+      </v-col>
+    </v-row>
+  </v-container>
+</template>
+
+<style scoped>
+.login-page {
+  height: 100vh;
+  width: 100vw;
+}
+
+code {
+  font-family: "Monaco", "Menlo", monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+</style>

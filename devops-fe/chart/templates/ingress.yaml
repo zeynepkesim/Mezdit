@@ -1,0 +1,45 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+  - hosts:
+    - {{ .Values.ingress.host }}
+    secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      # Backend API - /api path (MUST be first)
+      - path: {{ .Values.config.apiUrl }}(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ .Values.backend.serviceName }}
+            port:
+              number: {{ .Values.backend.port }}
+      # WebSocket - preserve /ws path
+      - path: /()(ws.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ .Values.backend.serviceName }}
+            port:
+              number: {{ .Values.backend.port }}
+      # Frontend - Root path (MUST be last)
+      - path: /()(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: {{ .Release.Name }}-service
+            port:
+              number: {{ .Values.service.port }}
+{{- end }}

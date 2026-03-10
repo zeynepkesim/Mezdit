@@ -1,0 +1,471 @@
+<script setup>
+import { ref, onMounted, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { updatePost, posts } from "../store/posts";
+import { getCurrentUser } from "../store/auth.js";
+import { validatePostContent, validatePostHeader, validateName } from "../utils/validation.js";
+
+const route = useRoute();
+const router = useRouter();
+const currentUser = getCurrentUser();
+
+const header = ref("");
+const content = ref("");
+const username = ref("");
+const isAnonymous = ref(false);
+const isPrivate = ref(false);
+const loading = ref(false);
+const postId = ref(route.params.id);
+const selectedImage = ref(null);
+const imagePreview = ref(null);
+
+const characterCount = computed(() => content.value.length);
+const isOverLimit = computed(() => characterCount.value > 500);
+
+// Find current post and load its content
+const currentPost = computed(() => {
+  return posts.value.find((p) => p.id === parseInt(postId.value));
+});
+
+// Check ownership: only owner may toggle privacy
+const isOwner = computed(() => {
+  return currentUser && currentPost.value && currentPost.value.publisherId === currentUser.id;
+});
+
+// Get full image URL for post images
+const getPostImageUrl = (post) => {
+  if (post?.contentPhotoPath) {
+    return `/api/images/${post.contentPhotoPath.split("/").pop()}`;
+  }
+  return null;
+};
+
+onMounted(() => {
+  if (currentPost.value) {
+    header.value = currentPost.value.header || "";
+    content.value = currentPost.value.contentText;
+    username.value = currentPost.value.publisherName || "";
+    // Activate anonymous toggle if publisherName is empty or "Anonymous"
+    isAnonymous.value = !currentPost.value.publisherName || currentPost.value.publisherName === "Anonymous";
+    // Load isPrivate value
+    isPrivate.value = currentPost.value.isPrivate || false;
+  } else {
+    // Post not found, redirect to posts page
+    router.push("/posts");
+  }
+});
+
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (file) {
+    // File size validation (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Image size must be less than 10MB");
+      return;
+    }
+
+    // File type validation
+    if (!file.type.startsWith("image/")) {
+      alert("Please select a valid image file");
+      return;
+    }
+
+    selectedImage.value = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      imagePreview.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function removeImage() {
+  selectedImage.value = null;
+  imagePreview.value = null;
+}
+
+async function handleSave() {
+  if (!header.value.trim() || !content.value.trim() || isOverLimit.value) {
+    return;
+  }
+
+  // Display name is required when not posting anonymously
+  if (!isAnonymous.value && !username.value.trim()) {
+    alert("Display name is required when not posting anonymously");
+    return;
+  }
+
+  // Validate header for XSS and length
+  const headerValidation = validatePostHeader(header.value);
+  if (!headerValidation.valid) {
+    alert(headerValidation.message);
+    return;
+  }
+
+  // Validate content for XSS and length
+  const contentValidation = validatePostContent(content.value);
+  if (!contentValidation.valid) {
+    alert(contentValidation.message);
+    return;
+  }
+
+  // Validate display name if not anonymous
+  if (!isAnonymous.value) {
+    const nameValidation = validateName(username.value);
+    if (!nameValidation.valid) {
+      alert(nameValidation.message);
+      return;
+    }
+  }
+
+  loading.value = true;
+
+  try {
+    // Send empty string if anonymous, otherwise send username
+    const publisherName = isAnonymous.value ? "" : username.value.trim();
+    await updatePost(
+      parseInt(postId.value),
+      currentUser.id,
+      header.value.trim(),
+      content.value.trim(),
+      publisherName,
+      selectedImage.value,
+      isPrivate.value
+    );
+    router.push("/posts");
+  } catch (error) {
+    console.error("Error updating post:", error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function handleCancel() {
+  router.push("/posts");
+}
+</script>
+
+<template>
+  <v-container class="py-8">
+    <v-row justify="center">
+      <v-col cols="12" md="8" lg="6">
+        <v-card elevation="3">
+          <v-card-title class="text-h5 font-weight-bold text-center py-6">
+            <v-icon class="mr-2" color="warning">mdi-pencil-outline</v-icon>
+            Edit Post
+          </v-card-title>
+
+          <v-card-subtitle class="text-center pb-4">
+            Update your existing post
+          </v-card-subtitle>
+
+          <v-divider />
+
+          <v-card-text class="pa-6">
+            <v-form @submit.prevent="handleSave">
+              <!-- Privacy and Anonymous Toggles -->
+              <v-card variant="outlined" class="mb-4">
+                <v-card-text>
+                  <!-- Anonymous Toggle -->
+                  <div class="d-flex align-center mb-3">
+                    <v-switch
+                      v-model="isAnonymous"
+                      color="primary"
+                      hide-details
+                      class="me-3"
+                    />
+                    <div>
+                      <div class="text-body-1 font-weight-medium">
+                        <v-icon start>mdi-incognito</v-icon>
+                        Post as Anonymous
+                      </div>
+                      <div class="text-caption text-medium-emphasis">
+                        Your identity will be hidden from other users
+                      </div>
+                    </div>
+                  </div>
+
+                  <v-divider class="my-3" />
+
+                  <!-- Private Toggle -->
+                  <div class="d-flex align-center">
+                    <v-tooltip>
+                      <template #activator="{ props }">
+                        <v-switch
+                          v-model="isPrivate"
+                          color="warning"
+                          hide-details
+                          class="me-3"
+                          v-bind="props"
+                          :disabled="!isOwner"
+                        />
+                      </template>
+                      <span v-if="!isOwner">Only the post owner can change privacy</span>
+                      <span v-else>Only you will be able to see this post</span>
+                    </v-tooltip>
+                    <div>
+                      <div class="text-body-1 font-weight-medium">
+                        <v-icon start>mdi-lock</v-icon>
+                        Make Post Private
+                      </div>
+                      <div class="text-caption text-medium-emphasis">
+                        Only you will be able to see this post
+                        <span v-if="isAnonymous"> — posting anonymously still keeps ownership with your account</span>
+                      </div>
+                    </div>
+                  </div>
+                </v-card-text>
+              </v-card>
+
+              <!-- Username Field -->
+              <v-text-field
+                v-model="username"
+                label="Display Name"
+                placeholder="Enter your display name"
+                prepend-inner-icon="mdi-account"
+                variant="outlined"
+                :disabled="loading || isAnonymous"
+                :required="!isAnonymous"
+                :rules="!isAnonymous ? [(v) => !!v || 'Display name is required'] : []"
+                class="mb-4"
+                :hint="isAnonymous ? 'Disabled when posting anonymously' : 'Display name is required when not posting anonymously'"
+                persistent-hint
+              />
+
+              <!-- Header Field -->
+              <v-text-field
+                v-model="header"
+                label="Post Title"
+                placeholder="Update your post title"
+                prepend-inner-icon="mdi-format-title"
+                variant="outlined"
+                :disabled="loading"
+                :rules="[(v) => !!v || 'Title is required']"
+                required
+                class="mb-4"
+              />
+
+              <!-- Content Field -->
+              <v-textarea
+                v-model="content"
+                label="Post Content"
+                placeholder="What are you thinking? Update your thoughts..."
+                prepend-inner-icon="mdi-message-text-outline"
+                variant="outlined"
+                :disabled="loading"
+                :rules="[
+                  (v) => !!v || 'Content is required',
+                  (v) =>
+                    v.length <= 500 ||
+                    'Content must be less than 500 characters',
+                ]"
+                rows="8"
+                counter="500"
+                :error="isOverLimit"
+                :error-messages="
+                  isOverLimit ? 'Content exceeds 500 character limit' : ''
+                "
+                auto-grow
+                class="mb-4"
+              />
+
+              <!-- Current Image Display -->
+              <v-card
+                v-if="getPostImageUrl(currentPost)"
+                variant="outlined"
+                class="mb-4"
+              >
+                <v-card-title class="text-body-1 py-3">
+                  <v-icon start>mdi-image</v-icon>
+                  Current Image
+                </v-card-title>
+                <v-card-text class="pt-0">
+                  <v-img
+                    :src="getPostImageUrl(currentPost)"
+                    max-height="300"
+                    class="rounded"
+                  />
+                  <div class="text-caption text-medium-emphasis mt-2">
+                    Current post image
+                  </div>
+                </v-card-text>
+              </v-card>
+
+              <!-- Image Upload Section -->
+              <v-card variant="outlined" class="mb-4">
+                <v-card-title class="text-body-1 py-3">
+                  <v-icon start>mdi-image-plus</v-icon>
+                  Update Image (Optional)
+                </v-card-title>
+
+                <v-card-text class="pt-0">
+                  <!-- New Image Preview -->
+                  <div v-if="imagePreview" class="mb-4">
+                    <v-img
+                      :src="imagePreview"
+                      max-height="300"
+                      class="rounded"
+                    />
+                    <div class="d-flex justify-end mt-2">
+                      <v-btn
+                        size="small"
+                        color="error"
+                        variant="text"
+                        @click="removeImage"
+                      >
+                        <v-icon start>mdi-delete</v-icon>
+                        Remove New Image
+                      </v-btn>
+                    </div>
+                  </div>
+
+                  <!-- File Input -->
+                  <div v-else>
+                    <v-file-input
+                      accept="image/*"
+                      label="Choose new image"
+                      prepend-icon="mdi-camera"
+                      variant="outlined"
+                      :disabled="loading"
+                      @change="handleImageUpload"
+                      hide-details
+                    />
+                    <div class="text-caption text-medium-emphasis mt-2">
+                      Supported formats: JPG, PNG, GIF (Max 10MB)
+                    </div>
+                  </div>
+                </v-card-text>
+              </v-card>
+
+              <div class="d-flex justify-end align-center mb-4">
+                <v-chip
+                  :color="
+                    isOverLimit
+                      ? 'error'
+                      : characterCount > 400
+                      ? 'warning'
+                      : 'success'
+                  "
+                  variant="tonal"
+                  size="small"
+                >
+                  {{ characterCount }}/500 characters
+                </v-chip>
+              </div>
+            </v-form>
+          </v-card-text>
+
+          <v-card-actions class="px-6 pb-6">
+            <v-btn
+              variant="outlined"
+              color="grey"
+              @click="handleCancel"
+              :disabled="loading"
+              prepend-icon="mdi-cancel"
+            >
+              Cancel
+            </v-btn>
+
+            <v-spacer />
+
+            <v-btn
+              color="warning"
+              variant="elevated"
+              :loading="loading"
+              :disabled="!header.trim() || !content.trim() || isOverLimit || (!isAnonymous && !username.trim())"
+              @click="handleSave"
+              prepend-icon="mdi-content-save"
+              size="large"
+            >
+              <template v-if="loading"> Saving... </template>
+              <template v-else>
+                {{ selectedImage ? "Save with New Image" : "Save Changes" }}
+              </template>
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+
+        <!-- Preview Card -->
+        <v-card
+          v-if="content.trim() && header.trim()"
+          class="mt-6"
+          variant="tonal"
+          color="warning"
+        >
+          <v-card-title class="text-h6 font-weight-bold">
+            <v-icon class="mr-2">mdi-eye</v-icon>
+            Updated Preview
+          </v-card-title>
+
+          <v-card-text>
+            <v-card variant="outlined" class="pa-4">
+              <v-card-item>
+                <template v-slot:prepend>
+                  <v-avatar size="40">
+                    <v-img
+                      :src="
+                        currentPost?.publisherPhoto ||
+                        `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(
+                          username || 'anon'
+                        )}`
+                      "
+                      :alt="username || currentPost?.publisherName"
+                    />
+                  </v-avatar>
+                </template>
+
+                <v-card-title class="text-body-1 font-weight-bold">
+                  <span v-if="isAnonymous">
+                    <v-icon start size="small">mdi-incognito</v-icon>
+                    Anonymous
+                  </span>
+                  <span v-else>
+                    {{ username || currentPost?.publisherName || "Your Name" }}
+                  </span>
+                </v-card-title>
+
+                <v-card-subtitle> Updated just now </v-card-subtitle>
+              </v-card-item>
+
+              <v-card-title class="text-h5 font-weight-bold mt-2 mb-2">
+                {{ header }}
+              </v-card-title>
+
+              <v-card-text class="text-body-1 pt-2">
+                {{ content }}
+              </v-card-text>
+
+              <!-- Preview Image - Show new image if selected, otherwise current image -->
+              <v-card-text
+                v-if="imagePreview || getPostImageUrl(currentPost)"
+                class="pt-0"
+              >
+                <v-img
+                  :src="imagePreview || getPostImageUrl(currentPost)"
+                  max-height="250"
+                  class="rounded"
+                />
+                <div
+                  v-if="imagePreview"
+                  class="text-caption text-medium-emphasis mt-2 text-center"
+                >
+                  * New image preview
+                </div>
+                <div
+                  v-else
+                  class="text-caption text-medium-emphasis mt-2 text-center"
+                >
+                  * Current image
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
+</template>
+
+<style scoped>
+/* No custom CSS needed with Vuetify! */
+</style>

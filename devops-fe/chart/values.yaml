@@ -1,0 +1,54 @@
+image:
+  repository: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-fe
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets:
+  - name: gitlab-registry-secret
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 200m
+    memory: 512Mi
+
+config:
+  apiUrl: "/api"
+  wsUrl: "/ws"
+
+ingress:
+  enabled: true
+  className: nginx
+  host: devops-mezdit.kubernetes.devops.cs.ut.ee
+  tls:
+    enabled: true
+    secretName: backend-tls-cert
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/websocket-services: "devops-backend-service"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+backend:
+  serviceName: devops-backend-service
+  port: 80
+
+# Staging: Autoscaling disabled by default
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80

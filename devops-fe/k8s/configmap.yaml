@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: emzops-staging
+data:
+  # Backend API URL - Same origin, relative path can be used
+  VUE_APP_API_URL: "/api"
+  # WebSocket URL - Same origin
+  VUE_APP_WS_URL: "/ws"
+  # Other environment variables can be added here

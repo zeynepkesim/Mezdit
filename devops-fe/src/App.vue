@@ -1,0 +1,169 @@
+<script setup>
+import { computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useToast } from "vue-toast-notification";
+import { logout, getCurrentUser } from "./store/auth.js";
+import { loadPosts } from "./store/posts.js";
+
+const route = useRoute();
+const router = useRouter();
+const toast = useToast();
+
+// Reactive currentUser - updates automatically
+const currentUser = computed(() => getCurrentUser());
+
+// Check if current page is login or register
+const isLoginPage = computed(
+  () => route.name === "login" || route.name === "register"
+);
+
+// Use profile photo from backend, fallback to Dicebear avatar
+const getUserAvatar = (user) => {
+  if (user?.profilePhoto) {
+    return user.profilePhoto;
+  }
+  if (user?.profilePhotoPath) {
+    return user.profilePhotoPath;
+  }
+  if (user?.avatar) {
+    return user.avatar;
+  }
+  if (user?.photo) {
+    return user.photo;
+  }
+  // Fallback: Dicebear avatar
+  return `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(
+    user?.username || "user"
+  )}`;
+};
+
+async function handleLogout() {
+  logout();
+
+  toast.success("Successfully logged out!", {
+    position: "bottom-right",
+    duration: 3000,
+  });
+
+  // Reload posts without userId (guest view)
+  await loadPosts(null);
+
+  // If not on posts page, redirect to posts
+  if (route.name !== 'posts') {
+    router.push("/posts");
+  }
+}
+</script>
+
+<template>
+  <v-app>
+    <!-- App Bar (Header) -->
+    <v-app-bar v-if="!isLoginPage" color="white" elevation="1" border>
+      <v-app-bar-title>
+        <v-btn
+          variant="text"
+          @click="router.push('/posts')"
+          class="text-h6 font-weight-bold"
+          color="primary"
+        >
+          <v-icon start>mdi-flash</v-icon>
+          Mezdit
+        </v-btn>
+      </v-app-bar-title>
+
+      <v-spacer />
+
+      <!-- Authenticated User Controls -->
+      <template v-if="currentUser">
+        <v-btn
+          color="primary"
+          variant="elevated"
+          prepend-icon="mdi-plus"
+          @click="router.push('/create-post')"
+          class="mr-4"
+        >
+          Create Post
+        </v-btn>
+
+        <v-menu>
+          <template v-slot:activator="{ props }">
+            <v-btn v-bind="props" icon size="large" class="user-avatar-btn">
+              <v-avatar size="40">
+                <v-img
+                  :src="getUserAvatar(currentUser)"
+                  :alt="currentUser?.name || currentUser?.username"
+                />
+              </v-avatar>
+            </v-btn>
+          </template>
+
+          <v-list min-width="200">
+            <v-list-item class="px-4 py-3">
+              <template v-slot:prepend>
+                <v-avatar size="48">
+                  <v-img
+                    :src="getUserAvatar(currentUser)"
+                    :alt="currentUser?.name"
+                  />
+                </v-avatar>
+              </template>
+              <v-list-item-title class="font-weight-bold">
+                {{ currentUser?.name }}
+              </v-list-item-title>
+              <v-list-item-subtitle>
+                @{{ currentUser?.username }}
+              </v-list-item-subtitle>
+            </v-list-item>
+
+            <v-divider />
+
+            <v-list-item @click="router.push('/change-password')" prepend-icon="mdi-lock-reset">
+              <v-list-item-title>Change Password</v-list-item-title>
+            </v-list-item>
+
+            <v-list-item @click="handleLogout" prepend-icon="mdi-logout">
+              <v-list-item-title>Logout</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
+      </template>
+
+      <!-- Guest User Controls -->
+      <template v-else>
+        <v-btn
+          color="primary"
+          variant="elevated"
+          prepend-icon="mdi-login"
+          @click="router.push('/login')"
+        >
+          Login
+        </v-btn>
+      </template>
+    </v-app-bar>
+
+    <v-main v-if="!isLoginPage">
+      <v-container>
+        <router-view />
+      </v-container>
+    </v-main>
+
+    <v-main v-else class="pa-0">
+      <router-view />
+    </v-main>
+    <!--
+   <NotificationToast />
+  -->
+  </v-app>
+</template>
+
+<style scoped>
+.user-avatar-btn {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+}
+
+.user-avatar-btn:hover {
+  border-color: rgba(0, 0, 0, 0.3);
+  transform: scale(1.05);
+}
+</style>

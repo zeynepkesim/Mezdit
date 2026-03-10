@@ -1,0 +1,240 @@
+image: node:22-alpine
+
+stages:
+  - security
+  - build
+  - build-image
+  - security-scan
+  - deploy
+
+variables:
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
+secrets-detection:
+  stage: security
+  image: ghcr.io/gitleaks/gitleaks:latest  # Using GitHub Container Registry to avoid Docker Hub rate limits
+  script:
+    - echo "Scanning for secrets in frontend code..."
+    - gitleaks detect --source . --verbose --no-git --redact
+  allow_failure: false
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: "$CI_COMMIT_BRANCH =~ /^(develop|staging)$/"
+  tags: []
+
+cache:
+  paths:
+    - node_modules/
+
+build:
+  stage: build
+  script:
+    - echo "Installing dependencies..."
+    - npm ci
+    - echo "Building application..."
+    - npm run build
+    - echo "Build completed successfully!"
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 hour
+  only:
+    - main
+
+build-docker-image:
+  stage: build-image
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.0-debug
+    entrypoint: [""]
+  script:
+    - echo "Building frontend container image with Kaniko..."
+    - mkdir -p /kaniko/.docker
+    # Configure both GitLab and Docker Hub registry authentication
+    - |
+      echo "{\"auths\":{
+        \"$CI_REGISTRY\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"},
+        \"https://index.docker.io/v1/\":{\"auth\":\"$(printf "%s:%s" "${DOCKER_HUB_USER}" "${DOCKER_HUB_TOKEN}" | base64 | tr -d '\n')\"}
+      }}" > /kaniko/.docker/config.json
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${IMAGE_NAME}:${IMAGE_TAG}"
+      --destination "${IMAGE_NAME}:latest"
+      --cache=true
+      --cache-ttl=24h
+    - echo "✅ Frontend image pushed - $IMAGE_NAME:latest"
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure
+  only:
+    - main
+
+container-security-scan:
+  stage: security-scan
+  image:
+    name: aquasec/trivy:0.51.2
+    entrypoint: [""]
+  variables:
+    TRIVY_NO_PROGRESS: "true"
+    TRIVY_SKIP_DB_UPDATE: "false"  # Update DB to get latest vulnerabilities
+    TRIVY_FORMAT: "json"
+    TRIVY_OUTPUT: "gl-container-scanning-report.json"
+    TRIVY_EXIT_CODE: "0"
+    TRIVY_IGNORE_UNFIXED: "false"
+    TRIVY_SEVERITY: "CRITICAL,HIGH"
+    TRIVY_CACHE_DIR: "/tmp/trivy-cache"  # Cache directory for faster subsequent scans
+  cache:
+    key: trivy-cache
+    paths:
+      - /tmp/trivy-cache
+  script:
+    - echo "🔒 Scanning frontend container image for vulnerabilities..."
+    - mkdir -p "$TRIVY_CACHE_DIR"
+    - |
+      trivy image \
+        --username "$CI_REGISTRY_USER" \
+        --password "$CI_REGISTRY_PASSWORD" \
+        --exit-code $TRIVY_EXIT_CODE \
+        --severity $TRIVY_SEVERITY \
+        --format $TRIVY_FORMAT \
+        --scanners vuln \
+        --cache-dir "$TRIVY_CACHE_DIR" \
+        --timeout 10m \
+        -o $TRIVY_OUTPUT \
+        "$CI_REGISTRY/$CI_PROJECT_PATH:$IMAGE_TAG"
+    - echo "✅ Security scan completed for $IMAGE_NAME:$IMAGE_TAG"
+  timeout: 15 minutes
+  tags: []
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+    paths:
+      - gl-container-scanning-report.json
+    expire_in: 1 week
+  dependencies:
+    - build-docker-image
+  only:
+    - main
+
+deploy-to-staging:
+  stage: deploy
+  image: dtzar/helm-kubectl:latest
+  before_script:
+    - mkdir -p ~/.kube
+    - |
+      if [ -z "$KUBECONFIG_CONTENT" ]; then
+        echo "❌ ERROR: KUBECONFIG_CONTENT variable is empty or not set!"
+        exit 1
+      fi
+      if ! echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config 2>/dev/null; then
+        echo "❌ ERROR: Failed to decode KUBECONFIG_CONTENT (invalid base64 or corrupted data)!"
+        exit 1
+      fi
+      if [ ! -s ~/.kube/config ]; then
+        echo "❌ ERROR: KUBECONFIG file is empty after decoding!"
+        exit 1
+      fi
+      chmod 600 ~/.kube/config
+      echo "✅ KUBECONFIG decoded successfully"
+      echo "✅ Ready to deploy to staging namespace"
+  script:
+    - echo "Cleaning up legacy resources to avoid Helm conflicts..."
+    - kubectl delete deployment devops-frontend -n emzops-staging --ignore-not-found
+    - kubectl delete service devops-frontend-service -n emzops-staging --ignore-not-found
+    - kubectl delete ingress devops-frontend-ingress -n emzops-staging --ignore-not-found
+    - kubectl delete ingress devops-backend-ingress -n emzops-staging --ignore-not-found
+    - kubectl delete configmap frontend-config -n emzops-staging --ignore-not-found
+    - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
+    - |
+      # Atomic rollback enabled
+      # Note: --rollback-on-failure waits for pods to be ready, so we use a longer timeout
+      # If pods fail to become ready (e.g., ImagePullBackOff), timeout will occur and rollback will happen
+      if ! helm upgrade --install devops-frontend ./chart \
+        --namespace emzops-staging \
+        --set image.tag=latest \
+        --timeout 20m \
+        --rollback-on-failure; then
+        echo "⚠️  Deployment failed (atomic rollback may have occurred), checking pod status..."
+        kubectl get pods -n emzops-staging -l app=devops-frontend || true
+        echo "⚠️  Attempting manual rollback as fallback..."
+        helm rollback devops-frontend -n emzops-staging || true
+        exit 1
+      fi
+    - echo "✅ Helm deployment command completed!"
+    - echo "Checking deployment status..."
+    - kubectl get deployment devops-frontend -n emzops-staging
+    - kubectl get pods -n emzops-staging -l app=devops-frontend
+  environment:
+    name: staging
+    url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
+  only:
+    - main
+
+deploy-to-production:
+  stage: deploy
+  image: dtzar/helm-kubectl:latest
+  before_script:
+    - mkdir -p ~/.kube
+    - |
+      if [ -z "$KUBECONFIG_CONTENT" ]; then
+        echo "❌ ERROR: KUBECONFIG_CONTENT variable is empty or not set!"
+        exit 1
+      fi
+      if ! echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config 2>/dev/null; then
+        echo "❌ ERROR: Failed to decode KUBECONFIG_CONTENT (invalid base64 or corrupted data)!"
+        exit 1
+      fi
+      if [ ! -s ~/.kube/config ]; then
+        echo "❌ ERROR: KUBECONFIG file is empty after decoding!"
+        exit 1
+      fi
+      chmod 600 ~/.kube/config
+      echo "✅ KUBECONFIG decoded successfully"
+      echo "Switching to production context..."
+      kubectl config use-context gitlab-deploy-prod 2>/dev/null || echo "⚠️  Production context not found, using default context"
+      echo "✅ Ready to deploy to production namespace"
+  script:
+    - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
+    - |
+      # First attempt: with atomic rollback
+      # Note: --rollback-on-failure waits for pods to be ready, so we use a longer timeout
+      # If pods fail to become ready (e.g., ImagePullBackOff), timeout will occur and rollback will happen
+      if ! helm upgrade --install devops-frontend ./chart \
+        --namespace emzops-prod \
+        --values ./chart/values-prod.yaml \
+        --set image.tag=$IMAGE_TAG \
+        --timeout 20m \
+        --rollback-on-failure; then
+        echo "⚠️  First attempt failed (timeout or deployment issue), checking status..."
+        kubectl get pods -n emzops-prod -l app=devops-frontend || true
+        echo "⚠️  Checking for stuck release..."
+        # Check if release is stuck and clean it up
+        helm status devops-frontend -n emzops-prod || true
+        echo "⚠️  Retrying without rollback-on-failure and without --force-replace..."
+        sleep 10
+        # Retry: without rollback-on-failure and without --force-replace (to avoid conflicts)
+        if ! helm upgrade --install devops-frontend ./chart \
+          --namespace emzops-prod \
+          --values ./chart/values-prod.yaml \
+          --set image.tag=$IMAGE_TAG \
+          --timeout 10m; then
+          echo "⚠️  Deployment failed, attempting manual rollback..."
+          helm rollback devops-frontend -n emzops-prod || true
+          exit 1
+        fi
+      fi
+    - echo "✅ Production deployment successful!"
+    - kubectl get hpa -n emzops-prod || true
+    - kubectl get pods -n emzops-prod -l app=devops-frontend || true
+  environment:
+    name: production
+    url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
+  only:
+    - main
+  when: manual

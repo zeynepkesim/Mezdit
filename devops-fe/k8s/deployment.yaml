@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devops-frontend
+  namespace: emzops-staging
+  labels:
+    app: devops-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devops-frontend
+  template:
+    metadata:
+      labels:
+        app: devops-frontend
+    spec:
+      # Secret to pull images from GitLab Registry
+      imagePullSecrets:
+        - name: frontend-registry-secret
+      containers:
+      - name: frontend
+        # Update image name according to your frontend repository
+        image: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-fe:latest
+        ports:
+        - containerPort: 80
+          name: http
+        # Get environment variables from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: frontend-config
+        # Resource limits (optional but recommended)
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        # Health checks (optional)
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5

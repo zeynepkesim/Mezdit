@@ -1,0 +1,14 @@
+# Gitleaks ignore file for frontend (fingerprint-based)
+# Format: <file>:<rule>:<line>
+# Use exact fingerprints from gitleaks output
+
+# Documentation - Example content
+README.md:*
+
+# Test files - If any test files have dummy tokens
+*.test.js:*
+*.spec.js:*
+
+# Package lock may contain registry URLs (not secrets)
+package-lock.json:*
+yarn.lock:*
