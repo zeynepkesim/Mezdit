@@ -1,0 +1,61 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-postgres
+spec:
+  serviceName: {{ .Release.Name }}-postgres-service
+  replicas: {{ .Values.postgres.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-postgres
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: {{ .Values.postgres.image }}
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: {{ .Values.postgres.dbName | quote }}
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secret
+              key: POSTGRES_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            cpu: {{ .Values.postgres.resources.requests.cpu | default "100m" }}
+            memory: {{ .Values.postgres.resources.requests.memory | default "256Mi" }}
+          limits:
+            cpu: {{ .Values.postgres.resources.limits.cpu | default "200m" }}
+            memory: {{ .Values.postgres.resources.limits.memory | default "512Mi" }}
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: {{ .Values.postgres.storage.className }}
+      resources:
+        requests:
+          storage: {{ .Values.postgres.storage.size }}
+{{- end }}
+

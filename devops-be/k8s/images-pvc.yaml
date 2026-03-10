@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-images-storage
+  namespace: emzops-staging
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi  # 2GB for images
+  storageClassName: longhorn  # Week 11: Use Longhorn

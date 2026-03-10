@@ -1,0 +1,57 @@
+image:
+  repository: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets:
+  - name: gitlab-registry-secret
+
+serviceInfo:
+  port: 8080
+  metricsPort: 9090
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+postgres:
+  enabled: true
+  image: postgres:15-alpine
+  dbName: devops
+  replicas: 1
+  storage:
+    size: 1Gi
+    className: longhorn
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+secrets:
+  backend:
+    databaseUrl: ""
+    minioEndpoint: ""
+    minioAccessKey: ""
+    minioSecretKey: ""
+    minioBucketName: ""
+    minioUseSSL: ""
+  postgres:
+    username: ""
+    password: ""
+
+# Staging: Autoscaling disabled by default
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80

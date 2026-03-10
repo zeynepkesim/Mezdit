@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: devops-backend-service
+  namespace: emzops-staging
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: devops-backend
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8080
+  - name: metrics
+    protocol: TCP
+    port: 9090
+    targetPort: 9090
+  type: ClusterIP

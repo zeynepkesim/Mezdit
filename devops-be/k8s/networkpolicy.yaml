@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scraping
+  namespace: emzops-staging
+spec:
+  podSelector:
+    matchLabels:
+      app: devops-backend
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow Prometheus to scrape metrics (port 9090)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: prometheus-stack
+    ports:
+    - protocol: TCP
+      port: 9090
+  # Allow ingress controller traffic (for normal API requests on port 8080)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow traffic from same namespace (frontend, postgres, etc.)
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 9090

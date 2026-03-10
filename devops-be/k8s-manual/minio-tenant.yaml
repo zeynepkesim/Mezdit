@@ -1,0 +1,38 @@
+apiVersion: minio.min.io/v2
+kind: Tenant
+metadata:
+  name: devops-backend-minio
+  namespace: emzops-staging
+  labels:
+    app: devops-backend-minio
+spec:
+  # Use single server configuration to avoid double replication
+  # Since longhorn already provides 3 replicas
+  pools:
+    - servers: 1
+      name: pool-0
+      volumesPerServer: 1
+      volumeClaimTemplate:
+        metadata:
+          name: data
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          storageClassName: longhorn-single
+          resources:
+            requests:
+              storage: 5Gi
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+
+  # MinIO credentials from secrets
+  configuration:
+    name: devops-backend-minio-env-config
+
+  # Disable auto TLS for simpler setup
+  requestAutoCert: false

@@ -1,0 +1,78 @@
+# Production values for devops-backend
+# This file contains production-specific overrides
+
+image:
+  repository: registry.gitlab.cs.ut.ee/devops/teams/emzops/devops-be
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets:
+  - name: gitlab-registry-secret
+
+serviceInfo:
+  port: 8080
+  metricsPort: 9090
+
+# Production: Higher replica count for availability
+replicaCount: 2
+
+resources:
+  # Production: Higher resource limits
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+postgres:
+  enabled: true
+  image: postgres:15-alpine
+  dbName: devops
+  replicas: 1  # StatefulSet: Single replica for now (can be scaled if needed)
+  storage:
+    size: 2Gi  # Production: Larger storage
+    className: longhorn
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+secrets:
+  backend:
+    databaseUrl: ""
+    minioEndpoint: ""
+    minioAccessKey: ""
+    minioSecretKey: ""
+    minioBucketName: ""
+    minioUseSSL: ""
+  postgres:
+    username: ""
+    password: ""
+
+# Production: Enable autoscaling
+# Configured for easy demonstration (low thresholds)
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 30  # Low threshold for easy demo
+  targetMemoryUtilizationPercentage: 50  # Low threshold for easy demo
+
+# Production: Affinity constraints
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - devops-backend
+        topologyKey: kubernetes.io/hostname
+

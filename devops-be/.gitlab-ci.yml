@@ -1,0 +1,276 @@
+stages:
+  - security
+  - test
+  - build
+  - build-image
+  - security-scan
+  - deploy
+
+variables:
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
+secrets-detection:
+  stage: security
+  image: ghcr.io/gitleaks/gitleaks:latest  # Using GitHub Container Registry to avoid Docker Hub rate limits
+  script:
+    - echo "🔍 Scanning for secrets in codebase..."
+    - gitleaks detect --source . --verbose --no-git --redact
+  allow_failure: false
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: "$CI_COMMIT_BRANCH =~ /^(develop|staging)$/"
+  tags: []
+
+format:
+  stage: test
+  image: golang:1.23-alpine
+  script:
+    - go fmt $(go list ./... | grep -v /vendor/)
+    - go vet $(go list ./... | grep -v /vendor/)
+  only:
+    - main
+    - merge_requests
+
+test:
+  stage: test
+  image: golang:1.23-alpine
+  services:
+    - name: postgres:15-alpine
+      alias: postgres
+  variables:
+    POSTGRES_DB: postgres
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: ""
+    POSTGRES_HOST_AUTH_METHOD: trust
+    DATABASE_URL: "$DATABASE_URL"
+  script:
+    - go test -v -coverprofile=coverage.out ./...
+    - echo "=== Coverage Summary ==="
+    - go tool cover -func=coverage.out | tail -1
+    - echo "=== End Coverage ==="
+  coverage: '/\(statements\)\s+(\d+\.\d+)%/'
+  artifacts:
+    paths:
+      - coverage.out
+    expire_in: 1 week
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+  only:
+    - main
+    - merge_requests
+
+compile:
+  stage: build
+  image: golang:1.23-alpine
+  script:
+    - mkdir -p mybinaries
+    - go build -o mybinaries ./...
+  artifacts:
+    paths:
+      - mybinaries
+  only:
+    - main
+    - merge_requests
+
+build-docker-image:
+  stage: build-image
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.0-debug
+    entrypoint: [""]
+  script:
+    - echo "Building backend container image with Kaniko..."
+    - mkdir -p /kaniko/.docker
+    # Configure both GitLab and Docker Hub registry authentication
+    - |
+      echo "{\"auths\":{
+        \"$CI_REGISTRY\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"},
+        \"https://index.docker.io/v1/\":{\"auth\":\"$(printf "%s:%s" "${DOCKER_HUB_USER}" "${DOCKER_HUB_TOKEN}" | base64 | tr -d '\n')\"}
+      }}" > /kaniko/.docker/config.json
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${IMAGE_NAME}:${IMAGE_TAG}"
+      --destination "${IMAGE_NAME}:latest"
+      --cache=true
+      --cache-ttl=24h
+    - echo "✅ Backend image pushed - $IMAGE_NAME:latest"
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - script_failure
+  only:
+    - main
+
+container-security-scan:
+  stage: security-scan
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  variables:
+    TRIVY_NO_PROGRESS: "true"
+    TRIVY_SKIP_DB_UPDATE: "false"
+    TRIVY_FORMAT: "json"
+    TRIVY_OUTPUT: "gl-container-scanning-report.json"
+    TRIVY_EXIT_CODE: "0"
+    TRIVY_IGNORE_UNFIXED: "false"
+    TRIVY_SEVERITY: "CRITICAL,HIGH"
+  script:
+    - echo "🔒 Scanning backend container image for vulnerabilities..."
+    - |
+      trivy image \
+        --username "$CI_REGISTRY_USER" \
+        --password "$CI_REGISTRY_PASSWORD" \
+        --exit-code $TRIVY_EXIT_CODE \
+        --severity $TRIVY_SEVERITY \
+        --format $TRIVY_FORMAT \
+        -o $TRIVY_OUTPUT \
+        "$CI_REGISTRY/$CI_PROJECT_PATH:$IMAGE_TAG"
+    - echo "✅ Security scan completed for $IMAGE_NAME:$IMAGE_TAG"
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+    paths:
+      - gl-container-scanning-report.json
+    expire_in: 1 week
+  dependencies:
+    - build-docker-image
+  only:
+    - main
+
+deploy-to-staging:
+  stage: deploy
+  image: dtzar/helm-kubectl:latest
+  before_script:
+    - mkdir -p ~/.kube
+    - |
+      if [ -z "$KUBECONFIG_CONTENT" ]; then
+        echo "❌ ERROR: KUBECONFIG_CONTENT variable is empty or not set!"
+        exit 1
+      fi
+      if ! echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config 2>/dev/null; then
+        echo "❌ ERROR: Failed to decode KUBECONFIG_CONTENT (invalid base64 or corrupted data)!"
+        exit 1
+      fi
+      if [ ! -s ~/.kube/config ]; then
+        echo "❌ ERROR: KUBECONFIG file is empty after decoding!"
+        exit 1
+      fi
+      chmod 600 ~/.kube/config
+      echo "✅ KUBECONFIG decoded successfully"
+      echo "✅ Ready to deploy to staging namespace"
+  script:
+    - echo "Deploying to Kubernetes namespace emzops-staging using Helm..."
+    - |
+      # First attempt: normal deployment with rollback-on-failure
+      if ! helm upgrade --install devops-backend ./chart \
+        --namespace emzops-staging \
+        --set image.tag=$IMAGE_TAG \
+        --set secrets.backend.databaseUrl=$DATABASE_URL \
+        --set secrets.postgres.username=$POSTGRES_USER \
+        --set secrets.postgres.password=$POSTGRES_PASSWORD \
+        --set secrets.backend.minioEndpoint=$MINIO_ENDPOINT \
+        --set secrets.backend.minioAccessKey=$MINIO_ACCESS_KEY \
+        --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
+        --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
+        --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
+        --timeout 20m \
+        --rollback-on-failure; then
+        echo "⚠️  First attempt failed, checking status..."
+        kubectl get pods -n emzops-staging -l app=devops-backend || true
+        helm status devops-backend -n emzops-staging || true
+        echo "⚠️  Clearing Helm release lock and resolving conflicts..."
+        # Clear Helm release lock by rolling back to a stable revision
+        helm rollback devops-backend -n emzops-staging || true
+        sleep 5
+        # Delete deployment to resolve conflict with kubectl-patch
+        kubectl delete deployment devops-backend -n emzops-staging --ignore-not-found=true
+        sleep 5
+        echo "⚠️  Retrying deployment after lock clearance..."
+        # Retry: normal deployment after clearing lock and deleting conflicting resource
+        if ! helm upgrade --install devops-backend ./chart \
+          --namespace emzops-staging \
+          --set image.tag=$IMAGE_TAG \
+          --set secrets.backend.databaseUrl=$DATABASE_URL \
+          --set secrets.postgres.username=$POSTGRES_USER \
+          --set secrets.postgres.password=$POSTGRES_PASSWORD \
+          --set secrets.backend.minioEndpoint=$MINIO_ENDPOINT \
+          --set secrets.backend.minioAccessKey=$MINIO_ACCESS_KEY \
+          --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
+          --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
+          --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
+          --timeout 20m \
+          --rollback-on-failure; then
+          echo "⚠️  Deployment failed, attempting manual rollback..."
+          helm rollback devops-backend -n emzops-staging || true
+          exit 1
+        fi
+      fi
+    - echo "✅ Helm deployment command completed!"
+    - echo "Checking deployment status..."
+    - kubectl get deployment devops-backend -n emzops-staging
+    - kubectl get pods -n emzops-staging -l app=devops-backend
+    - echo "✅ Staging deployment successful!"
+  environment:
+    name: staging
+    url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
+  only:
+    - main
+
+deploy-to-production:
+  stage: deploy
+  image: dtzar/helm-kubectl:latest
+  before_script:
+    - mkdir -p ~/.kube
+    - |
+      if [ -z "$KUBECONFIG_CONTENT" ]; then
+        echo "❌ ERROR: KUBECONFIG_CONTENT variable is empty or not set!"
+        exit 1
+      fi
+      if ! echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config 2>/dev/null; then
+        echo "❌ ERROR: Failed to decode KUBECONFIG_CONTENT (invalid base64 or corrupted data)!"
+        exit 1
+      fi
+      if [ ! -s ~/.kube/config ]; then
+        echo "❌ ERROR: KUBECONFIG file is empty after decoding!"
+        exit 1
+      fi
+      chmod 600 ~/.kube/config
+      echo "✅ KUBECONFIG decoded successfully"
+      echo "Switching to production context..."
+      kubectl config use-context gitlab-deploy-prod 2>/dev/null || echo "⚠️  Production context not found, using default context"
+      echo "✅ Ready to deploy to production namespace"
+  script:
+    - echo "Deploying to Kubernetes namespace emzops-prod using Helm (Production)..."
+    - |
+      helm upgrade --install devops-backend ./chart \
+        --namespace emzops-prod \
+        --values ./chart/values-prod.yaml \
+        --set image.tag=$IMAGE_TAG \
+        --set secrets.postgres.username=$POSTGRES_USER \
+        --set secrets.postgres.password=$POSTGRES_PASSWORD \
+        --set secrets.backend.minioEndpoint=$MINIO_ENDPOINT \
+        --set secrets.backend.minioAccessKey=$MINIO_ACCESS_KEY \
+        --set secrets.backend.minioSecretKey=$MINIO_SECRET_KEY \
+        --set secrets.backend.minioBucketName=$MINIO_BUCKET_NAME \
+        --set secrets.backend.minioUseSSL=$MINIO_USE_SSL \
+        --timeout 2m
+    - echo "✅ Production deployment successful!"
+    - kubectl get hpa -n emzops-prod
+    - kubectl get pods -n emzops-prod -l app=devops-backend
+  environment:
+    name: production
+    url: https://devops-mezdit.kubernetes.devops.cs.ut.ee
+  only:
+    - main
+  when: manual

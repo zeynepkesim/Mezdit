@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-prometheus
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow Prometheus to scrape metrics
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: prometheus-stack
+    ports:
+    - protocol: TCP
+      port: {{ .Values.serviceInfo.metricsPort }}
+  # Allow ingress controller traffic
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: {{ .Values.serviceInfo.port }}
+  # Allow traffic from same namespace
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.serviceInfo.port }}
+    - protocol: TCP
+      port: {{ .Values.serviceInfo.metricsPort }}
